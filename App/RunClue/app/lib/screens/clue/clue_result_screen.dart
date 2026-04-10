@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../providers/auth_provider.dart';
 import '../../providers/clue_provider.dart';
+import '../../widgets/common/gradient_scaffold.dart';
 import '../../providers/participation_provider.dart';
 import '../../widgets/celebration/celebration_overlay.dart';
 import '../../widgets/common/loading_widget.dart';
@@ -43,7 +43,7 @@ class _ClueResultScreenState extends ConsumerState<ClueResultScreen> {
         ref.watch(currentParticipationProvider(widget.clueId));
     final clueAsync = ref.watch(clueDetailProvider(widget.clueId));
 
-    return Scaffold(
+    return GradientScaffold(
       body: SafeArea(
         child: participationAsync.when(
           loading: () => const LoadingWidget(),

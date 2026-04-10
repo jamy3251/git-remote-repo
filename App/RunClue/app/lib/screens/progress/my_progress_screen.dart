@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/theme.dart';
 import '../../providers/profile_provider.dart';
+import '../../widgets/common/gradient_scaffold.dart';
 import '../../providers/participation_provider.dart';
 import '../../widgets/stats/ai_provocation_banner.dart';
 import '../../widgets/stats/streak_calendar.dart';
@@ -35,8 +36,7 @@ class _MyProgressScreenState extends ConsumerState<MyProgressScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bgBase,
+    return GradientScaffold(
       appBar: AppBar(
         title: Text('나의 진행도',
             style: AppTextStyles.headingMd.copyWith(color: AppColors.textPrimary)),

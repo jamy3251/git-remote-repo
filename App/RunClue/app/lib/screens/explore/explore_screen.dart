@@ -11,6 +11,7 @@ import '../../widgets/cards/persona_card.dart';
 import '../../widgets/clue_card.dart';
 import '../../widgets/common/category_filter_tabs.dart';
 import '../../widgets/common/earnings_notification_banner.dart';
+import '../../widgets/common/gradient_scaffold.dart';
 import '../../widgets/survey_banner.dart';
 
 /// Home / 플랫폼 대시보드 — PDF spec Page 5 (Home.tsx)
@@ -39,8 +40,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   Widget build(BuildContext context) {
     final trendingAsync = ref.watch(trendingCluesProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.bgBase,
+    return GradientScaffold(
       body: SafeArea(
         child: CustomScrollView(
           slivers: [

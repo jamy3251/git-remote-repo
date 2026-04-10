@@ -165,6 +165,12 @@ class AppGradients {
     begin: Alignment.bottomCenter, end: Alignment.topCenter,
     colors: [Color(0xFF111115), Color(0x00111115)],
   );
+  // Remix D: 앱 배경 — 다크 베이스에 미묘한 블루→퍼플
+  static const LinearGradient appBackground = LinearGradient(
+    begin: Alignment.topCenter, end: Alignment.bottomCenter,
+    colors: [Color(0xFF111115), Color(0xFF0f1420), Color(0xFF130f1e)],
+    stops: [0.0, 0.6, 1.0],
+  );
 }
 
 // ─────────────────────────────────────────────────────────────
