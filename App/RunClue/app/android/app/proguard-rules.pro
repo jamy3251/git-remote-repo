@@ -6,8 +6,10 @@
 -keep class com.google.android.gms.maps.** { *; }
 -keep class com.google.android.gms.location.** { *; }
 
+# Google Play Core (deferred components)
+-dontwarn com.google.android.play.core.**
+
 # Supabase / GoTrue
--keep class io.supabase.** { *; }
 -dontwarn io.supabase.**
 
 # Keep annotations

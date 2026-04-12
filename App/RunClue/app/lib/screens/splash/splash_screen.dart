@@ -1,11 +1,12 @@
-import '../../config/theme.dart';
-import '../../config/supabase_safe.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import '../../config/theme.dart';
+import '../../config/supabase_safe.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -25,42 +26,68 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
-    final session = safeClient.auth.currentSession;
-    if (session != null) {
-      context.go('/explore');
-    } else {
-      context.go('/auth');
+    try {
+      final session = safeClient.auth.currentSession;
+      if (session != null) {
+        context.go('/explore');
+      } else {
+        context.go('/auth');
+      }
+    } catch (e) {
+      debugPrint('Splash navigation error: $e');
+      if (mounted) context.go('/auth');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.bgHero,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              'RunClue',
-              style: TextStyle(
-                fontSize: 48,
-                fontWeight: FontWeight.w900,
-                color: Theme.of(context).primaryColor,
-                letterSpacing: 2.0,
+            // 로고
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.brandYellow,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'R',
+                style: GoogleFonts.blackHanSans(
+                  fontSize: 48,
+                  color: Colors.black,
+                ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Text(
-              '도시를 달리며 단서를 찾아라',
-              style: TextStyle(
-                fontSize: 16,
-                color: AppColors.textSecondary,
-                letterSpacing: 1.0,
+              'RUNCLUE',
+              style: GoogleFonts.blackHanSans(
+                fontSize: 28,
+                color: AppColors.textPrimary,
+                letterSpacing: 4,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '뛰자, 풀자, 벌자.',
+              style: GoogleFonts.notoSansKr(
+                fontSize: 14,
+                color: AppColors.textMuted,
+                letterSpacing: 2,
               ),
             ),
             const SizedBox(height: 48),
-            const CircularProgressIndicator(),
+            const SizedBox(
+              width: 24, height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.brandYellow,
+              ),
+            ),
           ],
         ),
       ),
