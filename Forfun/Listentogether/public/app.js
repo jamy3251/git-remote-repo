@@ -36,6 +36,14 @@ const takeControlBtn = $('#take-control');
 const startGate = $('#start-gate');
 const vinyl = $('#vinyl');
 const eqEl = $('#eq');
+const qualityBadge = $('#quality-badge');
+const npThumb = $('#np-thumb');
+const npTitle = $('#np-title');
+const npSub = $('#np-sub');
+const npProgressFill = $('#np-progress-fill');
+const npEq = $('#np-eq');
+const vinylLabel = $('#vinyl-label');
+const deckBg = $('#deck-bg');
 
 // State
 let socket = null;
@@ -100,6 +108,13 @@ function fmtTime(sec) {
   sec = Math.max(0, Math.floor(sec || 0));
   return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 }
+// Map YouTube's playback quality string to a human label (real, from the player).
+function qualityLabel(q) {
+  return ({
+    highres: '4K', hd2160: '4K', hd1440: '1440p', hd1080: '1080p',
+    hd720: '720p', large: '480p', medium: '360p', small: '240p', tiny: '144p',
+  })[q] || '';
+}
 function currentTrack(s) {
   return s && s.queue && s.queue.length ? s.queue[s.index] : null;
 }
@@ -118,8 +133,10 @@ function loadOrCue(id, pos) {
   suppressNativeUntil = Date.now() + 1500;
   const startSeconds = Math.max(0, pos || 0);
   try {
-    if (started) player.loadVideoById({ videoId: id, startSeconds });
-    else player.cueVideoById({ videoId: id, startSeconds }); // shows a frame, no autoplay → no black screen
+    // Request the highest available quality (4K where the source has it). YouTube
+    // ultimately decides based on player size / bandwidth, so this is best-effort.
+    if (started) player.loadVideoById({ videoId: id, startSeconds, suggestedQuality: 'highres' });
+    else player.cueVideoById({ videoId: id, startSeconds, suggestedQuality: 'highres' });
   } catch { loadedVideoId = null; }
 }
 
@@ -208,6 +225,11 @@ function startLoops() {
     try {
       nowTime.textContent = fmtTime(player.getCurrentTime());
       updateDeck();
+      try { qualityBadge.textContent = qualityLabel(player.getPlaybackQuality()); } catch { /* */ }
+      try {
+        const dur = player.getDuration();
+        if (dur > 0 && npProgressFill) npProgressFill.style.width = Math.min(100, (player.getCurrentTime() / dur) * 100) + '%';
+      } catch { /* */ }
       if (Date.now() < noticeUntil) return;
       if (!lastState || !currentTrack(lastState)) { syncStatus.textContent = ''; return; }
       if (!isAnchor) {
@@ -237,15 +259,32 @@ function renderRole(s) {
   takeControlBtn.classList.toggle('hidden', isAnchor);
 }
 
+function thumb(id) { return `https://img.youtube.com/vi/${id}/hqdefault.jpg`; }
+
 function renderNowPlaying(s) {
   const cur = currentTrack(s);
   if (!cur) {
-    nowPlaying.textContent = '대기열이 비어 있어요. 아래에 유튜브 링크를 추가하세요.';
-    nowPlaying.classList.add('muted');
-  } else {
-    nowPlaying.textContent = `▶ ${cur.title}`;
-    nowPlaying.classList.remove('muted');
+    nowPlaying.classList.add('empty');
+    npTitle.textContent = '대기열이 비어 있어요';
+    npSub.textContent = '아래에 유튜브 링크를 추가하세요';
+    npThumb.removeAttribute('src');
+    vinylLabel.classList.remove('art');
+    vinylLabel.style.backgroundImage = '';
+    vinylLabel.textContent = 'LT';
+    deckBg.classList.remove('on');
+    deckBg.style.backgroundImage = '';
+    if (npProgressFill) npProgressFill.style.width = '0%';
+    return;
   }
+  nowPlaying.classList.remove('empty');
+  npTitle.textContent = cur.title;
+  npSub.textContent = `재생목록 ${s.index + 1} / ${s.queue.length}곡`;
+  const url = thumb(cur.id);
+  npThumb.src = url;
+  vinylLabel.classList.add('art');
+  vinylLabel.style.backgroundImage = `url("${url}")`;
+  deckBg.classList.add('on');
+  deckBg.style.backgroundImage = `url("${url}")`;
 }
 
 function renderQueue(s) {
@@ -413,29 +452,101 @@ for (let i = 0; i < EQ_BARS; i++) {
 }
 let eqRaf = null;
 let eqGain = 0.7;
-function eqFrame() {
+let eqLast = 0;
+function eqFrame(ts) {
+  eqRaf = requestAnimationFrame(eqFrame);
+  if (ts - eqLast < 33) return; // ~30fps throttle (saves CPU)
+  eqLast = ts;
   const now = Date.now() / 1000;
   for (let i = 0; i < eqBars.length; i++) {
     const base = Math.sin(now * 6 + i * 0.5) * 0.5 + 0.5;
     const h = Math.min(1, (base * 0.65 + Math.random() * 0.4) * eqGain);
     eqBars[i].style.height = (8 + h * 92) + '%';
   }
-  eqRaf = requestAnimationFrame(eqFrame);
 }
-function startEq() { if (!eqRaf) eqFrame(); }
+function startEq() { if (!eqRaf) eqRaf = requestAnimationFrame(eqFrame); }
 function stopEq() {
   if (eqRaf) { cancelAnimationFrame(eqRaf); eqRaf = null; }
   eqBars.forEach((b) => (b.style.height = '8%'));
 }
+
+// ---- Visualizer (opposite side). Stylized radial spectrum tied to play state.
+// (YouTube audio can't be analyzed cross-origin, so this is generative, not FFT.)
+const visCanvas = $('#vis-canvas');
+const visCtx = visCanvas ? visCanvas.getContext('2d') : null;
+let visRaf = null;
+let visLast = 0;
+function sizeVis() {
+  if (!visCanvas || !visCtx) return;
+  const r = visCanvas.getBoundingClientRect();
+  if (!r.width) return;
+  const dpr = window.devicePixelRatio || 1;
+  visCanvas.width = Math.round(r.width * dpr);
+  visCanvas.height = Math.round(r.height * dpr);
+  visCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+function visFrame(ts) {
+  visRaf = requestAnimationFrame(visFrame);
+  if (ts - visLast < 33) return; // ~30fps
+  visLast = ts;
+  if (!visCtx) return;
+  const w = visCanvas.clientWidth, h = visCanvas.clientHeight;
+  visCtx.clearRect(0, 0, w, h);
+  const cx = w / 2, cy = h / 2;
+  const t = Date.now() / 1000;
+  const N = 56;
+  const radius = Math.min(w, h) * 0.24;
+  visCtx.lineWidth = 3; visCtx.lineCap = 'round';
+  for (let i = 0; i < N; i++) {
+    const ang = (i / N) * Math.PI * 2 + t * 0.25;
+    const amp = (Math.sin(t * 4 + i * 0.45) * 0.5 + 0.5) * 0.6 + Math.random() * 0.4;
+    const len = radius * 0.95 * amp * eqGain;
+    const c = Math.cos(ang), s = Math.sin(ang);
+    visCtx.strokeStyle = `hsl(${(i / N) * 300 + t * 60}, 85%, 62%)`;
+    visCtx.beginPath();
+    visCtx.moveTo(cx + c * radius, cy + s * radius);
+    visCtx.lineTo(cx + c * (radius + len), cy + s * (radius + len));
+    visCtx.stroke();
+  }
+  const pulse = radius * (0.72 + Math.sin(t * 4) * 0.06);
+  const g = visCtx.createRadialGradient(cx, cy, 0, cx, cy, pulse);
+  g.addColorStop(0, 'rgba(108,92,231,0.45)');
+  g.addColorStop(1, 'rgba(108,92,231,0)');
+  visCtx.fillStyle = g;
+  visCtx.beginPath(); visCtx.arc(cx, cy, pulse, 0, Math.PI * 2); visCtx.fill();
+}
+function startVis() { if (!visRaf && visCtx) { sizeVis(); visRaf = requestAnimationFrame(visFrame); } }
+function stopVis() {
+  if (visRaf) { cancelAnimationFrame(visRaf); visRaf = null; }
+  if (!visCtx) return;
+  sizeVis();
+  const w = visCanvas.clientWidth, h = visCanvas.clientHeight;
+  if (!w) return;
+  visCtx.clearRect(0, 0, w, h);
+  // Idle state: faint static rings so the panel doesn't look broken when paused.
+  const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.24;
+  visCtx.strokeStyle = 'rgba(138,148,166,0.22)';
+  visCtx.lineWidth = 1.5;
+  visCtx.beginPath(); visCtx.arc(cx, cy, r, 0, Math.PI * 2); visCtx.stroke();
+  visCtx.beginPath(); visCtx.arc(cx, cy, r * 0.62, 0, Math.PI * 2); visCtx.stroke();
+}
+window.addEventListener('resize', () => { if (visRaf) sizeVis(); });
 function isPlayingNow() {
   try { if (player && started && playerReady) return player.getPlayerState() === YT.PlayerState.PLAYING; } catch { /* */ }
   return !!(lastState && lastState.isPlaying);
 }
 function updateDeck() {
-  const playing = isPlayingNow();
+  const playing = isPlayingNow() && !document.hidden;
   vinyl.classList.toggle('spinning', playing);
-  if (playing) startEq(); else stopEq();
+  npEq.classList.toggle('playing', playing);
+  if (playing) { startEq(); startVis(); } else { stopEq(); stopVis(); }
 }
+
+// Optimization: kill animation loops when the tab is hidden; restart on return.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { stopEq(); stopVis(); }
+  else updateDeck();
+});
 
 let audioCtx = null;
 function ensureAudio() {

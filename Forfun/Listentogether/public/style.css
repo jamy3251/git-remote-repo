@@ -30,6 +30,8 @@ body {
   margin: 0 auto;
   padding: 32px 20px 64px;
 }
+/* The room uses a 3-column layout (visualizer | player | mixer), so it needs room. */
+#room.screen { max-width: 1280px; }
 
 /* ---- Brand ---- */
 .brand { text-align: center; margin: 40px 0 28px; }
@@ -129,6 +131,12 @@ input[type="text"]:focus { border-color: var(--accent); }
 .transport { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
 .transport .btn { font-size: 18px; }
 #now-time { margin-left: auto; }
+.qbadge {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 3px 8px; border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+}
+.qbadge:empty { display: none; }
 
 .row-between { display: flex; align-items: center; justify-content: space-between; }
 .h2 { font-size: 15px; margin: 0; color: var(--muted); font-weight: 600; }
@@ -145,8 +153,16 @@ input[type="text"]:focus { border-color: var(--accent); }
 
 /* ---- v2: queue + recommendation layout ---- */
 .mini { font-size: 12px; }
-.room-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
-.col-main { min-width: 0; }
+.room-grid {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 300px;
+  grid-template-areas: "vis main side";
+  gap: 16px; align-items: start;
+}
+.col-vis { grid-area: vis; position: sticky; top: 16px; }
+.col-main { grid-area: main; min-width: 0; }
+.col-side { grid-area: side; }
+.vis-card canvas { width: 100%; height: 240px; display: block; background: #07080c; border-radius: 12px; margin-top: 8px; }
 .now-playing { font-weight: 600; margin: 12px 0 4px; font-size: 15px; }
 .now-playing.muted { font-weight: 400; }
 
@@ -164,19 +180,40 @@ input[type="text"]:focus { border-color: var(--accent); }
 .reco-item { display: flex; align-items: center; gap: 8px; }
 .reco-title { flex: 1; min-width: 0; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Medium: drop visualizer to a full-width row below main+mixer. */
+@media (max-width: 1200px) {
+  .room-grid {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-areas: "main side" "vis vis";
+  }
+  .col-vis { position: static; }
+}
+/* Narrow: single column, player first. */
 @media (max-width: 1024px) {
-  .room-grid { grid-template-columns: 1fr; }
-  .col-side { position: static; }
+  .room-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas: "main" "side" "vis";
+  }
+  .col-side, .col-vis { position: static; }
   .side-card { max-height: none; }
 }
 
 /* ---- DJ deck ---- */
 .deck {
-  display: flex; gap: 16px; align-items: center;
-  margin-top: 14px; padding: 16px;
+  display: flex; flex-direction: column; gap: 16px; align-items: center;
+  margin: 0 0 16px; padding: 18px 16px;
   background: linear-gradient(160deg, #14161f, #0c0d12);
   border: 1px solid var(--border); border-radius: 16px;
+  position: relative; overflow: hidden;
 }
+.deck-bg {
+  position: absolute; inset: 0; z-index: 0;
+  background-size: cover; background-position: center;
+  filter: blur(22px) brightness(0.45) saturate(1.3);
+  opacity: 0; transition: opacity .5s ease;
+}
+.deck-bg.on { opacity: 0.4; }
+.deck > .vinyl, .deck > .deck-right { position: relative; z-index: 1; }
 .vinyl {
   flex: 0 0 auto;
   width: 110px; height: 110px; border-radius: 50%;
@@ -195,13 +232,35 @@ input[type="text"]:focus { border-color: var(--accent); }
 }
 .vinyl-label {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-  width: 38px; height: 38px; border-radius: 50%;
+  width: 46px; height: 46px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: 800; color: #fff;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.4);
+  background-size: cover; background-position: center;
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.4), 0 0 0 3px rgba(0,0,0,0.55);
 }
-.deck-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.vinyl-label.art { color: transparent; }
+
+/* ---- Now-playing music widget (Kakao/Naver feel) ---- */
+.np-widget {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 10px 12px; margin: 12px 0 4px;
+}
+.np-thumb { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; flex: 0 0 auto; background: #000; }
+.np-widget.empty .np-thumb, .np-widget.empty .np-eq, .np-widget.empty .np-progress { display: none; }
+.np-text { flex: 1; min-width: 0; }
+.np-title { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.np-progress { height: 3px; background: var(--surface-2); border-radius: 3px; margin-top: 7px; overflow: hidden; }
+#np-progress-fill { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.np-eq { display: flex; align-items: flex-end; gap: 2px; height: 20px; flex: 0 0 auto; }
+.np-eq i { width: 3px; height: 30%; background: var(--accent-2); border-radius: 2px; }
+.np-eq.playing i { animation: npbar .8s ease-in-out infinite; }
+.np-eq.playing i:nth-child(2) { animation-delay: .25s; }
+.np-eq.playing i:nth-child(3) { animation-delay: .5s; }
+@keyframes npbar { 0%, 100% { height: 22%; } 50% { height: 100%; } }
+.deck-right { width: 100%; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
 .deck-eq { display: flex; align-items: flex-end; gap: 3px; height: 56px; }
 .eq-bar {
   flex: 1; min-width: 2px; height: 8%;

@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Listen Together — 같이 듣기</title>
+  <link rel="preconnect" href="https://www.youtube.com" />
+  <link rel="preconnect" href="https://i.ytimg.com" crossorigin />
+  <link rel="dns-prefetch" href="https://img.youtube.com" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
@@ -48,30 +51,23 @@
           <button id="start-gate" class="start-gate hidden">▶ 탭하여 같이 듣기</button>
         </div>
 
-        <!-- DJ deck: spinning vinyl + reactive-style EQ + decorative tone knobs -->
-        <div class="deck">
-          <button id="vinyl" class="vinyl" title="LP를 돌리면 스크래치 → 다음 곡">
-            <span class="vinyl-shine"></span>
-            <span class="vinyl-label">LT</span>
-          </button>
-          <div class="deck-right">
-            <div id="eq" class="deck-eq" aria-hidden="true"></div>
-            <div class="deck-knobs">
-              <label class="knob"><span>LOW</span><input type="range" min="0" max="100" value="55" data-eq="low" /></label>
-              <label class="knob"><span>MID</span><input type="range" min="0" max="100" value="55" data-eq="mid" /></label>
-              <label class="knob"><span>HIGH</span><input type="range" min="0" max="100" value="55" data-eq="high" /></label>
-              <label class="knob"><span>GAIN</span><input type="range" min="0" max="100" value="70" data-eq="gain" /></label>
-            </div>
+        <!-- Now-playing widget (Kakao/Naver music widget feel) -->
+        <div id="now-playing" class="np-widget empty">
+          <img id="np-thumb" class="np-thumb" alt="" />
+          <div class="np-text">
+            <div id="np-title" class="np-title">대기열이 비어 있어요</div>
+            <div id="np-sub" class="np-sub">아래에 유튜브 링크를 추가하세요</div>
+            <div class="np-progress"><span id="np-progress-fill"></span></div>
           </div>
+          <span id="np-eq" class="np-eq" aria-hidden="true"><i></i><i></i><i></i></span>
         </div>
-
-        <div id="now-playing" class="now-playing muted">대기열이 비어 있어요. 아래에 유튜브 링크를 추가하세요.</div>
 
         <div class="transport">
           <button id="prev-btn" class="btn" title="이전 곡">⏮</button>
           <button id="playpause-btn" class="btn" title="재생/정지">⏯</button>
           <button id="next-btn" class="btn" title="다음 곡">⏭</button>
           <span id="now-time" class="muted mono">0:00</span>
+          <span id="quality-badge" class="qbadge" title="현재 실제 재생 화질 (유튜브가 자동 결정, 최고화질 요청 중)"></span>
         </div>
 
         <form id="add-form" class="field-row">
@@ -95,10 +91,36 @@
       </section>
 
       <aside class="col-side">
+        <!-- DJ mixer deck (moved to the side) -->
+        <div class="deck">
+          <div id="deck-bg" class="deck-bg" aria-hidden="true"></div>
+          <button id="vinyl" class="vinyl" title="LP를 돌리면 스크래치 → 다음 곡">
+            <span class="vinyl-shine"></span>
+            <span id="vinyl-label" class="vinyl-label">LT</span>
+          </button>
+          <div class="deck-right">
+            <div id="eq" class="deck-eq" aria-hidden="true"></div>
+            <div class="deck-knobs">
+              <label class="knob"><span>LOW</span><input type="range" min="0" max="100" value="55" data-eq="low" /></label>
+              <label class="knob"><span>MID</span><input type="range" min="0" max="100" value="55" data-eq="mid" /></label>
+              <label class="knob"><span>HIGH</span><input type="range" min="0" max="100" value="55" data-eq="high" /></label>
+              <label class="knob"><span>GAIN</span><input type="range" min="0" max="100" value="70" data-eq="gain" /></label>
+            </div>
+          </div>
+        </div>
+
         <div class="card side-card">
           <h2 class="h2">추천곡</h2>
           <p id="reco-note" class="muted mini"></p>
           <ul id="reco" class="reco"></ul>
+        </div>
+      </aside>
+
+      <!-- Visualizer (opposite side from the mixer) -->
+      <aside class="col-vis">
+        <div class="card vis-card">
+          <h2 class="h2">비주얼라이저</h2>
+          <canvas id="vis-canvas"></canvas>
         </div>
       </aside>
     </div>
