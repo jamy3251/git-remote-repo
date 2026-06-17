@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Listen Together — 같이 듣기</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <!-- Lobby: create or join a room. -->
+  <main id="lobby" class="screen">
+    <div class="brand">
+      <h1>Listen&nbsp;Together</h1>
+      <p class="tagline">게임하며 둘이, 끊김 없이, 같은 노래를 같은 순간에.</p>
+    </div>
+
+    <form id="join-form" class="card" autocomplete="off">
+      <label class="field">
+        <span>이름</span>
+        <input id="name-input" type="text" maxlength="24" placeholder="너의 닉네임" required />
+      </label>
+      <label class="field">
+        <span>방 코드</span>
+        <input id="room-input" type="text" maxlength="8" placeholder="예: FIFA42" />
+      </label>
+      <div class="actions">
+        <button type="button" id="create-btn" class="btn ghost">새 방 만들기</button>
+        <button type="submit" id="join-btn" class="btn primary">참여</button>
+      </div>
+      <p id="lobby-error" class="error" role="alert"></p>
+    </form>
+  </main>
+
+  <!-- Room: synced player. -->
+  <main id="room" class="screen hidden">
+    <header class="room-head">
+      <div>
+        <span class="muted">방 코드</span>
+        <strong id="room-code-label">----</strong>
+        <button id="copy-link" class="btn tiny">링크 복사</button>
+      </div>
+      <div id="role-badge" class="badge">…</div>
+    </header>
+
+    <div class="player-wrap">
+      <!-- YouTube IFrame mounts here. -->
+      <div id="player"></div>
+      <!-- Tap-to-start gate for browser autoplay policies. -->
+      <button id="start-gate" class="start-gate hidden">▶ 탭하여 같이 듣기 시작</button>
+    </div>
+
+    <section id="host-controls" class="card hidden">
+      <form id="playlist-form" class="field-row">
+        <input id="playlist-input" type="text"
+               placeholder="유튜브 재생목록/영상 URL 붙여넣기" />
+        <button type="submit" class="btn primary">불러오기</button>
+      </form>
+      <div class="transport">
+        <button id="prev-btn" class="btn">⏮</button>
+        <button id="playpause-btn" class="btn">⏯</button>
+        <button id="next-btn" class="btn">⏭</button>
+        <span id="now-time" class="muted mono">0:00</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="row-between">
+        <h2 class="h2">함께 듣는 중</h2>
+        <button id="take-control" class="btn tiny hidden">내가 조종하기</button>
+      </div>
+      <ul id="members" class="members"></ul>
+      <p id="sync-status" class="muted mono"></p>
+    </section>
+
+    <button id="leave-btn" class="btn ghost wide">나가기</button>
+  </main>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

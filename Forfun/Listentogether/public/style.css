@@ -1,0 +1,144 @@
+:root {
+  --bg: #0d0f14;
+  --surface: #161a23;
+  --surface-2: #1f2530;
+  --border: #2a3140;
+  --text: #e7ecf3;
+  --muted: #8a94a6;
+  --accent: #6c5ce7;
+  --accent-2: #00d1b2;
+  --error: #ff6b6b;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+  background: radial-gradient(1200px 600px at 70% -10%, #1a1340 0%, var(--bg) 55%);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.muted { color: var(--muted); }
+.hidden { display: none !important; }
+
+.screen {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+/* ---- Brand ---- */
+.brand { text-align: center; margin: 40px 0 28px; }
+.brand h1 {
+  font-size: clamp(36px, 7vw, 60px);
+  margin: 0;
+  letter-spacing: -0.03em;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.tagline { color: var(--muted); margin-top: 10px; font-size: 16px; }
+
+/* ---- Cards / fields ---- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.field > span { font-size: 13px; color: var(--muted); }
+.field-row { display: flex; gap: 10px; margin-bottom: 14px; }
+.field-row input { flex: 1; }
+
+input[type="text"] {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+}
+input[type="text"]:focus { border-color: var(--accent); }
+
+/* ---- Buttons ---- */
+.btn {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 11px 16px;
+  border-radius: 10px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: transform .05s ease, background .15s ease, border-color .15s ease;
+}
+.btn:hover { border-color: var(--accent); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn.ghost { background: transparent; }
+.btn.tiny { padding: 6px 10px; font-size: 12px; }
+.btn.wide { width: 100%; margin-top: 8px; }
+.actions { display: flex; gap: 10px; }
+.actions .btn { flex: 1; }
+
+.error { color: var(--error); font-size: 13px; min-height: 18px; margin: 6px 0 0; }
+
+/* ---- Room ---- */
+.room-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 18px; flex-wrap: wrap; gap: 10px;
+}
+.room-head strong { font-size: 20px; letter-spacing: 0.15em; margin: 0 8px; }
+.badge {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+.player-wrap {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+#player, #player iframe { width: 100%; height: 100%; }
+
+.start-gate {
+  position: absolute; inset: 0;
+  background: rgba(8, 10, 15, 0.86);
+  border: none; color: #fff;
+  font-size: clamp(18px, 4vw, 26px);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.start-gate:hover { background: rgba(8, 10, 15, 0.78); }
+
+.transport { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.transport .btn { font-size: 18px; }
+#now-time { margin-left: auto; }
+
+.row-between { display: flex; align-items: center; justify-content: space-between; }
+.h2 { font-size: 15px; margin: 0; color: var(--muted); font-weight: 600; }
+.members { list-style: none; padding: 0; margin: 12px 0 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+.members li {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 14px;
+}
+.members li.me { border-color: var(--accent-2); }
+#sync-status { font-size: 12px; min-height: 16px; }

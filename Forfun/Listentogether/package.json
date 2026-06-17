@@ -1,0 +1,19 @@
+{
+  "name": "listen-together",
+  "version": "0.1.0",
+  "description": "게임하며 둘이 끊김 없이 같이 듣는 싱크 음악 - YouTube playlist synced listening",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  },
+  "license": "MIT"
+}
