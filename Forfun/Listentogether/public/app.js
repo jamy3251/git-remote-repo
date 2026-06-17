@@ -32,6 +32,7 @@ const nowPlaying = $('#now-playing');
 const syncStatus = $('#sync-status');
 const nowTime = $('#now-time');
 const addInput = $('#add-input');
+const searchResults = $('#search-results');
 const takeControlBtn = $('#take-control');
 const startGate = $('#start-gate');
 const vinyl = $('#vinyl');
@@ -288,6 +289,7 @@ function renderNowPlaying(s) {
   deckBg.style.backgroundImage = `url("${url}")`;
 }
 
+let dragFrom = null;
 function renderQueue(s) {
   queueEl.innerHTML = '';
   const q = s.queue || [];
@@ -295,6 +297,18 @@ function renderQueue(s) {
   q.forEach((t, i) => {
     const li = document.createElement('li');
     li.className = 'queue-item' + (i === s.index ? ' current' : '');
+    li.draggable = true;
+    li.addEventListener('dragstart', (e) => { dragFrom = i; li.classList.add('dragging'); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; });
+    li.addEventListener('dragend', () => li.classList.remove('dragging'));
+    li.addEventListener('dragover', (e) => { e.preventDefault(); li.classList.add('drag-over'); });
+    li.addEventListener('dragleave', () => li.classList.remove('drag-over'));
+    li.addEventListener('drop', (e) => {
+      e.preventDefault(); li.classList.remove('drag-over');
+      if (dragFrom != null && dragFrom !== i) socket.emit('queue_move', { from: dragFrom, to: i });
+      dragFrom = null;
+    });
+    const handle = document.createElement('span');
+    handle.className = 'queue-handle'; handle.textContent = '≡'; handle.title = '드래그해서 순서 변경';
     const title = document.createElement('button');
     title.className = 'queue-title';
     title.textContent = (i === s.index ? '▶ ' : `${i + 1}. `) + t.title;
@@ -305,7 +319,7 @@ function renderQueue(s) {
     rm.textContent = '✕';
     rm.title = '대기열에서 제거';
     rm.addEventListener('click', () => socket.emit('queue_remove', { index: i }));
-    li.append(title, rm);
+    li.append(handle, title, rm);
     queueEl.appendChild(li);
   });
 }
@@ -405,10 +419,13 @@ $('#copy-link').addEventListener('click', async () => {
   } catch { showNotice('링크 복사가 막혔어요. 주소창 URL을 직접 복사하세요.'); }
 });
 
-$('#add-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const url = addInput.value.trim();
-  if (!url) return;
+// A pasted link/id resolves+adds directly; plain text runs a YouTube search.
+function looksLikeUrl(s) {
+  return /^https?:\/\//i.test(s) || /youtu\.?be|youtube\.com/i.test(s) ||
+    /^(PL|OL|UU|FL|LL|RD)[A-Za-z0-9_-]{8,}$/.test(s);
+}
+
+async function resolveAndAdd(url) {
   showNotice('불러오는 중…', 4000);
   try {
     const d = await (await fetch(`/api/resolve?url=${encodeURIComponent(url)}`)).json();
@@ -419,9 +436,64 @@ $('#add-form').addEventListener('submit', async (e) => {
     }
     socket.emit('queue_add', { tracks: d.tracks });
     addInput.value = '';
+    hideSearch();
     if (d.mixFallback) showNotice('자동 믹스는 펼칠 수 없어 이 영상 한 곡만 추가했어요.', 10000);
     else showNotice(`${d.tracks.length}곡 추가됨`, 4000);
   } catch { showNotice('추가에 실패했어요. 잠시 후 다시 시도하세요.'); }
+}
+
+function hideSearch() { searchResults.classList.add('hidden'); searchResults.innerHTML = ''; }
+
+function renderSearchResults(q, tracks) {
+  searchResults.innerHTML = '';
+  const head = document.createElement('div');
+  head.className = 'sr-head';
+  head.innerHTML = `<span>"${q}" 검색 결과 · 클릭해서 큐에 추가</span>`;
+  const close = document.createElement('button');
+  close.className = 'btn tiny'; close.textContent = '닫기';
+  close.addEventListener('click', hideSearch);
+  head.appendChild(close);
+  searchResults.appendChild(head);
+
+  tracks.forEach((t) => {
+    const item = document.createElement('div');
+    item.className = 'sr-item';
+    const img = document.createElement('img');
+    img.className = 'sr-thumb'; img.loading = 'lazy'; img.src = thumb(t.id); img.alt = '';
+    const text = document.createElement('div');
+    text.className = 'sr-text';
+    const tt = document.createElement('div'); tt.className = 'sr-title'; tt.textContent = t.title;
+    const ch = document.createElement('div'); ch.className = 'sr-ch'; ch.textContent = t.channel || '';
+    text.append(tt, ch);
+    const add = document.createElement('button');
+    add.className = 'btn tiny'; add.textContent = '+ 큐';
+    add.addEventListener('click', () => {
+      socket.emit('queue_add', { tracks: [{ id: t.id, title: t.title }] });
+      add.textContent = '추가됨'; add.disabled = true;
+    });
+    item.append(img, text, add);
+    searchResults.appendChild(item);
+  });
+  searchResults.classList.remove('hidden');
+}
+
+async function doSearch(q) {
+  showNotice('유튜브 검색 중…', 4000);
+  try {
+    const d = await (await fetch(`/api/search?q=${encodeURIComponent(q)}`)).json();
+    if (d.error === 'NO_KEY') { showNotice('검색을 켜려면 서버에 YT_API_KEY를 연결하세요.', 12000); return; }
+    if (d.error || !d.tracks || !d.tracks.length) { showNotice('검색 결과가 없어요.', 6000); return; }
+    renderSearchResults(q, d.tracks);
+    syncStatus.textContent = '';
+  } catch { showNotice('검색에 실패했어요. 잠시 후 다시 시도하세요.'); }
+}
+
+$('#add-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const val = addInput.value.trim();
+  if (!val) return;
+  if (looksLikeUrl(val)) resolveAndAdd(val);
+  else doSearch(val);
 });
 
 function togglePlay() {

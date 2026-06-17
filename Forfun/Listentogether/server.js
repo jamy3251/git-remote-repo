@@ -178,6 +178,30 @@ app.get('/api/recommend', async (req, res) => {
   res.json(out);
 });
 
+// YouTube search (general) — type a query, pick a result to queue.
+app.get('/api/search', async (req, res) => {
+  const q = String(req.query.q || '').trim().slice(0, 100);
+  if (!q) return res.json({ tracks: [] });
+  if (!YT_API_KEY) return res.json({ error: 'NO_KEY' });
+  try {
+    const u = new URL('https://www.googleapis.com/youtube/v3/search');
+    u.searchParams.set('part', 'snippet');
+    u.searchParams.set('type', 'video');
+    u.searchParams.set('maxResults', '12');
+    u.searchParams.set('q', q);
+    u.searchParams.set('key', YT_API_KEY);
+    const r = await fetch(u);
+    if (!r.ok) return res.json({ error: `YT_${r.status}` });
+    const j = await r.json();
+    const tracks = (j.items || [])
+      .map((it) => ({ id: it.id?.videoId, title: it.snippet?.title, channel: it.snippet?.channelTitle }))
+      .filter((t) => t.id && t.title);
+    res.json({ tracks });
+  } catch {
+    res.json({ error: 'FETCH_FAILED' });
+  }
+});
+
 const httpServer = createServer(app);
 const io = new Server(httpServer, { cors: { origin: false } });
 
@@ -300,6 +324,25 @@ io.on('connection', (socket) => {
     if (index < room.index) room.index--;
     else if (index === room.index) room.position = 0; // current removed → next slides in
     if (room.index >= room.queue.length) room.index = Math.max(0, room.queue.length - 1);
+    room.seq++;
+    room.updatedAt = Date.now();
+    broadcastState(joinedCode);
+  });
+
+  // Anyone may reorder the queue (drag-and-drop).
+  socket.on('queue_move', ({ from, to } = {}) => {
+    const room = joinedCode && rooms.get(joinedCode);
+    if (!room || !room.members.has(socket.id)) return;
+    const n = room.queue.length;
+    if (typeof from !== 'number' || typeof to !== 'number') return;
+    if (from < 0 || from >= n || to < 0 || to >= n || from === to) return;
+    const [item] = room.queue.splice(from, 1);
+    room.queue.splice(to, 0, item);
+    // Keep the currently-playing track as the current index after the move.
+    let c = room.index;
+    if (from === room.index) c = to;
+    else { if (from < c) c -= 1; if (to <= c) c += 1; }
+    room.index = Math.max(0, Math.min(room.queue.length - 1, c));
     room.seq++;
     room.updatedAt = Date.now();
     broadcastState(joinedCode);

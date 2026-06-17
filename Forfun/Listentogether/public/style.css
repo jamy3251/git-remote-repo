@@ -173,6 +173,19 @@ input[type="text"]:focus { border-color: var(--accent); }
 .queue-title:hover { color: var(--accent-2); }
 .queue-rm { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 2px 4px; }
 .queue-rm:hover { color: var(--error); }
+.queue-handle { cursor: grab; color: var(--muted); font-size: 15px; flex: 0 0 auto; user-select: none; padding: 0 2px; }
+.queue-item.drag-over { outline: 2px dashed var(--accent-2); outline-offset: -2px; }
+.queue-item.dragging { opacity: 0.4; }
+
+/* YouTube search results panel */
+.search-results { margin: 4px 0 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px; max-height: 340px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.sr-head { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px 4px; font-size: 12px; color: var(--muted); }
+.sr-item { display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: 8px; }
+.sr-item:hover { background: var(--surface-2); }
+.sr-thumb { width: 68px; height: 42px; border-radius: 6px; object-fit: cover; flex: 0 0 auto; background: #000; }
+.sr-text { flex: 1; min-width: 0; }
+.sr-title { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sr-ch { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 
 .col-side { position: sticky; top: 16px; }
 .side-card { max-height: calc(100vh - 32px); overflow-y: auto; }
