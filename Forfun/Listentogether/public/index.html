@@ -7,17 +7,16 @@
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <!-- Lobby: create or join a room. -->
+  <!-- Lobby -->
   <main id="lobby" class="screen">
     <div class="brand">
       <h1>Listen&nbsp;Together</h1>
       <p class="tagline">게임하며 둘이, 끊김 없이, 같은 노래를 같은 순간에.</p>
     </div>
-
     <form id="join-form" class="card" autocomplete="off">
       <label class="field">
         <span>이름</span>
-        <input id="name-input" type="text" maxlength="24" placeholder="너의 닉네임" required />
+        <input id="name-input" type="text" maxlength="24" placeholder="너의 닉네임" />
       </label>
       <label class="field">
         <span>방 코드</span>
@@ -31,7 +30,7 @@
     </form>
   </main>
 
-  <!-- Room: synced player. -->
+  <!-- Room -->
   <main id="room" class="screen hidden">
     <header class="room-head">
       <div>
@@ -42,35 +41,50 @@
       <div id="role-badge" class="badge">…</div>
     </header>
 
-    <div class="player-wrap">
-      <!-- YouTube IFrame mounts here. -->
-      <div id="player"></div>
-      <!-- Tap-to-start gate for browser autoplay policies. -->
-      <button id="start-gate" class="start-gate hidden">▶ 탭하여 같이 듣기 시작</button>
+    <div class="room-grid">
+      <section class="col-main">
+        <div class="player-wrap">
+          <div id="player"></div>
+          <button id="start-gate" class="start-gate hidden">▶ 탭하여 같이 듣기</button>
+        </div>
+
+        <div id="now-playing" class="now-playing muted">대기열이 비어 있어요. 아래에 유튜브 링크를 추가하세요.</div>
+
+        <div class="transport">
+          <button id="prev-btn" class="btn" title="이전 곡">⏮</button>
+          <button id="playpause-btn" class="btn" title="재생/정지">⏯</button>
+          <button id="next-btn" class="btn" title="다음 곡">⏭</button>
+          <span id="now-time" class="muted mono">0:00</span>
+        </div>
+
+        <form id="add-form" class="field-row">
+          <input id="add-input" type="text" placeholder="유튜브 영상/재생목록 URL → 대기열 추가" />
+          <button type="submit" class="btn primary">추가</button>
+        </form>
+        <p id="sync-status" class="muted mono"></p>
+
+        <div class="card">
+          <h2 class="h2">대기열 <span id="queue-count" class="muted"></span></h2>
+          <ul id="queue" class="queue"></ul>
+        </div>
+
+        <div class="card">
+          <div class="row-between">
+            <h2 class="h2">함께 듣는 중</h2>
+            <button id="take-control" class="btn tiny hidden">동기화 기준 가져오기</button>
+          </div>
+          <ul id="members" class="members"></ul>
+        </div>
+      </section>
+
+      <aside class="col-side">
+        <div class="card side-card">
+          <h2 class="h2">추천곡</h2>
+          <p id="reco-note" class="muted mini"></p>
+          <ul id="reco" class="reco"></ul>
+        </div>
+      </aside>
     </div>
-
-    <section id="host-controls" class="card hidden">
-      <form id="playlist-form" class="field-row">
-        <input id="playlist-input" type="text"
-               placeholder="유튜브 재생목록/영상 URL 붙여넣기" />
-        <button type="submit" class="btn primary">불러오기</button>
-      </form>
-      <div class="transport">
-        <button id="prev-btn" class="btn">⏮</button>
-        <button id="playpause-btn" class="btn">⏯</button>
-        <button id="next-btn" class="btn">⏭</button>
-        <span id="now-time" class="muted mono">0:00</span>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="row-between">
-        <h2 class="h2">함께 듣는 중</h2>
-        <button id="take-control" class="btn tiny hidden">내가 조종하기</button>
-      </div>
-      <ul id="members" class="members"></ul>
-      <p id="sync-status" class="muted mono"></p>
-    </section>
 
     <button id="leave-btn" class="btn ghost wide">나가기</button>
   </main>

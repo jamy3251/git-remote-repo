@@ -1,14 +1,21 @@
-/* Listen Together client.
+/* Listen Together client (v2).
  *
- * Sync model (design premise #2): one member is the host (controller). The host's
- * local YouTube player is the source of truth. The server relays the host's state
- * (track index, play/pause, position) to guests, who nudge their OWN local player
- * to match. Audio is never streamed through the server, so there is no choppiness.
+ * Model: the server holds the canonical room state — an explicit queue, the
+ * current index, play/pause, and the position. ANY member can change songs
+ * (next/prev/jump), play/pause, and add/remove queue items. One member (the
+ * "anchor", shown with 🎧) drives a 1s position heartbeat so guests don't drift.
+ *
+ * seq: bumped on every explicit control/queue change (never on heartbeat).
+ * Everyone (including the anchor) obeys a state whose seq advanced — that's how
+ * a guest's skip moves the anchor too. Between control events, only non-anchors
+ * follow the position; the anchor IS the clock.
+ *
+ * Audio is never streamed through the server — each client plays YouTube locally.
  */
 
-const $ = (sel) => document.querySelector(sel);
+const $ = (s) => document.querySelector(s);
 
-// ---- Elements ----
+// Elements
 const lobbyEl = $('#lobby');
 const roomEl = $('#room');
 const nameInput = $('#name-input');
@@ -16,29 +23,35 @@ const roomInput = $('#room-input');
 const lobbyError = $('#lobby-error');
 const roomCodeLabel = $('#room-code-label');
 const roleBadge = $('#role-badge');
-const hostControls = $('#host-controls');
-const playlistInput = $('#playlist-input');
 const membersEl = $('#members');
+const queueEl = $('#queue');
+const queueCount = $('#queue-count');
+const recoEl = $('#reco');
+const recoNote = $('#reco-note');
+const nowPlaying = $('#now-playing');
 const syncStatus = $('#sync-status');
 const nowTime = $('#now-time');
+const addInput = $('#add-input');
 const takeControlBtn = $('#take-control');
 const startGate = $('#start-gate');
 
-// ---- State ----
+// State
 let socket = null;
 let player = null;
 let ytReady = false;
-let pendingState = null;     // latest server state before player exists
-let lastState = null;        // most recent server snapshot
-let lastStateRecvAt = 0;     // client clock when lastState arrived
-let isHost = false;
-let started = false;         // user tapped the start gate (autoplay unlock)
-let currentRoom = null;
-let loadedPlaylistKey = null;
-let suppressEmitUntil = 0;   // ignore host onStateChange right after a programmatic change
-let noticeUntil = 0;         // keep a transient notice in #sync-status until this time
+let playerReady = false;      // YT.Player onReady fired (safe to call its methods)
+let pendingCreate = false;
+let pendingState = null;
+let lastState = null;
+let lastStateRecvAt = 0;
+let lastSeq = -1;
+let isAnchor = false;
+let started = false;          // user tapped the gate (audio unlocked)
+let loadedVideoId = null;
+let suppressNativeUntil = 0;  // ignore anchor onStateChange right after a programmatic change
+let noticeUntil = 0;
+let recoForVideo = null;
 
-// Show a message in #sync-status that survives the status loop for `ms` ms.
 function showNotice(msg, ms = 8000) {
   syncStatus.textContent = msg;
   noticeUntil = Date.now() + ms;
@@ -47,16 +60,25 @@ function showNotice(msg, ms = 8000) {
 // ---- YouTube API ----
 window.onYouTubeIframeAPIReady = () => {
   ytReady = true;
+  if (pendingCreate) createPlayer();
 };
 
+function ensurePlayer() {
+  if (player) return;
+  if (ytReady) createPlayer();
+  else pendingCreate = true;
+}
+
 function createPlayer() {
-  if (!ytReady || player) return;
+  if (player) return;
+  pendingCreate = false;
   player = new YT.Player('player', {
     width: '100%',
     height: '100%',
     playerVars: { controls: 1, modestbranding: 1, rel: 0, playsinline: 1 },
     events: {
       onReady: () => {
+        playerReady = true;
         if (pendingState) applyState(pendingState);
         startLoops();
       },
@@ -67,142 +89,113 @@ function createPlayer() {
 
 // ---- Helpers ----
 function genRoomCode() {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let s = '';
-  for (let i = 0; i < 6; i++) s += alphabet[Math.floor(Math.random() * alphabet.length)];
+  for (let i = 0; i < 6; i++) s += a[Math.floor(Math.random() * a.length)];
   return s;
 }
-
-// Real user/uploaded playlists (PL/OL/UU/FL/LL) load via the IFrame API.
-// Auto-generated mixes (RD, RDMM, RDCLAK, RDEM...) do NOT — YouTube blocks
-// loadPlaylist for them. For a mix URL we fall back to the single video.
-function isRealPlaylist(id) {
-  return /^(PL|OL|UU|FL|LL)/.test(id || '');
-}
-
-// Parse a pasted YouTube URL into an IFrame cue spec.
-function parsePlaylist(raw) {
-  raw = (raw || '').trim();
-  if (!raw) return null;
-  let url;
-  try {
-    url = new URL(raw);
-  } catch {
-    // Bare id.
-    if (isRealPlaylist(raw)) return { listType: 'playlist', list: raw, index: 0 };
-    if (/^RD/.test(raw)) return { listType: 'mix', list: raw }; // unsupported mix id alone
-    return { listType: 'video', list: raw };
-  }
-  const list = url.searchParams.get('list');
-  let v = url.searchParams.get('v');
-  if (!v && url.hostname.includes('youtu.be')) v = url.pathname.slice(1);
-  // YouTube's ?index= is 1-based; our player index is 0-based.
-  const idxRaw = parseInt(url.searchParams.get('index') || '', 10);
-  const index = Number.isFinite(idxRaw) && idxRaw > 0 ? idxRaw - 1 : 0;
-
-  if (list && isRealPlaylist(list)) return { listType: 'playlist', list, index };
-  // Mix (RD...) or unrecognized list: play the single video if the URL has one.
-  if (v) return { listType: 'video', list: v, mixFallback: !!list };
-  if (list) return { listType: 'mix', list }; // mix with no video → unsupported
-  return null;
-}
-
-function playlistKey(p) {
-  return p ? `${p.listType}:${p.list}` : null;
-}
-
-function loadIntoPlayer(p, index) {
-  if (!player || !p) return;
-  loadedPlaylistKey = playlistKey(p);
-  suppressEmitUntil = Date.now() + 1500;
-  if (p.listType === 'playlist') {
-    player.loadPlaylist({ list: p.list, listType: 'playlist', index: index || 0 });
-  } else {
-    player.loadVideoById(p.list);
-  }
-}
-
 function fmtTime(sec) {
   sec = Math.max(0, Math.floor(sec || 0));
-  const m = Math.floor(sec / 60);
-  const s = String(sec % 60).padStart(2, '0');
-  return `${m}:${s}`;
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+}
+function currentTrack(s) {
+  return s && s.queue && s.queue.length ? s.queue[s.index] : null;
+}
+// Extrapolate the anchor's position using server-side deltas (clock-skew immune)
+// plus local elapsed since we received the state.
+function expectedPosition(s) {
+  if (!s) return 0;
+  const serverAge = s.isPlaying ? Math.max(0, (s.serverNow - s.updatedAt) / 1000) : 0;
+  const sinceRecv = s.isPlaying ? (Date.now() - lastStateRecvAt) / 1000 : 0;
+  return s.position + serverAge + sinceRecv;
 }
 
-// Extrapolate the host's current position using only server-side deltas
-// (immune to client/server clock skew) plus local elapsed time since receipt.
-function expectedPosition() {
-  if (!lastState) return 0;
-  const serverAge = lastState.isPlaying
-    ? Math.max(0, (lastState.serverNow - lastState.updatedAt) / 1000)
-    : 0;
-  const sinceRecv = lastState.isPlaying ? (Date.now() - lastStateRecvAt) / 1000 : 0;
-  return lastState.position + serverAge + sinceRecv;
+function loadOrCue(id, pos) {
+  if (!player || !playerReady) return;
+  loadedVideoId = id;
+  suppressNativeUntil = Date.now() + 1500;
+  const startSeconds = Math.max(0, pos || 0);
+  try {
+    if (started) player.loadVideoById({ videoId: id, startSeconds });
+    else player.cueVideoById({ videoId: id, startSeconds }); // shows a frame, no autoplay → no black screen
+  } catch { loadedVideoId = null; }
 }
 
-// ---- Apply server state to the local player ----
+// ---- Apply server state ----
 function applyState(s) {
   lastState = s;
   lastStateRecvAt = Date.now();
   renderMembers(s);
   renderRole(s);
+  renderQueue(s);
+  renderNowPlaying(s);
+  maybeFetchReco(s);
 
-  if (!player || !started) {
+  if (!player || !playerReady) {
     pendingState = s;
     return;
   }
   pendingState = null;
 
-  // Load the playlist/video if it changed.
-  if (s.playlist && playlistKey(s.playlist) !== loadedPlaylistKey) {
-    loadIntoPlayer(s.playlist, s.index);
+  const cur = currentTrack(s);
+  // Load/cue the current track if it changed (cue when not started → no black screen).
+  if (cur && cur.id !== loadedVideoId) {
+    loadOrCue(cur.id, expectedPosition(s));
+  } else if (!cur) {
+    loadedVideoId = null;
   }
 
-  if (isHost) return; // host is the source of truth; don't fight itself.
+  const isControl = s.seq !== lastSeq;
 
-  // Guest reconciliation.
-  try {
-    if (typeof player.getPlaylistIndex === 'function') {
-      const idx = player.getPlaylistIndex();
-      if (s.playlist && s.playlist.listType === 'playlist' && idx >= 0 && idx !== s.index) {
-        suppressEmitUntil = Date.now() + 1500;
-        player.playVideoAt(s.index);
-      }
-    }
-    const target = expectedPosition();
-    const cur = player.getCurrentTime();
-    if (Math.abs(cur - target) > 1.0) player.seekTo(target, true);
+  if (!started) {
+    lastSeq = s.seq;
+    return; // gate not tapped yet; track is cued, waiting for the user
+  }
 
-    const ps = player.getPlayerState();
-    if (s.isPlaying && ps !== YT.PlayerState.PLAYING) player.playVideo();
-    if (!s.isPlaying && ps === YT.PlayerState.PLAYING) player.pauseVideo();
-  } catch {
-    /* player not fully ready yet */
+  if (isControl) {
+    lastSeq = s.seq;
+    applyPlayPauseAndSeek(s, true); // explicit change → everyone (incl anchor) obeys
+  } else if (!isAnchor) {
+    applyPlayPauseAndSeek(s, false); // heartbeat → guests drift-correct
   }
 }
 
-// ---- Host: react to native player controls ----
+function applyPlayPauseAndSeek(s, isControl) {
+  if (!player || !started) return;
+  try {
+    const target = expectedPosition(s);
+    const cur = player.getCurrentTime();
+    const tol = isControl ? 0.7 : 1.0;
+    if (Math.abs(cur - target) > tol) player.seekTo(target, true);
+    const ps = player.getPlayerState();
+    if (s.isPlaying && ps !== YT.PlayerState.PLAYING) player.playVideo();
+    if (!s.isPlaying && ps === YT.PlayerState.PLAYING) player.pauseVideo();
+  } catch { /* not ready */ }
+}
+
+// Anchor's native player controls propagate; track end auto-advances.
 function onPlayerStateChange(e) {
-  if (!isHost) return;
-  if (Date.now() < suppressEmitUntil) return;
+  if (!isAnchor || !started) return;
+  if (Date.now() < suppressNativeUntil) return;
   if (e.data === YT.PlayerState.PLAYING) {
     socket.emit('control', { action: 'play', position: player.getCurrentTime() });
   } else if (e.data === YT.PlayerState.PAUSED) {
     socket.emit('control', { action: 'pause', position: player.getCurrentTime() });
+  } else if (e.data === YT.PlayerState.ENDED) {
+    socket.emit('control', { action: 'next' });
   }
 }
 
-// ---- Loops: heartbeat (host) + status display ----
+// ---- Loops ----
 let heartbeatTimer = null;
 let statusTimer = null;
 function startLoops() {
   if (heartbeatTimer) return;
   heartbeatTimer = setInterval(() => {
-    if (!player || !isHost || !started) return;
+    if (!player || !isAnchor || !started) return;
     try {
       socket.emit('heartbeat', {
         position: player.getCurrentTime(),
-        index: typeof player.getPlaylistIndex === 'function' ? player.getPlaylistIndex() : 0,
         isPlaying: player.getPlayerState() === YT.PlayerState.PLAYING,
       });
     } catch { /* ignore */ }
@@ -212,65 +205,125 @@ function startLoops() {
     if (!player || !started) return;
     try {
       nowTime.textContent = fmtTime(player.getCurrentTime());
-      if (Date.now() < noticeUntil) return; // keep a transient notice visible
-      if (!isHost && lastState) {
-        const drift = (player.getCurrentTime() - expectedPosition()).toFixed(1);
+      if (Date.now() < noticeUntil) return;
+      if (!lastState || !currentTrack(lastState)) { syncStatus.textContent = ''; return; }
+      if (!isAnchor) {
+        const drift = (player.getCurrentTime() - expectedPosition(lastState)).toFixed(1);
         syncStatus.textContent = `싱크 보정 중 · 오차 ${drift}s`;
-      } else if (isHost) {
-        syncStatus.textContent = '내가 조종 중';
+      } else {
+        syncStatus.textContent = '내가 동기화 기준';
       }
     } catch { /* ignore */ }
   }, 500);
 }
 
-// ---- UI renders ----
+// ---- Renders ----
 function renderMembers(s) {
   membersEl.innerHTML = '';
   (s.members || []).forEach((m) => {
     const li = document.createElement('li');
-    li.textContent = m.name + (m.isHost ? ' 👑' : '');
-    if (m.id === socket.id) li.classList.add('me');
+    li.textContent = m.name + (m.isHost ? ' 🎧' : '');
+    if (socket && m.id === socket.id) li.classList.add('me');
     membersEl.appendChild(li);
   });
 }
 
 function renderRole(s) {
-  isHost = socket && s.hostId === socket.id;
-  roleBadge.textContent = isHost ? '👑 방장 (조종)' : '🎧 따라 듣는 중';
-  hostControls.classList.toggle('hidden', !isHost);
-  takeControlBtn.classList.toggle('hidden', isHost);
+  isAnchor = !!(socket && s.hostId === socket.id);
+  roleBadge.textContent = isAnchor ? '🎧 동기화 기준 · 다같이 조종' : '🎧 다같이 조종 가능';
+  takeControlBtn.classList.toggle('hidden', isAnchor);
 }
 
-// ---- Lobby actions ----
-function enterRoom(code, name) {
-  currentRoom = code;
-  socket = io();
+function renderNowPlaying(s) {
+  const cur = currentTrack(s);
+  if (!cur) {
+    nowPlaying.textContent = '대기열이 비어 있어요. 아래에 유튜브 링크를 추가하세요.';
+    nowPlaying.classList.add('muted');
+  } else {
+    nowPlaying.textContent = `▶ ${cur.title}`;
+    nowPlaying.classList.remove('muted');
+  }
+}
 
+function renderQueue(s) {
+  queueEl.innerHTML = '';
+  const q = s.queue || [];
+  queueCount.textContent = q.length ? `(${s.index + 1}/${q.length})` : '';
+  q.forEach((t, i) => {
+    const li = document.createElement('li');
+    li.className = 'queue-item' + (i === s.index ? ' current' : '');
+    const title = document.createElement('button');
+    title.className = 'queue-title';
+    title.textContent = (i === s.index ? '▶ ' : `${i + 1}. `) + t.title;
+    title.title = '이 곡으로 이동';
+    title.addEventListener('click', () => socket.emit('control', { action: 'jump', index: i }));
+    const rm = document.createElement('button');
+    rm.className = 'queue-rm';
+    rm.textContent = '✕';
+    rm.title = '대기열에서 제거';
+    rm.addEventListener('click', () => socket.emit('queue_remove', { index: i }));
+    li.append(title, rm);
+    queueEl.appendChild(li);
+  });
+}
+
+function renderReco(tracks) {
+  recoEl.innerHTML = '';
+  tracks.forEach((t) => {
+    const li = document.createElement('li');
+    li.className = 'reco-item';
+    const span = document.createElement('span');
+    span.className = 'reco-title';
+    span.textContent = t.title;
+    if (t.channel) span.title = t.channel;
+    const add = document.createElement('button');
+    add.className = 'btn tiny';
+    add.textContent = '+ 큐';
+    add.addEventListener('click', () =>
+      socket.emit('queue_add', { tracks: [{ id: t.id, title: t.title }] }));
+    li.append(span, add);
+    recoEl.appendChild(li);
+  });
+}
+
+function maybeFetchReco(s) {
+  const cur = currentTrack(s);
+  if (!cur) { recoEl.innerHTML = ''; recoNote.textContent = '곡이 재생되면 추천이 떠요.'; recoForVideo = null; return; }
+  if (recoForVideo === cur.id) return;
+  recoForVideo = cur.id;
+  recoNote.textContent = '추천 불러오는 중…';
+  fetch(`/api/recommend?videoId=${encodeURIComponent(cur.id)}&title=${encodeURIComponent(cur.title)}`)
+    .then((r) => r.json())
+    .then((d) => {
+      if (d.error === 'NO_KEY') { recoNote.textContent = '추천을 켜려면 서버에 YT_API_KEY를 연결하세요.'; renderReco([]); return; }
+      if (d.error) { recoNote.textContent = '추천을 불러오지 못했어요.'; renderReco([]); return; }
+      recoNote.textContent = '현재 곡 기반 추천';
+      renderReco(d.tracks || []);
+    })
+    .catch(() => { recoNote.textContent = '추천을 불러오지 못했어요.'; });
+}
+
+// ---- Lobby / room entry ----
+function enterRoom(code, name) {
+  socket = io();
   socket.on('connect', () => socket.emit('join', { room: code, name }));
   socket.on('joined', ({ room, youAreHost }) => {
-    isHost = youAreHost;
+    isAnchor = youAreHost;
     roomCodeLabel.textContent = room;
     lobbyEl.classList.add('hidden');
     roomEl.classList.remove('hidden');
     const url = new URL(location.href);
     url.searchParams.set('room', room);
     history.replaceState({}, '', url);
-    startGate.classList.remove('hidden'); // require a tap to unlock audio
+    startGate.classList.remove('hidden');
   });
   socket.on('state', applyState);
-  socket.on('error_msg', (msg) => {
-    lobbyError.textContent = msg;
-  });
-  socket.on('disconnect', () => {
-    syncStatus.textContent = '연결 끊김 · 재접속 시도 중…';
-  });
-
-  createPlayer();
+  socket.on('error_msg', (msg) => { lobbyError.textContent = msg; });
+  socket.on('disconnect', () => { syncStatus.textContent = '연결 끊김 · 재접속 시도 중…'; });
+  ensurePlayer();
 }
 
-$('#create-btn').addEventListener('click', () => {
-  roomInput.value = genRoomCode();
-});
+$('#create-btn').addEventListener('click', () => { roomInput.value = genRoomCode(); });
 
 $('#join-form').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -278,23 +331,25 @@ $('#join-form').addEventListener('submit', (e) => {
   const name = nameInput.value.trim();
   let code = roomInput.value.trim().toUpperCase();
   if (!code) code = genRoomCode();
-  if (!/^[A-Z0-9]{4,8}$/.test(code)) {
-    lobbyError.textContent = '방 코드는 영문/숫자 4~8자예요.';
-    return;
-  }
-  if (!name) {
-    lobbyError.textContent = '이름을 입력해줘.';
-    return;
-  }
+  if (!/^[A-Z0-9]{4,8}$/.test(code)) { lobbyError.textContent = '방 코드는 영문/숫자 4~8자예요.'; return; }
+  if (!name) { lobbyError.textContent = '이름을 입력해줘.'; return; }
+  localStorage.setItem('lt_name', name); // session save
   enterRoom(code, name);
 });
 
-// ---- Start gate (autoplay unlock) ----
+// ---- Start gate (audio unlock + resume) ----
 startGate.addEventListener('click', () => {
   started = true;
   startGate.classList.add('hidden');
-  if (!player) createPlayer();
-  if (lastState) applyState(lastState);
+  // Resume: if a track is loaded, play it (we're inside the user gesture).
+  if (lastState && player && playerReady) {
+    const cur = currentTrack(lastState);
+    if (cur) {
+      if (cur.id !== loadedVideoId) loadOrCue(cur.id, expectedPosition(lastState));
+      try { player.seekTo(expectedPosition(lastState), true); player.playVideo(); } catch { /* ignore */ }
+    }
+    lastSeq = lastState.seq;
+  }
 });
 
 // ---- Room actions ----
@@ -303,52 +358,36 @@ $('#copy-link').addEventListener('click', async () => {
     await navigator.clipboard.writeText(location.href);
     $('#copy-link').textContent = '복사됨!';
     setTimeout(() => ($('#copy-link').textContent = '링크 복사'), 1500);
-  } catch { /* clipboard blocked */ }
+  } catch { showNotice('링크 복사가 막혔어요. 주소창 URL을 직접 복사하세요.'); }
 });
 
-$('#playlist-form').addEventListener('submit', (e) => {
+$('#add-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (!isHost) return;
-  const p = parsePlaylist(playlistInput.value);
-  if (!p) {
-    showNotice('유튜브 재생목록/영상 URL을 인식하지 못했어요.');
-    return;
-  }
-  if (p.listType === 'mix') {
-    showNotice('유튜브 자동 믹스(RD…)는 임베드 재생이 안 돼요. 일반 재생목록(PL…)이나 개별 영상 링크를 써주세요.', 12000);
-    return;
-  }
-  if (p.mixFallback) {
-    showNotice('자동 믹스는 임베드가 안 돼서 이 영상 한 곡만 재생해요. 여러 곡은 PL 재생목록을 쓰세요.', 12000);
-  }
-  socket.emit('control', { action: 'load', playlist: p, index: p.index || 0 });
+  const url = addInput.value.trim();
+  if (!url) return;
+  showNotice('불러오는 중…', 4000);
+  try {
+    const d = await (await fetch(`/api/resolve?url=${encodeURIComponent(url)}`)).json();
+    if (d.kind === 'mix') { showNotice('자동 믹스(RD…)는 펼칠 수 없어요. 개별 영상이나 PL 재생목록 링크를 쓰세요.', 12000); return; }
+    if (d.kind === 'error' || !d.tracks || !d.tracks.length) {
+      showNotice('URL을 인식하지 못했어요. (PL 재생목록 펼치기는 서버에 YT_API_KEY 필요)', 12000);
+      return;
+    }
+    socket.emit('queue_add', { tracks: d.tracks });
+    addInput.value = '';
+    if (d.mixFallback) showNotice('자동 믹스는 펼칠 수 없어 이 영상 한 곡만 추가했어요.', 10000);
+    else showNotice(`${d.tracks.length}곡 추가됨`, 4000);
+  } catch { showNotice('추가에 실패했어요. 잠시 후 다시 시도하세요.'); }
 });
 
-$('#playpause-btn').addEventListener('click', () => {
-  if (!isHost || !player) return;
-  const ps = player.getPlayerState();
-  if (ps === YT.PlayerState.PLAYING) player.pauseVideo();
-  else player.playVideo();
-});
-$('#next-btn').addEventListener('click', () => {
-  if (!isHost || !player) return;
-  suppressEmitUntil = Date.now() + 1500;
-  player.nextVideo();
-  setTimeout(() => socket.emit('control', {
-    action: 'track',
-    index: typeof player.getPlaylistIndex === 'function' ? player.getPlaylistIndex() : 0,
-  }), 600);
-});
-$('#prev-btn').addEventListener('click', () => {
-  if (!isHost || !player) return;
-  suppressEmitUntil = Date.now() + 1500;
-  player.previousVideo();
-  setTimeout(() => socket.emit('control', {
-    action: 'track',
-    index: typeof player.getPlaylistIndex === 'function' ? player.getPlaylistIndex() : 0,
-  }), 600);
-});
-
+function togglePlay() {
+  if (!lastState) return;
+  const pos = (() => { try { return player.getCurrentTime(); } catch { return undefined; } })();
+  socket.emit('control', { action: lastState.isPlaying ? 'pause' : 'play', position: pos });
+}
+$('#playpause-btn').addEventListener('click', togglePlay);
+$('#next-btn').addEventListener('click', () => socket.emit('control', { action: 'next' }));
+$('#prev-btn').addEventListener('click', () => socket.emit('control', { action: 'prev' }));
 takeControlBtn.addEventListener('click', () => socket.emit('take_control'));
 
 $('#leave-btn').addEventListener('click', () => {
@@ -356,8 +395,14 @@ $('#leave-btn').addEventListener('click', () => {
   location.href = location.pathname;
 });
 
-// ---- Prefill from ?room= ----
+// ---- Session restore: prefill + auto-rejoin on refresh ----
 (() => {
-  const code = new URL(location.href).searchParams.get('room');
-  if (code) roomInput.value = code.toUpperCase();
+  const savedName = localStorage.getItem('lt_name');
+  const urlRoom = new URL(location.href).searchParams.get('room');
+  if (savedName) nameInput.value = savedName;
+  if (urlRoom) roomInput.value = urlRoom.toUpperCase();
+  // Refresh mid-session → rejoin automatically; current track gets cued (no black screen).
+  if (savedName && urlRoom && /^[A-Z0-9]{4,8}$/.test(urlRoom.toUpperCase())) {
+    enterRoom(urlRoom.toUpperCase(), savedName);
+  }
 })();
