@@ -95,6 +95,7 @@ function createPlayer() {
         startLoops();
       },
       onStateChange: onPlayerStateChange,
+      onError: onPlayerError,
     },
   });
 }
@@ -179,6 +180,7 @@ function applyState(s) {
   } else if (!isAnchor) {
     applyPlayPauseAndSeek(s, false); // heartbeat → guests drift-correct
   }
+  updateGate();
 }
 
 function applyPlayPauseAndSeek(s, isControl) {
@@ -207,6 +209,26 @@ function onPlayerStateChange(e) {
   }
 }
 
+// Embed/playback errors are a common "재생 안됨" cause: many official music videos
+// disable embedding (101/150). Tell the user and auto-skip to the next track.
+function onPlayerError(e) {
+  const code = e && e.data;
+  if (code === 101 || code === 150) {
+    showNotice('이 영상은 외부 사이트 재생이 막혀 있어요 (소유자가 임베드 차단). 다음 곡으로 넘어가요.', 10000);
+    autoSkipBroken();
+  } else if (code === 100) {
+    showNotice('영상을 찾을 수 없어요 (삭제/비공개). 다음 곡으로.', 10000);
+    autoSkipBroken();
+  } else if (code === 2 || code === 5) {
+    showNotice('이 영상은 재생할 수 없어요. 다른 영상을 추가해 주세요.', 9000);
+  }
+}
+function autoSkipBroken() {
+  if (isAnchor && lastState && lastState.queue && lastState.index < lastState.queue.length - 1) {
+    socket.emit('control', { action: 'next' });
+  }
+}
+
 // ---- Loops ----
 let heartbeatTimer = null;
 let statusTimer = null;
@@ -227,6 +249,7 @@ function startLoops() {
     try {
       nowTime.textContent = fmtTime(player.getCurrentTime());
       updateDeck();
+      updateGate();
       try { qualityBadge.textContent = qualityLabel(player.getPlaybackQuality()); } catch { /* */ }
       try {
         const dur = player.getDuration();
@@ -395,19 +418,33 @@ $('#join-form').addEventListener('submit', (e) => {
 });
 
 // ---- Start gate (audio unlock + resume) ----
+// Robust play: try normal playback; if blocked, fall back to muted autoplay
+// (always allowed) then unmute. This is the main fix for "탭했는데도 안 나옴".
+function forcePlay() {
+  if (!player || !playerReady || !lastState) return;
+  const cur = currentTrack(lastState);
+  if (!cur) return;
+  if (cur.id !== loadedVideoId) loadOrCue(cur.id, expectedPosition(lastState));
+  try {
+    player.seekTo(expectedPosition(lastState), true);
+    player.playVideo();
+  } catch { /* ignore */ }
+  setTimeout(() => {
+    try {
+      if (player.getPlayerState() !== YT.PlayerState.PLAYING) {
+        player.mute();
+        player.playVideo();
+        setTimeout(() => { try { player.unMute(); player.setVolume(100); } catch { /* */ } }, 700);
+      }
+    } catch { /* */ }
+  }, 800);
+}
+
 startGate.addEventListener('click', () => {
   started = true;
-  startGate.classList.add('hidden');
   ensureAudio(); // unlock Web Audio (scratch SFX) within the user gesture
-  // Resume: if a track is loaded, play it (we're inside the user gesture).
-  if (lastState && player && playerReady) {
-    const cur = currentTrack(lastState);
-    if (cur) {
-      if (cur.id !== loadedVideoId) loadOrCue(cur.id, expectedPosition(lastState));
-      try { player.seekTo(expectedPosition(lastState), true); player.playVideo(); } catch { /* ignore */ }
-    }
-    lastSeq = lastState.seq;
-  }
+  startGate.classList.add('hidden');
+  if (lastState) { forcePlay(); lastSeq = lastState.seq; }
 });
 
 // ---- Room actions ----
@@ -643,6 +680,23 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) { stopEq(); stopVis(); }
   else updateDeck();
 });
+
+// Re-show a "tap to play" gate whenever the room wants to play but our local
+// player isn't (autoplay blocked, fresh join, refresh). Tapping = a user gesture
+// that reliably starts playback. This is the fix for "재생 안됨".
+function updateGate() {
+  if (!started) return; // the initial gate is already visible from join
+  let ps = -99;
+  try { if (player && playerReady) ps = player.getPlayerState(); } catch { /* */ }
+  const want = !!(lastState && lastState.isPlaying && currentTrack(lastState));
+  const notPlaying = ps === YT.PlayerState.CUED || ps === YT.PlayerState.PAUSED || ps === YT.PlayerState.UNSTARTED;
+  if (want && notPlaying) {
+    startGate.textContent = '▶ 탭하여 재생';
+    startGate.classList.remove('hidden');
+  } else {
+    startGate.classList.add('hidden');
+  }
+}
 
 let audioCtx = null;
 function ensureAudio() {

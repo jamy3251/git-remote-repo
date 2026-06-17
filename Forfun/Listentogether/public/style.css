@@ -64,6 +64,7 @@ body {
 .field > span { font-size: 13px; color: var(--muted); }
 .field-row { display: flex; gap: 10px; margin-bottom: 14px; }
 .field-row input { flex: 1; }
+#add-form { margin-top: 16px; }
 
 input[type="text"] {
   background: var(--surface-2);
@@ -287,7 +288,7 @@ input[type="text"]:focus { border-color: var(--accent); }
   border-radius: 2px; transition: height .09s ease;
   box-shadow: 0 0 6px rgba(0,209,178,0.4);
 }
-.deck-knobs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.deck-knobs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 14px; padding: 0 2px; }
 .knob { display: flex; flex-direction: column; gap: 4px; font-size: 10px; letter-spacing: 0.1em; color: var(--muted); }
 .knob input[type="range"] {
   -webkit-appearance: none; appearance: none; height: 4px; border-radius: 4px;
