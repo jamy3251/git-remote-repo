@@ -44,6 +44,7 @@ const npProgressFill = $('#np-progress-fill');
 const npEq = $('#np-eq');
 const vinylLabel = $('#vinyl-label');
 const deckBg = $('#deck-bg');
+const micBtn = $('#mic-btn');
 
 // State
 let socket = null;
@@ -452,15 +453,37 @@ for (let i = 0; i < EQ_BARS; i++) {
 }
 let eqRaf = null;
 let eqGain = 0.7;
+let energy = 1;   // crossfader-controlled visual intensity multiplier
+let eqLow = 1, eqMid = 1, eqHigh = 1; // band emphasis for the visualization (knobs)
 let eqLast = 0;
+// Weight a bar by its frequency band (low/mid/high) using the EQ knobs.
+function bandWeight(frac) { return frac < 0.34 ? eqLow : frac < 0.67 ? eqMid : eqHigh; }
+
+// Real audio reactivity via the microphone (the only way to react to YouTube
+// playback, since the iframe audio is cross-origin). null until the user enables it.
+let analyser = null;
+let freqData = null;
+let micStream = null;
+function spectrum(n) {
+  if (!analyser) return null;
+  analyser.getByteFrequencyData(freqData);
+  const usable = Math.max(8, Math.floor(freqData.length * 0.7)); // music energy sits low-mid
+  const out = new Array(n);
+  for (let i = 0; i < n; i++) out[i] = freqData[Math.floor((i / n) * usable)] / 255;
+  return out;
+}
+
 function eqFrame(ts) {
   eqRaf = requestAnimationFrame(eqFrame);
   if (ts - eqLast < 33) return; // ~30fps throttle (saves CPU)
   eqLast = ts;
+  const spec = spectrum(eqBars.length);
   const now = Date.now() / 1000;
   for (let i = 0; i < eqBars.length; i++) {
-    const base = Math.sin(now * 6 + i * 0.5) * 0.5 + 0.5;
-    const h = Math.min(1, (base * 0.65 + Math.random() * 0.4) * eqGain);
+    const wt = bandWeight(i / eqBars.length) * energy;
+    let h;
+    if (spec) h = Math.min(1, spec[i] * 1.7 * eqGain * wt);
+    else { const base = Math.sin(now * 6 + i * 0.5) * 0.5 + 0.5; h = Math.min(1, (base * 0.65 + Math.random() * 0.4) * eqGain * wt); }
     eqBars[i].style.height = (8 + h * 92) + '%';
   }
 }
@@ -496,11 +519,12 @@ function visFrame(ts) {
   const t = Date.now() / 1000;
   const N = 56;
   const radius = Math.min(w, h) * 0.24;
+  const spec = spectrum(N);
   visCtx.lineWidth = 3; visCtx.lineCap = 'round';
   for (let i = 0; i < N; i++) {
     const ang = (i / N) * Math.PI * 2 + t * 0.25;
-    const amp = (Math.sin(t * 4 + i * 0.45) * 0.5 + 0.5) * 0.6 + Math.random() * 0.4;
-    const len = radius * 0.95 * amp * eqGain;
+    const amp = spec ? Math.min(1.3, spec[i] * 1.6) : (Math.sin(t * 4 + i * 0.45) * 0.5 + 0.5) * 0.6 + Math.random() * 0.4;
+    const len = radius * 0.95 * amp * eqGain * bandWeight(i / N) * energy;
     const c = Math.cos(ang), s = Math.sin(ang);
     visCtx.strokeStyle = `hsl(${(i / N) * 300 + t * 60}, 85%, 62%)`;
     visCtx.beginPath();
@@ -584,11 +608,86 @@ vinyl.addEventListener('click', () => {
   }
 });
 
+// EQ knobs now really shape the visualization: Low/Mid/High emphasize their
+// frequency band, Gain is overall level. (Visualization only — YouTube audio
+// itself can't be filtered cross-origin.)
 document.querySelectorAll('.knob input').forEach((inp) => {
   inp.addEventListener('input', () => {
-    if (inp.dataset.eq === 'gain') eqGain = 0.3 + (inp.value / 100) * 0.95;
+    const v = inp.value / 100;
+    if (inp.dataset.eq === 'gain') eqGain = 0.3 + v * 0.95;
+    else if (inp.dataset.eq === 'low') eqLow = 0.15 + v * 1.7;
+    else if (inp.dataset.eq === 'mid') eqMid = 0.15 + v * 1.7;
+    else if (inp.dataset.eq === 'high') eqHigh = 0.15 + v * 1.7;
   });
 });
+
+// Crossfader → overall visual energy.
+const xfader = $('#xfader');
+if (xfader) xfader.addEventListener('input', () => { energy = 0.5 + (xfader.value / 100) * 1.3; });
+
+// Hot cue pads → synth hit + flash (real Web Audio).
+const CUE_NOTES = [261.63, 311.13, 349.23, 392.0, 466.16, 523.25];
+const CUE_COLORS = ['#ff5c7c', '#ffb05c', '#ffe45c', '#5cff9d', '#5cc8ff', '#b15cff'];
+const hotcuesEl = $('#hotcues');
+if (hotcuesEl) {
+  CUE_NOTES.forEach((freq, i) => {
+    const pad = document.createElement('button');
+    pad.className = 'cue-pad';
+    pad.style.setProperty('--c', CUE_COLORS[i]);
+    pad.addEventListener('click', () => {
+      synthHit(freq);
+      pad.classList.add('hit');
+      setTimeout(() => pad.classList.remove('hit'), 180);
+    });
+    hotcuesEl.appendChild(pad);
+  });
+}
+function synthHit(freq) {
+  ensureAudio();
+  if (!audioCtx) return;
+  const ctx = audioCtx;
+  const now = ctx.currentTime;
+  const o = ctx.createOscillator();
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(freq, now);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(0.28, now + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+  o.connect(g).connect(ctx.destination);
+  o.start(now);
+  o.stop(now + 0.47);
+}
+
+// Mic toggle → real audio reactivity (only way to react to YouTube playback).
+async function toggleMic() {
+  if (analyser) {
+    try { micStream && micStream.getTracks().forEach((t) => t.stop()); } catch { /* */ }
+    analyser = null; micStream = null;
+    micBtn.classList.remove('on'); micBtn.textContent = '🎤 음악 반응';
+    return;
+  }
+  ensureAudio();
+  if (!audioCtx) return;
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+    });
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    const src = audioCtx.createMediaStreamSource(micStream);
+    const a = audioCtx.createAnalyser();
+    a.fftSize = 256;
+    a.smoothingTimeConstant = 0.75;
+    src.connect(a); // intentionally NOT connected to destination (no feedback)
+    freqData = new Uint8Array(a.frequencyBinCount);
+    analyser = a;
+    micBtn.classList.add('on'); micBtn.textContent = '🎤 반응 ON';
+    showNotice('마이크로 실제 소리에 반응해요. 스피커 음악이 마이크에 들려야 잘 움직여요.', 9000);
+  } catch {
+    showNotice('마이크 권한이 필요해요 (브라우저에서 허용해 주세요).', 9000);
+  }
+}
+if (micBtn) micBtn.addEventListener('click', toggleMic);
 
 // ---- Session restore: prefill + auto-rejoin on refresh ----
 (() => {

@@ -97,6 +97,7 @@
           <button id="vinyl" class="vinyl" title="LP를 돌리면 스크래치 → 다음 곡">
             <span class="vinyl-shine"></span>
             <span id="vinyl-label" class="vinyl-label">LT</span>
+            <span class="tonearm" aria-hidden="true"></span>
           </button>
           <div class="deck-right">
             <div id="eq" class="deck-eq" aria-hidden="true"></div>
@@ -106,6 +107,8 @@
               <label class="knob"><span>HIGH</span><input type="range" min="0" max="100" value="55" data-eq="high" /></label>
               <label class="knob"><span>GAIN</span><input type="range" min="0" max="100" value="70" data-eq="gain" /></label>
             </div>
+            <div id="hotcues" class="hotcues" title="핫큐 패드 — 누르면 소리 + 빛"></div>
+            <label class="xfader"><span>XFADE</span><input type="range" min="0" max="100" value="50" id="xfader" /></label>
           </div>
         </div>
 
@@ -119,8 +122,12 @@
       <!-- Visualizer (opposite side from the mixer) -->
       <aside class="col-vis">
         <div class="card vis-card">
-          <h2 class="h2">비주얼라이저</h2>
+          <div class="row-between">
+            <h2 class="h2">비주얼라이저</h2>
+            <button id="mic-btn" class="btn tiny" title="마이크로 실제 소리에 반응시켜요 (방 소리가 마이크로 들어갑니다)">🎤 음악 반응</button>
+          </div>
           <canvas id="vis-canvas"></canvas>
+          <p class="muted mini" style="margin-top:8px">기본은 애니메이션이에요. "음악 반응"을 켜면 마이크로 실제 소리에 맞춰 움직여요.</p>
         </div>
       </aside>
     </div>
