@@ -36,6 +36,13 @@ let started = false;         // user tapped the start gate (autoplay unlock)
 let currentRoom = null;
 let loadedPlaylistKey = null;
 let suppressEmitUntil = 0;   // ignore host onStateChange right after a programmatic change
+let noticeUntil = 0;         // keep a transient notice in #sync-status until this time
+
+// Show a message in #sync-status that survives the status loop for `ms` ms.
+function showNotice(msg, ms = 8000) {
+  syncStatus.textContent = msg;
+  noticeUntil = Date.now() + ms;
+}
 
 // ---- YouTube API ----
 window.onYouTubeIframeAPIReady = () => {
@@ -66,6 +73,13 @@ function genRoomCode() {
   return s;
 }
 
+// Real user/uploaded playlists (PL/OL/UU/FL/LL) load via the IFrame API.
+// Auto-generated mixes (RD, RDMM, RDCLAK, RDEM...) do NOT — YouTube blocks
+// loadPlaylist for them. For a mix URL we fall back to the single video.
+function isRealPlaylist(id) {
+  return /^(PL|OL|UU|FL|LL)/.test(id || '');
+}
+
 // Parse a pasted YouTube URL into an IFrame cue spec.
 function parsePlaylist(raw) {
   raw = (raw || '').trim();
@@ -74,15 +88,22 @@ function parsePlaylist(raw) {
   try {
     url = new URL(raw);
   } catch {
-    // Bare id: treat long-ish strings starting with PL/UU/OL as playlists.
-    if (/^(PL|UU|OL|RD|LL)/.test(raw)) return { listType: 'playlist', list: raw };
+    // Bare id.
+    if (isRealPlaylist(raw)) return { listType: 'playlist', list: raw, index: 0 };
+    if (/^RD/.test(raw)) return { listType: 'mix', list: raw }; // unsupported mix id alone
     return { listType: 'video', list: raw };
   }
   const list = url.searchParams.get('list');
-  if (list) return { listType: 'playlist', list };
   let v = url.searchParams.get('v');
   if (!v && url.hostname.includes('youtu.be')) v = url.pathname.slice(1);
-  if (v) return { listType: 'video', list: v };
+  // YouTube's ?index= is 1-based; our player index is 0-based.
+  const idxRaw = parseInt(url.searchParams.get('index') || '', 10);
+  const index = Number.isFinite(idxRaw) && idxRaw > 0 ? idxRaw - 1 : 0;
+
+  if (list && isRealPlaylist(list)) return { listType: 'playlist', list, index };
+  // Mix (RD...) or unrecognized list: play the single video if the URL has one.
+  if (v) return { listType: 'video', list: v, mixFallback: !!list };
+  if (list) return { listType: 'mix', list }; // mix with no video → unsupported
   return null;
 }
 
@@ -191,6 +212,7 @@ function startLoops() {
     if (!player || !started) return;
     try {
       nowTime.textContent = fmtTime(player.getCurrentTime());
+      if (Date.now() < noticeUntil) return; // keep a transient notice visible
       if (!isHost && lastState) {
         const drift = (player.getCurrentTime() - expectedPosition()).toFixed(1);
         syncStatus.textContent = `싱크 보정 중 · 오차 ${drift}s`;
@@ -289,10 +311,17 @@ $('#playlist-form').addEventListener('submit', (e) => {
   if (!isHost) return;
   const p = parsePlaylist(playlistInput.value);
   if (!p) {
-    syncStatus.textContent = '유튜브 재생목록/영상 URL을 인식하지 못했어요.';
+    showNotice('유튜브 재생목록/영상 URL을 인식하지 못했어요.');
     return;
   }
-  socket.emit('control', { action: 'load', playlist: p });
+  if (p.listType === 'mix') {
+    showNotice('유튜브 자동 믹스(RD…)는 임베드 재생이 안 돼요. 일반 재생목록(PL…)이나 개별 영상 링크를 써주세요.', 12000);
+    return;
+  }
+  if (p.mixFallback) {
+    showNotice('자동 믹스는 임베드가 안 돼서 이 영상 한 곡만 재생해요. 여러 곡은 PL 재생목록을 쓰세요.', 12000);
+  }
+  socket.emit('control', { action: 'load', playlist: p, index: p.index || 0 });
 });
 
 $('#playpause-btn').addEventListener('click', () => {

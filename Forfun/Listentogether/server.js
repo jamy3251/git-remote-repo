@@ -109,7 +109,7 @@ io.on('connection', (socket) => {
       case 'load':
         // payload.playlist = { listType: 'playlist'|'video', list: string }
         room.playlist = payload.playlist || null;
-        room.index = 0;
+        room.index = typeof payload.index === 'number' ? payload.index : 0;
         room.position = 0;
         room.isPlaying = true;
         room.updatedAt = now;
