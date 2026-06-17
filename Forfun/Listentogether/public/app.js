@@ -68,6 +68,7 @@ let loadedVideoId = null;
 let suppressNativeUntil = 0;  // ignore anchor onStateChange right after a programmatic change
 let noticeUntil = 0;
 let recoForVideo = null;
+const recoCache = {}; // videoId → tracks, to avoid re-spending API quota
 
 function showNotice(msg, ms = 8000) {
   syncStatus.textContent = msg;
@@ -380,12 +381,15 @@ function maybeFetchReco(s) {
   if (!cur) { recoEl.innerHTML = ''; recoNote.textContent = '곡이 재생되면 추천이 떠요.'; recoForVideo = null; return; }
   if (recoForVideo === cur.id) return;
   recoForVideo = cur.id;
+  if (recoCache[cur.id]) { recoNote.textContent = '현재 곡 기반 추천'; renderReco(recoCache[cur.id]); return; }
   recoNote.textContent = '추천 불러오는 중…';
   fetch(`/api/recommend?videoId=${encodeURIComponent(cur.id)}&title=${encodeURIComponent(cur.title)}`)
     .then((r) => r.json())
     .then((d) => {
       if (d.error === 'NO_KEY') { recoNote.textContent = '추천을 켜려면 서버에 YT_API_KEY를 연결하세요.'; renderReco([]); return; }
+      if (d.error && /4(29|03)/.test(String(d.error))) { recoNote.textContent = '오늘 추천 한도(무료 쿼터) 소진 — 태평양 자정에 리셋돼요.'; renderReco([]); return; }
       if (d.error) { recoNote.textContent = '추천을 불러오지 못했어요.'; renderReco([]); return; }
+      recoCache[cur.id] = d.tracks || [];
       recoNote.textContent = '현재 곡 기반 추천';
       renderReco(d.tracks || []);
     })
@@ -529,6 +533,10 @@ async function doSearch(q) {
   try {
     const d = await (await fetch(`/api/search?q=${encodeURIComponent(q)}`)).json();
     if (d.error === 'NO_KEY') { showNotice('검색을 켜려면 서버에 YT_API_KEY를 연결하세요.', 12000); return; }
+    if (d.error && /4(29|03)/.test(String(d.error))) {
+      showNotice('오늘 유튜브 검색 한도(무료 쿼터)를 다 썼어요. 태평양 자정에 리셋돼요. 그때까진 영상 URL을 붙여넣어 추가하세요.', 15000);
+      return;
+    }
     if (d.error || !d.tracks || !d.tracks.length) { showNotice('검색 결과가 없어요.', 6000); return; }
     renderSearchResults(q, d.tracks);
     syncStatus.textContent = '';
