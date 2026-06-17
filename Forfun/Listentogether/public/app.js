@@ -34,6 +34,8 @@ const nowTime = $('#now-time');
 const addInput = $('#add-input');
 const takeControlBtn = $('#take-control');
 const startGate = $('#start-gate');
+const vinyl = $('#vinyl');
+const eqEl = $('#eq');
 
 // State
 let socket = null;
@@ -205,6 +207,7 @@ function startLoops() {
     if (!player || !started) return;
     try {
       nowTime.textContent = fmtTime(player.getCurrentTime());
+      updateDeck();
       if (Date.now() < noticeUntil) return;
       if (!lastState || !currentTrack(lastState)) { syncStatus.textContent = ''; return; }
       if (!isAnchor) {
@@ -341,6 +344,7 @@ $('#join-form').addEventListener('submit', (e) => {
 startGate.addEventListener('click', () => {
   started = true;
   startGate.classList.add('hidden');
+  ensureAudio(); // unlock Web Audio (scratch SFX) within the user gesture
   // Resume: if a track is loaded, play it (we're inside the user gesture).
   if (lastState && player && playerReady) {
     const cur = currentTrack(lastState);
@@ -393,6 +397,86 @@ takeControlBtn.addEventListener('click', () => socket.emit('take_control'));
 $('#leave-btn').addEventListener('click', () => {
   if (socket) socket.disconnect();
   location.href = location.pathname;
+});
+
+// ---- DJ deck: spinning vinyl + stylized EQ + scratch-to-skip ----
+// NOTE: YouTube's iframe audio can't be analyzed cross-origin, so the EQ bars are
+// a stylized animation tied to play/pause (not true frequency data), and the tone
+// knobs are visual. The scratch sound is a real Web Audio synth on the page.
+const EQ_BARS = 28;
+const eqBars = [];
+for (let i = 0; i < EQ_BARS; i++) {
+  const b = document.createElement('span');
+  b.className = 'eq-bar';
+  eqEl.appendChild(b);
+  eqBars.push(b);
+}
+let eqRaf = null;
+let eqGain = 0.7;
+function eqFrame() {
+  const now = Date.now() / 1000;
+  for (let i = 0; i < eqBars.length; i++) {
+    const base = Math.sin(now * 6 + i * 0.5) * 0.5 + 0.5;
+    const h = Math.min(1, (base * 0.65 + Math.random() * 0.4) * eqGain);
+    eqBars[i].style.height = (8 + h * 92) + '%';
+  }
+  eqRaf = requestAnimationFrame(eqFrame);
+}
+function startEq() { if (!eqRaf) eqFrame(); }
+function stopEq() {
+  if (eqRaf) { cancelAnimationFrame(eqRaf); eqRaf = null; }
+  eqBars.forEach((b) => (b.style.height = '8%'));
+}
+function isPlayingNow() {
+  try { if (player && started && playerReady) return player.getPlayerState() === YT.PlayerState.PLAYING; } catch { /* */ }
+  return !!(lastState && lastState.isPlaying);
+}
+function updateDeck() {
+  const playing = isPlayingNow();
+  vinyl.classList.toggle('spinning', playing);
+  if (playing) startEq(); else stopEq();
+}
+
+let audioCtx = null;
+function ensureAudio() {
+  if (audioCtx) return;
+  try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch { /* */ }
+}
+function scratch() {
+  ensureAudio();
+  if (!audioCtx) return;
+  const ctx = audioCtx;
+  const now = ctx.currentTime;
+  const dur = 0.34;
+  const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.Q.value = 7;
+  bp.frequency.setValueAtTime(1900, now);
+  bp.frequency.exponentialRampToValueAtTime(280, now + dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.35, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+  src.connect(bp).connect(g).connect(ctx.destination);
+  src.start(now);
+  src.stop(now + dur);
+}
+
+vinyl.addEventListener('click', () => {
+  scratch();
+  if (socket && lastState && lastState.queue && lastState.queue.length) {
+    socket.emit('control', { action: 'next' });
+  }
+});
+
+document.querySelectorAll('.knob input').forEach((inp) => {
+  inp.addEventListener('input', () => {
+    if (inp.dataset.eq === 'gain') eqGain = 0.3 + (inp.value / 100) * 0.95;
+  });
 });
 
 // ---- Session restore: prefill + auto-rejoin on refresh ----

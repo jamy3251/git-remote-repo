@@ -48,6 +48,23 @@
           <button id="start-gate" class="start-gate hidden">▶ 탭하여 같이 듣기</button>
         </div>
 
+        <!-- DJ deck: spinning vinyl + reactive-style EQ + decorative tone knobs -->
+        <div class="deck">
+          <button id="vinyl" class="vinyl" title="LP를 돌리면 스크래치 → 다음 곡">
+            <span class="vinyl-shine"></span>
+            <span class="vinyl-label">LT</span>
+          </button>
+          <div class="deck-right">
+            <div id="eq" class="deck-eq" aria-hidden="true"></div>
+            <div class="deck-knobs">
+              <label class="knob"><span>LOW</span><input type="range" min="0" max="100" value="55" data-eq="low" /></label>
+              <label class="knob"><span>MID</span><input type="range" min="0" max="100" value="55" data-eq="mid" /></label>
+              <label class="knob"><span>HIGH</span><input type="range" min="0" max="100" value="55" data-eq="high" /></label>
+              <label class="knob"><span>GAIN</span><input type="range" min="0" max="100" value="70" data-eq="gain" /></label>
+            </div>
+          </div>
+        </div>
+
         <div id="now-playing" class="now-playing muted">대기열이 비어 있어요. 아래에 유튜브 링크를 추가하세요.</div>
 
         <div class="transport">

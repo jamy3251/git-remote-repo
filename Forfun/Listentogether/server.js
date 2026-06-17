@@ -91,34 +91,57 @@ async function playlistTracks(playlistId) {
   }
 }
 
-// Recommendations: music-category search seeded by the current track's title.
+// Normalize a title for de-duplication / same-song detection.
+function normTitle(t) {
+  return String(t || '')
+    .toLowerCase()
+    .replace(/\(.*?\)|\[.*?\]/g, ' ')
+    .replace(/official|video|audio|lyrics?|m\/?v|remaster(ed)?|hd|4k|live|color\s*coded|han\/?rom\/?eng/gi, ' ')
+    .replace(/feat\.?|ft\.?/gi, ' ')
+    .replace(/[^a-z0-9가-힣 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Recommendations: music-category search seeded by the current track's ARTIST
+// (so we get OTHER songs, not 8 versions of the same one). The official API's
+// related-videos was removed in 2023, so this is search-based + de-duped.
 async function recommend(seedTitle, excludeId) {
   if (!YT_API_KEY) return { error: 'NO_KEY' };
-  const q = String(seedTitle || '')
-    .replace(/\(.*?\)|\[.*?\]/g, '')
-    .replace(/official|video|audio|mv|lyrics|m\/v/gi, '')
-    .trim()
-    .slice(0, 80);
+  const raw = String(seedTitle || '');
+  // Split "Artist - Song" → search by artist, exclude the seed song's variants.
+  const dash = raw.split(/[-–—]/);
+  const artist = dash.length >= 2 ? dash[0] : '';
+  const songPart = dash.length >= 2 ? dash.slice(1).join(' ') : raw;
+  const q = (normTitle(artist) || normTitle(raw)).slice(0, 60);
+  const songKey = normTitle(songPart);
   if (!q) return { tracks: [] };
   try {
     const u = new URL('https://www.googleapis.com/youtube/v3/search');
     u.searchParams.set('part', 'snippet');
     u.searchParams.set('type', 'video');
     u.searchParams.set('videoCategoryId', '10'); // Music
-    u.searchParams.set('maxResults', '12');
+    u.searchParams.set('maxResults', '24');
     u.searchParams.set('q', q);
     u.searchParams.set('key', YT_API_KEY);
     const r = await fetch(u);
     if (!r.ok) return { error: `YT_${r.status}` };
     const j = await r.json();
-    const tracks = (j.items || [])
-      .map((it) => ({
-        id: it.id?.videoId,
-        title: it.snippet?.title,
-        channel: it.snippet?.channelTitle,
-      }))
-      .filter((t) => t.id && t.title && t.id !== excludeId)
-      .slice(0, 8);
+    const seen = new Set();
+    const tracks = [];
+    for (const it of j.items || []) {
+      const id = it.id?.videoId;
+      const title = it.snippet?.title;
+      const channel = it.snippet?.channelTitle;
+      if (!id || !title || id === excludeId) continue;
+      const key = normTitle(title);
+      if (!key) continue;
+      if (songKey && songKey.length > 3 && key.includes(songKey)) continue; // skip same-song variants
+      if (seen.has(key)) continue; // skip dup titles
+      seen.add(key);
+      tracks.push({ id, title, channel });
+      if (tracks.length >= 8) break;
+    }
     return { tracks };
   } catch {
     return { error: 'FETCH_FAILED' };
