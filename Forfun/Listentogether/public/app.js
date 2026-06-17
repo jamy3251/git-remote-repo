@@ -33,6 +33,10 @@ const syncStatus = $('#sync-status');
 const nowTime = $('#now-time');
 const addInput = $('#add-input');
 const searchResults = $('#search-results');
+const miniChat = $('#mini-chat');
+const chatMsgs = $('#chat-msgs');
+const chatInput = $('#chat-input');
+const chatToggle = $('#chat-toggle');
 const takeControlBtn = $('#take-control');
 const startGate = $('#start-gate');
 const vinyl = $('#vinyl');
@@ -400,6 +404,7 @@ function enterRoom(code, name) {
   socket.on('state', applyState);
   socket.on('error_msg', (msg) => { lobbyError.textContent = msg; });
   socket.on('disconnect', () => { syncStatus.textContent = '연결 끊김 · 재접속 시도 중…'; });
+  socket.on('chat', onChat);
   ensurePlayer();
 }
 
@@ -548,6 +553,36 @@ $('#leave-btn').addEventListener('click', () => {
   location.href = location.pathname;
 });
 
+// ---- Mini chat ----
+function onChat({ name, text, you }) {
+  const li = document.createElement('div');
+  li.className = 'chat-msg' + (you === (socket && socket.id) ? ' me' : '');
+  const who = document.createElement('span');
+  who.className = 'who';
+  who.textContent = name + ':';
+  li.appendChild(who);
+  li.appendChild(document.createTextNode(' ' + text)); // textContent → no XSS
+  chatMsgs.appendChild(li);
+  while (chatMsgs.children.length > 60) chatMsgs.removeChild(chatMsgs.firstChild);
+  chatMsgs.scrollTop = chatMsgs.scrollHeight;
+  if (miniChat.classList.contains('collapsed') && you !== (socket && socket.id)) {
+    chatToggle.classList.add('unread');
+  }
+}
+chatToggle.addEventListener('click', () => {
+  miniChat.classList.remove('collapsed');
+  chatToggle.classList.remove('unread');
+  chatInput.focus();
+});
+$('#chat-close').addEventListener('click', () => miniChat.classList.add('collapsed'));
+$('#chat-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const t = chatInput.value.trim();
+  if (!t || !socket) return;
+  socket.emit('chat', { text: t });
+  chatInput.value = '';
+});
+
 // ---- DJ deck: spinning vinyl + stylized EQ + scratch-to-skip ----
 // NOTE: YouTube's iframe audio can't be analyzed cross-origin, so the EQ bars are
 // a stylized animation tied to play/pause (not true frequency data), and the tone
@@ -572,6 +607,7 @@ function bandWeight(frac) { return frac < 0.34 ? eqLow : frac < 0.67 ? eqMid : e
 // playback, since the iframe audio is cross-origin). null until the user enables it.
 let analyser = null;
 let freqData = null;
+let timeData = null;
 let micStream = null;
 function spectrum(n) {
   if (!analyser) return null;
@@ -579,6 +615,13 @@ function spectrum(n) {
   const usable = Math.max(8, Math.floor(freqData.length * 0.7)); // music energy sits low-mid
   const out = new Array(n);
   for (let i = 0; i < n; i++) out[i] = freqData[Math.floor((i / n) * usable)] / 255;
+  return out;
+}
+function waveform(n) {
+  if (!analyser || !timeData) return null;
+  analyser.getByteTimeDomainData(timeData);
+  const out = new Array(n);
+  for (let i = 0; i < n; i++) out[i] = (timeData[Math.floor((i / n) * timeData.length)] - 128) / 128;
   return out;
 }
 
@@ -617,36 +660,84 @@ function sizeVis() {
   visCanvas.height = Math.round(r.height * dpr);
   visCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
+let visPeaks = null;
 function visFrame(ts) {
   visRaf = requestAnimationFrame(visFrame);
   if (ts - visLast < 33) return; // ~30fps
   visLast = ts;
   if (!visCtx) return;
   const w = visCanvas.clientWidth, h = visCanvas.clientHeight;
-  visCtx.clearRect(0, 0, w, h);
+  // Fade trail (motion blur) instead of a hard clear.
+  visCtx.globalCompositeOperation = 'source-over';
+  visCtx.fillStyle = 'rgba(7,8,12,0.3)';
+  visCtx.fillRect(0, 0, w, h);
+
   const cx = w / 2, cy = h / 2;
   const t = Date.now() / 1000;
-  const N = 56;
-  const radius = Math.min(w, h) * 0.24;
+  const N = 72;
+  const radius = Math.min(w, h) * 0.2;
   const spec = spectrum(N);
-  visCtx.lineWidth = 3; visCtx.lineCap = 'round';
-  for (let i = 0; i < N; i++) {
-    const ang = (i / N) * Math.PI * 2 + t * 0.25;
-    const amp = spec ? Math.min(1.3, spec[i] * 1.6) : (Math.sin(t * 4 + i * 0.45) * 0.5 + 0.5) * 0.6 + Math.random() * 0.4;
-    const len = radius * 0.95 * amp * eqGain * bandWeight(i / N) * energy;
-    const c = Math.cos(ang), s = Math.sin(ang);
-    visCtx.strokeStyle = `hsl(${(i / N) * 300 + t * 60}, 85%, 62%)`;
-    visCtx.beginPath();
-    visCtx.moveTo(cx + c * radius, cy + s * radius);
-    visCtx.lineTo(cx + c * (radius + len), cy + s * (radius + len));
-    visCtx.stroke();
-  }
-  const pulse = radius * (0.72 + Math.sin(t * 4) * 0.06);
-  const g = visCtx.createRadialGradient(cx, cy, 0, cx, cy, pulse);
-  g.addColorStop(0, 'rgba(108,92,231,0.45)');
-  g.addColorStop(1, 'rgba(108,92,231,0)');
+  const wave = waveform(N);
+  if (!visPeaks || visPeaks.length !== N) visPeaks = new Array(N).fill(0);
+
+  // Bass average drives the centre pulse.
+  let bass = 0;
+  if (spec) { for (let i = 0; i < 6; i++) bass += spec[i]; bass /= 6; }
+  else bass = 0.4 + Math.sin(t * 4) * 0.15;
+
+  visCtx.globalCompositeOperation = 'lighter';
+
+  // Centre glow.
+  const pr = radius * (0.7 + bass * 0.6);
+  const g = visCtx.createRadialGradient(cx, cy, 0, cx, cy, pr);
+  g.addColorStop(0, 'rgba(47,109,246,0.5)');
+  g.addColorStop(0.6, 'rgba(92,179,255,0.16)');
+  g.addColorStop(1, 'rgba(92,179,255,0)');
   visCtx.fillStyle = g;
-  visCtx.beginPath(); visCtx.arc(cx, cy, pulse, 0, Math.PI * 2); visCtx.fill();
+  visCtx.beginPath(); visCtx.arc(cx, cy, pr, 0, Math.PI * 2); visCtx.fill();
+
+  // Mirrored radial frequency bars + peak caps.
+  visCtx.lineWidth = Math.max(2, (Math.PI * radius) / N * 0.7);
+  visCtx.lineCap = 'round';
+  for (let i = 0; i < N; i++) {
+    const amp = spec ? Math.min(1.25, spec[i] * 1.5)
+      : (Math.sin(t * 4 + i * 0.4) * 0.5 + 0.5) * 0.55 + Math.random() * 0.3;
+    const wt = bandWeight(i / N) * energy;
+    const len = radius * 1.05 * amp * eqGain * wt;
+    if (amp > visPeaks[i]) visPeaks[i] = amp; else visPeaks[i] = Math.max(0, visPeaks[i] - 0.018);
+    const peakLen = radius * 1.05 * visPeaks[i] * eqGain * wt;
+    const hue = 205 + (i / N) * 120;
+    for (let d = 0; d < 2; d++) {
+      const dir = d === 0 ? 1 : -1;
+      const ang = -Math.PI / 2 + dir * (i / N) * Math.PI;
+      const c = Math.cos(ang), s = Math.sin(ang);
+      visCtx.strokeStyle = `hsl(${hue}, 90%, ${56 + amp * 16}%)`;
+      visCtx.beginPath();
+      visCtx.moveTo(cx + c * radius, cy + s * radius);
+      visCtx.lineTo(cx + c * (radius + len), cy + s * (radius + len));
+      visCtx.stroke();
+      visCtx.fillStyle = 'rgba(255,255,255,0.75)';
+      visCtx.beginPath(); visCtx.arc(cx + c * (radius + peakLen), cy + s * (radius + peakLen), 1.5, 0, Math.PI * 2); visCtx.fill();
+    }
+  }
+
+  // Oscilloscope waveform ring (real only with mic).
+  if (wave) {
+    visCtx.strokeStyle = 'rgba(231,236,243,0.7)';
+    visCtx.lineWidth = 1.6;
+    const wr = radius * 0.74;
+    visCtx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const idx = i % N;
+      const ang = (i / N) * Math.PI * 2 - Math.PI / 2;
+      const rr = wr + wave[idx] * radius * 0.4;
+      const x = cx + Math.cos(ang) * rr, y = cy + Math.sin(ang) * rr;
+      if (i === 0) visCtx.moveTo(x, y); else visCtx.lineTo(x, y);
+    }
+    visCtx.closePath(); visCtx.stroke();
+  }
+
+  visCtx.globalCompositeOperation = 'source-over';
 }
 function startVis() { if (!visRaf && visCtx) { sizeVis(); visRaf = requestAnimationFrame(visFrame); } }
 function stopVis() {
@@ -832,12 +923,58 @@ function fxHorn() {
   const now = ctx.currentTime; stab(now, 0.5); stab(now + 0.62, 0.7);
 }
 const FX = { bass: fxBass, rumble: fxRumble, riser: fxRiser, horn: fxHorn };
+
+// Drum synths (kick/snare/hihat) — real Web Audio.
+function drumKick() {
+  const ctx = audioCtx, now = ctx.currentTime;
+  const o = ctx.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(150, now); o.frequency.exponentialRampToValueAtTime(50, now + 0.12);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.9, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+  o.connect(g).connect(ctx.destination); o.start(now); o.stop(now + 0.34);
+}
+function drumSnare() {
+  const ctx = audioCtx, now = ctx.currentTime;
+  const src = ctx.createBufferSource(); src.buffer = noiseBuffer(0.2);
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500;
+  const ng = ctx.createGain(); ng.gain.setValueAtTime(0.6, now); ng.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+  src.connect(hp).connect(ng).connect(ctx.destination);
+  const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = 180;
+  const og = ctx.createGain(); og.gain.setValueAtTime(0.5, now); og.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+  o.connect(og).connect(ctx.destination);
+  src.start(now); o.start(now); src.stop(now + 0.2); o.stop(now + 0.14);
+}
+function drumHat() {
+  const ctx = audioCtx, now = ctx.currentTime;
+  const src = ctx.createBufferSource(); src.buffer = noiseBuffer(0.06);
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7000;
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.4, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+  src.connect(hp).connect(g).connect(ctx.destination); src.start(now); src.stop(now + 0.06);
+}
+const DRUMS = { kick: drumKick, snare: drumSnare, hihat: drumHat };
+
+// User-provided sample pads (e.g., meme clips). Drop files in public/sfx/<name>.mp3.
+const sfxCache = {};
+function playSfx(name) {
+  let a = sfxCache[name];
+  if (!a) {
+    a = new Audio(`/sfx/${name}.mp3`);
+    a.addEventListener('error', () => showNotice(`샘플이 없어요. public/sfx/${name}.mp3 파일을 추가하면 이 버튼에서 재생돼요.`, 10000));
+    sfxCache[name] = a;
+  }
+  try { a.currentTime = 0; } catch { /* */ }
+  a.play().catch(() => showNotice(`샘플 재생 실패 — public/sfx/${name}.mp3 확인.`, 8000));
+}
+
 document.querySelectorAll('.fx-btn').forEach((b) => {
   b.addEventListener('click', () => {
-    ensureAudio();
-    if (!audioCtx) return;
-    const fn = FX[b.dataset.fx];
-    if (fn) { try { fn(); } catch { /* */ } b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 200); }
+    if (b.dataset.sfx) { playSfx(b.dataset.sfx); }
+    else {
+      ensureAudio();
+      if (!audioCtx) return;
+      const fn = FX[b.dataset.fx] || DRUMS[b.dataset.drum];
+      if (fn) { try { fn(); } catch { /* */ } }
+    }
+    b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 180);
   });
 });
 
@@ -862,6 +999,7 @@ async function toggleMic() {
     a.smoothingTimeConstant = 0.75;
     src.connect(a); // intentionally NOT connected to destination (no feedback)
     freqData = new Uint8Array(a.frequencyBinCount);
+    timeData = new Uint8Array(a.fftSize);
     analyser = a;
     micBtn.classList.add('on'); micBtn.textContent = '🎤 반응 ON';
     showNotice('마이크로 실제 소리에 반응해요. 스피커 음악이 마이크에 들려야 잘 움직여요.', 9000);

@@ -358,6 +358,16 @@ io.on('connection', (socket) => {
     socket.to(joinedCode).emit('state', snapshot(room));
   });
 
+  // Mini chat — ephemeral, relayed to the room (not stored).
+  socket.on('chat', ({ text } = {}) => {
+    const room = joinedCode && rooms.get(joinedCode);
+    if (!room || !room.members.has(socket.id)) return;
+    const t = String(text || '').slice(0, 300).trim();
+    if (!t) return;
+    const name = room.members.get(socket.id).name;
+    io.to(joinedCode).emit('chat', { name, text: t, you: socket.id });
+  });
+
   socket.on('take_control', () => {
     const room = joinedCode && rooms.get(joinedCode);
     if (!room || !room.members.has(socket.id)) return;

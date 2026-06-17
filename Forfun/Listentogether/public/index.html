@@ -101,11 +101,18 @@
         <!-- DJ mixer deck (moved to the side) -->
         <div class="deck">
           <div id="deck-bg" class="deck-bg" aria-hidden="true"></div>
-          <button id="vinyl" class="vinyl" title="LP를 돌리면 스크래치 → 다음 곡">
-            <span class="vinyl-shine"></span>
-            <span id="vinyl-label" class="vinyl-label">LT</span>
-            <span class="tonearm" aria-hidden="true"></span>
-          </button>
+          <div class="turntable">
+            <button id="vinyl" class="vinyl" title="LP 클릭 → 스크래치 + 다음 곡">
+              <span class="vinyl-grooves" aria-hidden="true"></span>
+              <span class="vinyl-shine" aria-hidden="true"></span>
+              <span id="vinyl-label" class="vinyl-label">LT</span>
+              <span class="spindle" aria-hidden="true"></span>
+            </button>
+            <span class="tonearm" aria-hidden="true">
+              <span class="tonearm-pivot"></span>
+              <span class="tonearm-head"></span>
+            </span>
+          </div>
           <div class="deck-right">
             <div id="eq" class="deck-eq" aria-hidden="true"></div>
             <div class="deck-knobs">
@@ -120,6 +127,13 @@
               <button class="fx-btn" data-fx="rumble">럼블</button>
               <button class="fx-btn" data-fx="riser">라이저</button>
               <button class="fx-btn" data-fx="horn">에어혼</button>
+            </div>
+            <div class="deck-fx" title="비트 + 샘플 패드">
+              <button class="fx-btn" data-drum="kick">킥</button>
+              <button class="fx-btn" data-drum="snare">스네어</button>
+              <button class="fx-btn" data-drum="hihat">하이햇</button>
+              <button class="fx-btn" data-sfx="yeoja" title="public/sfx/yeoja.mp3 재생">여짜</button>
+              <button class="fx-btn" data-sfx="sanae" title="public/sfx/sanae.mp3 재생">싸나에</button>
             </div>
             <label class="xfader"><span>XFADE</span><input type="range" min="0" max="100" value="50" id="xfader" /></label>
           </div>
@@ -146,6 +160,19 @@
     </div>
 
     <button id="leave-btn" class="btn ghost wide">나가기</button>
+
+    <!-- Mini chat (bottom-left) -->
+    <div id="mini-chat" class="mini-chat collapsed">
+      <button id="chat-toggle" class="chat-toggle">💬 채팅</button>
+      <div class="chat-body">
+        <div class="chat-head">채팅 <button id="chat-close" class="btn tiny" type="button">✕</button></div>
+        <div id="chat-msgs" class="chat-msgs"></div>
+        <form id="chat-form" class="chat-form" autocomplete="off">
+          <input id="chat-input" type="text" maxlength="300" placeholder="메시지…" />
+          <button type="submit" class="btn tiny primary">전송</button>
+        </form>
+      </div>
+    </div>
   </main>
 
   <script src="https://www.youtube.com/iframe_api"></script>
