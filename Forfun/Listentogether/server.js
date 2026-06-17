@@ -287,12 +287,14 @@ io.on('connection', (socket) => {
     const wasEmpty = room.queue.length === 0;
     room.queue.push(...clean);
     if (wasEmpty) {
+      // First track starts playback. Appending to a non-empty queue must NOT
+      // touch position/updatedAt, or clients re-seek and the video buffers.
       room.index = 0;
       room.position = 0;
       room.isPlaying = true;
+      room.updatedAt = Date.now();
     }
     room.seq++;
-    room.updatedAt = Date.now();
     broadcastState(joinedCode);
   });
 
@@ -328,11 +330,14 @@ io.on('connection', (socket) => {
     if (!room || !room.members.has(socket.id)) return;
     if (typeof index !== 'number' || index < 0 || index >= room.queue.length) return;
     room.queue.splice(index, 1);
+    let currentRemoved = false;
     if (index < room.index) room.index--;
-    else if (index === room.index) room.position = 0; // current removed → next slides in
+    else if (index === room.index) { room.position = 0; currentRemoved = true; } // next slides in
     if (room.index >= room.queue.length) room.index = Math.max(0, room.queue.length - 1);
     room.seq++;
-    room.updatedAt = Date.now();
+    // Only a removed CURRENT track changes playback → reset updatedAt then.
+    // Removing other items must not re-seek the current video.
+    if (currentRemoved) room.updatedAt = Date.now();
     broadcastState(joinedCode);
   });
 
@@ -350,8 +355,9 @@ io.on('connection', (socket) => {
     if (from === room.index) c = to;
     else { if (from < c) c -= 1; if (to <= c) c += 1; }
     room.index = Math.max(0, Math.min(room.queue.length - 1, c));
+    // Reorder doesn't change the current track or its position → don't reset
+    // updatedAt (would cause a re-seek/buffer on the clients).
     room.seq++;
-    room.updatedAt = Date.now();
     broadcastState(joinedCode);
   });
 

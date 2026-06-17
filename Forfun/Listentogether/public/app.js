@@ -61,6 +61,7 @@ let pendingState = null;
 let lastState = null;
 let lastStateRecvAt = 0;
 let lastSeq = -1;
+let lastIsPlaying = null;
 let isAnchor = false;
 let started = false;          // user tapped the gate (audio unlocked)
 let loadedVideoId = null;
@@ -165,22 +166,26 @@ function applyState(s) {
 
   const cur = currentTrack(s);
   // Load/cue the current track if it changed (cue when not started → no black screen).
-  if (cur && cur.id !== loadedVideoId) {
-    loadOrCue(cur.id, expectedPosition(s));
-  } else if (!cur) {
-    loadedVideoId = null;
-  }
+  const trackChanged = !!(cur && cur.id !== loadedVideoId);
+  if (trackChanged) loadOrCue(cur.id, expectedPosition(s));
+  else if (!cur) loadedVideoId = null;
 
   const isControl = s.seq !== lastSeq;
+  const playChanged = lastIsPlaying !== s.isPlaying;
+  lastIsPlaying = s.isPlaying;
 
   if (!started) {
     lastSeq = s.seq;
+    updateGate();
     return; // gate not tapped yet; track is cued, waiting for the user
   }
 
   if (isControl) {
     lastSeq = s.seq;
-    applyPlayPauseAndSeek(s, true); // explicit change → everyone (incl anchor) obeys
+    // Only touch the player on REAL playback changes (track switch / play-pause).
+    // Pure queue edits (add / search / reorder / remove-other) must NOT seek,
+    // otherwise every action causes a tiny re-seek → buffering.
+    if (trackChanged || playChanged) applyPlayPauseAndSeek(s, true);
   } else if (!isAnchor) {
     applyPlayPauseAndSeek(s, false); // heartbeat → guests drift-correct
   }
