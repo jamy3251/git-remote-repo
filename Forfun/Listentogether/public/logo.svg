@@ -1,0 +1,27 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Listen Together">
+  <defs>
+    <linearGradient id="lt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5cb3ff"/>
+      <stop offset="1" stop-color="#1e40af"/>
+    </linearGradient>
+  </defs>
+  <!-- headphone band -->
+  <path d="M11 37 V31 a21 21 0 0 1 42 0 V37" fill="none" stroke="url(#lt)" stroke-width="5" stroke-linecap="round"/>
+  <!-- ear cups -->
+  <rect x="7" y="34.5" width="9.5" height="17" rx="4.75" fill="url(#lt)"/>
+  <rect x="47.5" y="34.5" width="9.5" height="17" rx="4.75" fill="url(#lt)"/>
+  <!-- two heads -->
+  <circle cx="25.5" cy="33" r="6.2" fill="url(#lt)"/>
+  <circle cx="38.5" cy="33" r="6.2" fill="url(#lt)"/>
+  <!-- two overlapping shoulders -->
+  <path d="M14.5 54 a11 11 0 0 1 22 0 Z" fill="url(#lt)"/>
+  <path d="M27.5 54 a11 11 0 0 1 22 0 Z" fill="url(#lt)" opacity="0.82"/>
+  <!-- music notes -->
+  <g fill="#5cb3ff">
+    <circle cx="42.5" cy="20.5" r="2.7"/>
+    <rect x="44.6" y="11.5" width="1.9" height="9.5" rx="0.9"/>
+    <circle cx="49.5" cy="18.5" r="2.3"/>
+    <rect x="51.3" y="10.5" width="1.7" height="8.3" rx="0.8"/>
+    <path d="M44.6 11.5 h8.4 v2 h-8.4 z"/>
+  </g>
+</svg>

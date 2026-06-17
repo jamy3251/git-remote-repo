@@ -3,17 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Listen Together — 같이 듣기</title>
+  <title>listen together — 같이 듣기</title>
+  <link rel="icon" href="/logo.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://www.youtube.com" />
   <link rel="preconnect" href="https://i.ytimg.com" crossorigin />
   <link rel="dns-prefetch" href="https://img.youtube.com" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <!-- Lobby -->
   <main id="lobby" class="screen">
     <div class="brand">
-      <h1>Listen&nbsp;Together</h1>
+      <img src="/logo.svg" class="brand-icon" alt="" width="92" height="92" />
+      <h1>listen together</h1>
       <p class="tagline">게임하며 둘이, 끊김 없이, 같은 노래를 같은 순간에.</p>
     </div>
     <form id="join-form" class="card" autocomplete="off">
@@ -36,6 +41,7 @@
   <!-- Room -->
   <main id="room" class="screen hidden">
     <header class="room-head">
+      <span class="logo logo-row"><img src="/logo.svg" alt="" /> listen together</span>
       <div>
         <span class="muted">방 코드</span>
         <strong id="room-code-label">----</strong>
