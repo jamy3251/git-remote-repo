@@ -785,6 +785,62 @@ function synthHit(freq) {
   o.stop(now + 0.47);
 }
 
+// DJ sound FX — real Web Audio synths layered over the music (the YouTube audio
+// itself can't be EQ'd cross-origin, so these are added sounds, not filters).
+function noiseBuffer(dur) {
+  const buf = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * dur), audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return buf;
+}
+function fxBass() {
+  const ctx = audioCtx, now = ctx.currentTime;
+  const o = ctx.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(120, now); o.frequency.exponentialRampToValueAtTime(38, now + 0.2);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.6, now + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
+  o.connect(g).connect(ctx.destination); o.start(now); o.stop(now + 0.72);
+}
+function fxRumble() {
+  const ctx = audioCtx, now = ctx.currentTime, dur = 1.4;
+  const src = ctx.createBufferSource(); src.buffer = noiseBuffer(dur);
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 90; lp.Q.value = 2;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(0.5, now + 0.4); g.gain.linearRampToValueAtTime(0.0001, now + dur);
+  src.connect(lp).connect(g).connect(ctx.destination); src.start(now); src.stop(now + dur);
+}
+function fxRiser() {
+  const ctx = audioCtx, now = ctx.currentTime, dur = 1.6;
+  const src = ctx.createBufferSource(); src.buffer = noiseBuffer(dur + 0.2);
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 4;
+  bp.frequency.setValueAtTime(300, now); bp.frequency.exponentialRampToValueAtTime(7000, now + dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.05, now); g.gain.exponentialRampToValueAtTime(0.34, now + dur); g.gain.exponentialRampToValueAtTime(0.0001, now + dur + 0.15);
+  src.connect(bp).connect(g).connect(ctx.destination); src.start(now); src.stop(now + dur + 0.15);
+}
+function fxHorn() {
+  const ctx = audioCtx;
+  const stab = (t0, dur) => {
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(380, t0);
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 6;
+    const lfoG = ctx.createGain(); lfoG.gain.value = 12; lfo.connect(lfoG).connect(o.frequency);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.28, t0 + 0.03);
+    g.gain.setValueAtTime(0.28, t0 + dur - 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g).connect(ctx.destination); o.start(t0); lfo.start(t0); o.stop(t0 + dur); lfo.stop(t0 + dur);
+  };
+  const now = ctx.currentTime; stab(now, 0.5); stab(now + 0.62, 0.7);
+}
+const FX = { bass: fxBass, rumble: fxRumble, riser: fxRiser, horn: fxHorn };
+document.querySelectorAll('.fx-btn').forEach((b) => {
+  b.addEventListener('click', () => {
+    ensureAudio();
+    if (!audioCtx) return;
+    const fn = FX[b.dataset.fx];
+    if (fn) { try { fn(); } catch { /* */ } b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 200); }
+  });
+});
+
 // Mic toggle → real audio reactivity (only way to react to YouTube playback).
 async function toggleMic() {
   if (analyser) {
