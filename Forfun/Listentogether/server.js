@@ -203,7 +203,11 @@ app.get('/api/search', async (req, res) => {
 });
 
 const httpServer = createServer(app);
-const io = new Server(httpServer, { cors: { origin: false } });
+// Longer ping timeout so a backgrounded tab (alt-tabbed to the game) doesn't
+// drop the socket on every throttle. Paired with the empty-room grace period.
+const io = new Server(httpServer, { cors: { origin: false }, pingTimeout: 60000, pingInterval: 25000 });
+
+const EMPTY_ROOM_GRACE_MS = 120000; // keep an empty room's queue alive this long
 
 /**
  * rooms: Map<roomCode, RoomState>
@@ -225,6 +229,7 @@ function makeRoom() {
     position: 0,
     updatedAt: Date.now(),
     seq: 0, // bumped on every explicit control/queue change (NOT on heartbeat)
+    deleteTimer: null, // pending empty-room deletion (grace period)
   };
 }
 
@@ -260,6 +265,8 @@ io.on('connection', (socket) => {
     }
     let room = rooms.get(code);
     if (!room) { room = makeRoom(); rooms.set(code, room); }
+    // Cancel any pending empty-room deletion — someone came (back).
+    if (room.deleteTimer) { clearTimeout(room.deleteTimer); room.deleteTimer = null; }
     joinedCode = code;
     socket.join(code);
     room.members.set(socket.id, { name: (name || '익명').slice(0, 24) });
@@ -376,12 +383,23 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    const room = joinedCode && rooms.get(joinedCode);
+    const code = joinedCode;
+    const room = code && rooms.get(code);
     if (!room) return;
     room.members.delete(socket.id);
-    if (room.members.size === 0) { rooms.delete(joinedCode); return; }
+    if (room.members.size === 0) {
+      // Don't nuke the queue on a transient drop (alt-tab to the game). Keep the
+      // room alive for a grace period; delete only if still empty afterwards.
+      room.hostId = null; // next joiner becomes the sync anchor
+      if (room.deleteTimer) clearTimeout(room.deleteTimer);
+      room.deleteTimer = setTimeout(() => {
+        const r = rooms.get(code);
+        if (r && r.members.size === 0) rooms.delete(code);
+      }, EMPTY_ROOM_GRACE_MS);
+      return;
+    }
     if (room.hostId === socket.id) room.hostId = room.members.keys().next().value || null;
-    broadcastState(joinedCode);
+    broadcastState(code);
   });
 });
 
