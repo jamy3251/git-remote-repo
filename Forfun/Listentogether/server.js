@@ -207,7 +207,7 @@ const httpServer = createServer(app);
 // drop the socket on every throttle. Paired with the empty-room grace period.
 const io = new Server(httpServer, { cors: { origin: false }, pingTimeout: 60000, pingInterval: 25000 });
 
-const EMPTY_ROOM_GRACE_MS = 120000; // keep an empty room's queue alive this long
+const EMPTY_ROOM_GRACE_MS = 6 * 60 * 60 * 1000; // 6h — keep the queue alive through a whole session even if everyone steps away
 
 /**
  * rooms: Map<roomCode, RoomState>

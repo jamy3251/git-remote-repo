@@ -542,6 +542,14 @@ $('#add-form').addEventListener('submit', (e) => {
   if (looksLikeUrl(val)) resolveAndAdd(val);
   else doSearch(val);
 });
+// Korean IME: a plain Enter while composing only commits the syllable and doesn't
+// submit. Submit explicitly when Enter is pressed and we're NOT mid-composition.
+addInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
+    e.preventDefault();
+    document.querySelector('#add-form').requestSubmit();
+  }
+});
 
 function togglePlay() {
   if (!lastState) return;
@@ -586,6 +594,13 @@ $('#chat-form').addEventListener('submit', (e) => {
   if (!t || !socket) return;
   socket.emit('chat', { text: t });
   chatInput.value = '';
+});
+// Korean IME-safe Enter for chat too.
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
+    e.preventDefault();
+    document.querySelector('#chat-form').requestSubmit();
+  }
 });
 
 // ---- DJ deck: spinning vinyl + stylized EQ + scratch-to-skip ----
