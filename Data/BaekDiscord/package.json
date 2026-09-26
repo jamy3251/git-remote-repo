@@ -1,0 +1,17 @@
+{
+  "name": "devhub",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "web",
+    "runner"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w runner & npm run dev -w web",
+    "dev:web": "npm run dev -w web",
+    "dev:runner": "npm run dev -w runner",
+    "build": "npm run build -w runner && npm run build -w web",
+    "test": "npm run test -w runner && npm run test -w web",
+    "lint": "npm run lint -w web"
+  }
+}
