@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dccrawler"
+version = "0.2.0"
+description = "커뮤니티/앱리뷰 수집 + 페인포인트 분석 크롤러 (PainPointer 코퍼스 저장소 공용)"
+requires-python = ">=3.11"
+dependencies = [
+  "httpx>=0.27",
+  "beautifulsoup4>=4.12",
+  "lxml>=5.0",
+  "python-dotenv>=1.0",
+  "kiwipiepy>=0.18",
+]
+
+[project.optional-dependencies]
+web = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "jinja2>=3.1"]
+llm = ["anthropic>=0.40"]
+googleplay = ["google-play-scraper>=1.2"]
+test = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["dccrawler*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

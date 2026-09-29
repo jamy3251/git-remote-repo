@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>PainPointer 근거 리포트 — {{ q.pain|short(40) }}</title>
+<style>
+:root{--ink:#1a1a1a;--mut:#666;--line:#ddd;--bg:#fff;--soft:#f6f6f4;--warn:#fff4e5;--warnb:#f0a030;--bad:#fdeaea;--badb:#d9534f;--ok:#e8f3ea;--acc:#1f5f8b}
+*{box-sizing:border-box}
+body{margin:0;padding:24px 16px;font:15px/1.6 -apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;color:var(--ink);background:var(--bg);max-width:960px;margin-inline:auto}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:18px;margin:32px 0 8px;padding-top:12px;border-top:2px solid var(--ink)}h3{font-size:15px;margin:16px 0 6px}
+.mut{color:var(--mut);font-size:13px}
+.box{border:1px solid var(--line);border-radius:6px;padding:12px 14px;background:var(--soft);margin:12px 0}
+.banner{border-left:5px solid var(--warnb);background:var(--warn);padding:10px 14px;margin:12px 0;border-radius:4px}
+.banner.bad{border-color:var(--badb);background:var(--bad)}
+.funnel{font-family:ui-monospace,Consolas,monospace;font-size:14px;overflow-x:auto;white-space:nowrap}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:12px 0}
+.kpi .k{border:1px solid var(--line);border-radius:6px;padding:12px}
+.kpi .v{font-size:28px;font-weight:700;line-height:1.2}.kpi .l{font-size:13px;color:var(--mut)}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0}th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{background:var(--soft)}
+.chart{overflow-x:auto;margin:8px 0 16px}
+.chart svg{display:block}
+.bar{fill:var(--acc)}.bar.zero{fill:#ccc}
+.axis{font-size:10px;fill:var(--mut)}
+.quote{border-left:3px solid var(--acc);padding:8px 12px;margin:10px 0;background:var(--soft);border-radius:0 4px 4px 0}
+.quote .t{font-size:15px}.quote .src{font-size:12px;color:var(--mut);margin-top:4px}
+details{margin:8px 0}summary{cursor:pointer;font-weight:600}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border:1px solid var(--line);border-radius:10px;color:var(--mut);margin-left:4px}
+.tag.hi{border-color:var(--badb);color:var(--badb)}
+.pop{margin-top:6px;padding:8px;background:#fff;border:1px dashed var(--line);font-size:13px}
+.q{margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:6px}
+button{font:inherit;padding:6px 12px;border:1px solid var(--ink);background:#fff;border-radius:4px;cursor:pointer}
+code{background:var(--soft);padding:0 4px;border-radius:3px;font-size:13px}
+.diff td.up{color:#1a7f37}.diff td.down{color:#b42318}
+footer{margin-top:40px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--mut)}
+@media print{details{display:block}details>summary{list-style:none}details:not([open])>*:not(summary){display:block}button,.noprint{display:none}body{padding:0}}
+</style>
+</head>
+<body>
+<header>
+  <div class="mut">PainPointer 근거 리포트 · id <code>{{ r.id }}</code> · 생성 {{ r.created_at }} · 읽기 전용</div>
+  <h1>“{{ q.pain }}”</h1>
+  <div>타깃: <strong>{{ q.target }}</strong>{% if q.mode != "contest" %} <span class="tag">{{ q.mode }}</span>{% endif %}</div>
+</header>
+
+{# ---- 상단 경고 배너 ---- #}
+{% if m.failed_warn %}
+<div class="banner bad"><strong>판정 불가 비율 경고:</strong> 표본 {{ m.n_judged|num }}건 중 {{ m.n_failed|num }}건({{ (m.n_failed / m.n_judged)|pct }})이 판정 불가(F). 5%를 넘어 수치의 신뢰도가 낮습니다.</div>
+{% endif %}
+{% if q.expansion_status != "ok" %}
+<div class="banner">자동 검색어 확장 실패({{ q.expansion_status }}). 사용자가 확인한 검색어만으로 검색했습니다.</div>
+{% endif %}
+{% for s in r.source_status if s.days_stale is not none and s.days_stale >= cfg.SOURCE_STALE_DAYS %}
+<div class="banner">수집 중단 {{ s.days_stale }}일: {{ s.source }}/{{ s.board }} (마지막 성공 {{ s.last_ok or "없음" }})</div>
+{% endfor %}
+{% for s in r.source_status if s.suspect %}
+<div class="banner">수집 이상 의심: {{ s.source }}/{{ s.board }} — 최근 7일 일별 중앙값이 3건 이상인데 최근 실행이 0건</div>
+{% endfor %}
+
+{# ---- 0. 판정 기준 박스 ---- #}
+<h2>0. 판정 기준</h2>
+<div class="box">
+  <div class="funnel">
+    검색 적중 <b>{{ m.n_hit_total|num }}</b>건
+    → {% if m.sampled %}층화 표본 <b>{{ m.n_judged|num }}</b>건 판정{% else %}전수 <b>{{ m.n_judged|num }}</b>건 판정{% endif %}
+    → 관련 <b>{{ m.n_relevant|num }}</b>건 / 표본 {{ m.n_judged|num }}건
+    {% if m.insufficient %}
+    → 판정 불가 <b>{{ m.n_failed|num }}</b>건 · <em>근거 부족(M&lt;{{ min_relevant }} 또는 월&lt;{{ min_months }})으로 K·문제제기율 미표시</em>
+    {% else %}
+    → 페인 신호 <b>{{ m.n_pain|num }}</b>건 · 문제제기율 = {{ m.n_pain|num }}/{{ m.n_relevant|num }} = <b>{{ m.pain_rate|pct }}</b>
+    · 판정 불가 {{ m.n_failed|num }}건
+    {% endif %}
+  </div>
+  <details>
+    <summary>상세(스냅샷·검색어·중복 제거·작성자 식별·LLM 개입)</summary>
+    <h3>코퍼스 스냅샷(소스별 마지막 성공 수집)</h3>
+    {% if r.source_status %}
+    <table><tr><th>소스/보드</th><th>마지막 성공</th><th>경과</th><th>작성자 식별</th></tr>
+    {% for s in r.source_status %}<tr><td>{{ s.source }}/{{ s.board }}</td><td>{{ s.last_ok or "기록 없음" }}</td><td>{% if s.days_stale is none %}—{% else %}{{ s.days_stale }}일{% endif %}</td><td>{{ s.author_id_kind }}</td></tr>{% endfor %}
+    </table>
+    {% else %}<div class="mut">상시 수집 목록 없음 — 코퍼스 스냅샷 {{ m.snapshot_date }} (리포트 생성일 기준)</div>{% endif %}
+    <div class="mut">조회 창: {{ m.since }} ~ {{ m.snapshot_date }} ({{ m.window_months }}개월 창, 실제 커버 {{ m.months_covered }}개월)</div>
+
+    <h3>검색어 ({{ q.terms|length }}개{% if q.user_edited %}, 사용자 수정{% endif %})</h3>
+    <div>{% for t in q.terms %}<code>{{ t }}</code>{% if t in q.generated_terms %}<span class="tag">자동 확장</span>{% endif %} {% endfor %}</div>
+
+    <h3>표본·캐시</h3>
+    <div>{% if m.sampled %}적중 {{ m.n_hit_total|num }}건 &gt; {{ cfg.SAMPLE_MAX }}건 → 월별·소스별 비례 층화 무작위 표본 {{ m.n_judged|num }}건. <b>표본 기준</b> 라벨이 붙은 수치는 최소값이며 외삽하지 않았습니다.{% else %}적중 {{ m.n_hit_total|num }}건 전수 판정(표본 아님).{% endif %}</div>
+    <div>표본 {{ m.n_judged|num }}건 중 캐시 적중 {{ m.n_cached|num }}건 / 신규 판정 {{ m.n_new|num }}건 · 판정 불가 {{ m.n_failed|num }}건(M·K 어느 쪽에도 포함 안 함){% if m.n_injection %} · 인젝션 의심 {{ m.n_injection }}건(판정 유지, 인용 제외){% endif %}</div>
+    <div class="mut">보조 표시: 페인 패턴(정규식) 적중 {{ m.pattern_hits|num }}건 — 분자에 넣지 않음.</div>
+
+    <h3>중복 제거</h3>
+    <div>{{ r.dedup_rules }}</div>
+    <div>병합 {{ m.merged_duplicates|num }}건 (URL {{ m.merged_detail.get("url", 0) }} / 본문 해시 {{ m.merged_detail.get("body", 0) }} / 작성자+일자+제목 {{ m.merged_detail.get("author_title", 0) }}) · 정규화 규칙 v{{ r.norm_version }}</div>
+
+    <h3>소스별 작성자 식별 등급</h3>
+    <table><tr><th>소스</th><th>등급</th><th>의미</th></tr>
+    {% for a in author_table %}<tr><td>{{ a.source }}</td><td>{{ a.kind }}</td><td>{{ a.desc }}</td></tr>{% endfor %}
+    </table>
+
+    <h3>LLM 개입 단계</h3>
+    <table><tr><th>단계</th><th>모델 ID(요청)</th><th>응답 model</th><th>프롬프트 해시</th></tr>
+    {% for c in r.llm_calls %}<tr><td>{{ c.stage }}</td><td>{{ c.model }}{% if c.warning %} <span class="tag hi">{{ c.warning }}</span>{% endif %}</td><td>{{ c.response_model or "—" }}</td><td><code>{{ c.prompt_hash }}</code></td></tr>{% endfor %}
+    </table>
+    <div class="mut">산술(카운트·비율·월 집계)과 군집 멤버십은 전부 파이썬이 계산했습니다. LLM은 검색어 확장·관련성/강도/인용 판정·군집 이름·인터뷰 질문에만 개입합니다. 군집 파라미터: {{ r.cluster_params }}</div>
+    {% if r.degraded %}
+    <h3>강등된 단계</h3><ul>{% for d in r.degraded %}<li>{{ d }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if r.candidates_stale_days is not none and r.candidates_stale_days >= cfg.CANDIDATES_STALE_DAYS %}
+    <div class="mut">후보 목록 갱신 {{ r.candidates_stale_days }}일 경과 — 8f 추천 블록 숨김</div>
+    {% endif %}
+  </details>
+</div>
+
+{# ---- 근거 부족 게이트 ---- #}
+{% if m.insufficient %}
+<div class="banner bad">
+  <strong>근거 부족:</strong> 관련 글 {{ m.n_relevant|num }}건 / 필요 {{ min_relevant }}건, 등장 월 {{ m.months_present }} / 필요 {{ min_months }}.
+  1~3번(핵심 수치·월별 추이·반복 불만)은 표시하지 않습니다. 인용은 있는 만큼, 유사 시도와 인터뷰 질문은 그대로 표시합니다.
+</div>
+{% if r.candidates %}
+<div class="box">
+  <strong>다음에 수집해 볼 곳(후보, 배치가 하루 1회 갱신)</strong>
+  <ul>{% for c in r.candidates %}<li>{{ c.kind }} · {{ c.name }} <span class="mut">({{ c.ref }}, 키워드 {{ c.keyword }})</span></li>{% endfor %}</ul>
+</div>
+{% endif %}
+{% else %}
+
+{# ---- 1. 핵심 수치 ---- #}
+<h2>1. 핵심 수치 3개</h2>
+<div class="kpi">
+  <div class="k"><div class="v">{{ m.pain_rate|pct }}</div><div class="l">문제제기율 = 페인 신호 {{ m.n_pain|num }} / 관련 글 {{ m.n_relevant|num }}{% if m.sampled %} (표본 {{ m.n_judged|num }}건 기준 비율){% endif %}</div></div>
+  <div class="k">
+    <div class="v">{% if m.unique_authors_strong is not none %}{{ m.unique_authors_strong|num }}명 이상{% elif m.distinct_ip_bands_weak is not none %}IP 대역 {{ m.distinct_ip_bands_weak|num }}개{% else %}미확인{% endif %}</div>
+    <div class="l">고유 작성자{% if m.unique_authors_strong is not none %}(고정닉 기준 하한){% if m.distinct_ip_bands_weak is not none %} · 유동닉은 서로 다른 IP 대역 {{ m.distinct_ip_bands_weak|num }}개{% endif %}{% elif m.distinct_ip_bands_weak is not none %} (유동닉만 — 인원 수 아님){% else %} (식별 불가 소스만){% endif %}{% if m.sample_min_labels %} · <b>표본 기준 최소값(실제는 이상)</b>{% endif %}</div>
+  </div>
+  <div class="k"><div class="v">{{ m.months_present }} / {{ m.months_covered }}</div><div class="l">등장 월 수 / 코퍼스 커버 개월{% if m.sample_min_labels %} · <b>표본 기준 최소값</b>{% endif %}</div></div>
+</div>
+
+{# ---- 2. 월별 추이 ---- #}
+<h2>2. 월별 추이 (소스별 분리)</h2>
+<div class="mut">막대 = 관련 글 수. 라벨 = 관련/판정 표본 (그 달 해당 소스 전체 수집 글 수). 합산 분모 없음.{% if m.sampled %} <b>표본 기준</b> — 외삽하지 않음.{% endif %} 수집량이 달라지는 달의 증가를 수요 증가로 오독하지 마세요.</div>
+{% for ch in charts %}
+<h3>{{ ch.source }}</h3>
+<div class="chart">
+<svg width="{{ ch.width + 40 }}" height="{{ ch.height + 60 }}" viewBox="0 0 {{ ch.width + 40 }} {{ ch.height + 60 }}" role="img" aria-labelledby="t-{{ loop.index }}">
+  <title id="t-{{ loop.index }}">{{ ch.source }} 월별 관련 글 수 (최대 {{ ch.vmax }})</title>
+  {% for b in ch.bars %}
+  <rect class="bar{% if b.h == 0 %} zero{% endif %}" x="{{ b.x + 30 }}" y="{{ b.y + 10 }}" width="{{ ch.bar_w }}" height="{{ b.h if b.h > 0 else 1 }}"><title>{{ b.month }}: 관련 {{ b.relevant }} / 판정 {{ b.judged }} (수집 {{ b.total }}{% if b.missed %}, {{ b.missed }}일 유실{% endif %})</title></rect>
+  <text class="axis" x="{{ b.x + 30 + ch.bar_w / 2 }}" y="{{ ch.height + 24 }}" text-anchor="middle">{{ b.label }}</text>
+  <text class="axis" x="{{ b.x + 30 + ch.bar_w / 2 }}" y="{{ ch.height + 38 }}" text-anchor="middle">{{ b.relevant }}/{{ b.judged }}</text>
+  <text class="axis" x="{{ b.x + 30 + ch.bar_w / 2 }}" y="{{ ch.height + 52 }}" text-anchor="middle">({{ b.total }}{% if b.missed %}·{{ b.missed }}d{% endif %})</text>
+  {% endfor %}
+</svg>
+</div>
+<details><summary>표로 보기</summary>
+<table><tr><th>월</th><th>관련</th><th>판정 표본</th><th>적중</th><th>전체 수집</th><th>유실 일수</th></tr>
+{% for b in ch.bars %}<tr><td>{{ b.month }}</td><td>{{ b.relevant }}</td><td>{{ b.judged }}</td><td>{{ b.hit }}</td><td>{{ b.total }}</td><td>{{ b.missed }}</td></tr>{% endfor %}
+</table></details>
+{% endfor %}
+
+{# ---- 3. 반복되는 불만 ---- #}
+<h2>3. 반복되는 불만 (군집별)</h2>
+{% if r.clusters %}
+<table><tr><th>군집</th><th>글 수</th><th>고유 작성자</th><th>등장 월</th><th>소스</th></tr>
+{% for c in r.clusters %}
+<tr><td>{{ c.name }}{% if c.name_failed %} <span class="tag hi">이름 생성 실패</span>{% endif %}</td><td>{{ c.n_posts }}</td>
+<td>{% if c.unique_authors_strong is not none %}고정닉 {{ c.unique_authors_strong }}명 이상{% endif %}{% if c.distinct_ip_bands_weak is not none %}{% if c.unique_authors_strong is not none %} · {% endif %}IP 대역 {{ c.distinct_ip_bands_weak }}개{% endif %}{% if c.unique_authors_strong is none and c.distinct_ip_bands_weak is none %}미확인{% endif %}</td>
+<td>{{ c.months_present }}</td><td>{{ c.sources|join(", ") }}</td></tr>
+{% endfor %}
+</table>
+<div class="mut">군집 멤버십은 임베딩(ko-sroberta) + 파이썬 군집화가 정했고, LLM은 이름만 붙였습니다.</div>
+{% else %}<div class="mut">군집 없음.</div>{% endif %}
+{% endif %}{# insufficient #}
+
+{# ---- 4. 원문 인용 ---- #}
+<h2>4. 원문 인용 {% if r.quotes|length < max_quotes %}<span class="tag hi">부족({{ r.quotes|length }}개)</span>{% else %}({{ r.quotes|length }}개){% endif %}</h2>
+<div class="mut">후보 풀 = 페인 강도 ≥ 2로 판정된 글의 원문 대조 통과 인용 {{ r.quotes_pool_size }}개. {{ quote_max }}자 이내 발췌, 닉네임 마스킹, 동일 작성자 최대 2건. 인용을 펼치면 문맥 발췌가 보입니다.</div>
+{% for qt in r.quotes %}
+<div class="quote">
+  <div class="t">“{{ qt.text }}”{% if qt.intensity == 3 %}<span class="tag hi">강한 불만</span>{% endif %}</div>
+  <div class="src">{{ qt.source }}/{{ qt.board }} · {{ qt.created_at }} · {{ qt.author_masked or "익명" }} ·
+    {% if qt.url %}{% if qt.dead_link %}원문 삭제됨(수집일 {{ qt.crawled_at }}){% else %}<a href="{{ qt.url }}" rel="noopener nofollow">원문</a>{% endif %}{% else %}{{ qt.source_ref }} (수집일 {{ qt.crawled_at }}){% endif %}
+    {% for c in r.clusters if c.id == qt.cluster_id %} · 군집: {{ c.name }}{% endfor %}
+  </div>
+  {% if qt.context_excerpt %}<details><summary class="mut">문맥 보기</summary><div class="pop">…{{ qt.context_excerpt }}…</div></details>{% endif %}
+</div>
+{% endfor %}
+
+{# ---- 5. 유사 시도 ---- #}
+{% if r.flags.SHOW_ATTEMPTS %}
+<h2>5. 이미 있는 유사 시도 (한이음 공개 프로젝트·수상작)</h2>
+{% if r.attempts %}
+<div>유사도 ≥ {{ r.attempts.threshold }} 프로젝트 <b>{{ r.attempts.count }}</b>건 (비교 풀 {{ r.attempts.n_pool|num }}건). <span class="mut">유사도는 경쟁 팀 수가 아닙니다. 코퍼스와 무관하므로 근거 부족 게이트의 영향을 받지 않습니다.</span></div>
+{% if r.attempts.top5 %}
+<table><tr><th>연도</th><th>프로젝트</th><th>유사도</th><th>결과</th></tr>
+{% for a in r.attempts.top5 %}<tr><td>{{ a.year or "—" }}</td><td><a href="{{ a.url }}" rel="noopener nofollow">{{ a.title }}</a></td><td><span title="{{ a.similarity }}">{{ "높음" if a.label == "high" else "중간" }}</span></td><td>{{ a.result or "—" }}</td></tr>{% endfor %}
+</table>
+{% endif %}
+{% else %}
+<div class="banner">유사 시도 미계산 — 사전 계산 배치(<code>python -m painpointer precompute-attempts</code>) 필요. 0건이 아니라 미계산입니다.</div>
+{% endif %}
+{% endif %}
+
+{# ---- 6. 사례 ---- #}
+{% if r.flags.SHOW_CASES and r.cases %}
+<h2>6. 비슷한 페인을 풀어낸 사례</h2>
+{% for c in r.cases %}<div class="q"><b>{{ c.title }}</b> ({{ c.country }}, {{ c.year }}) — {{ c.pain_one_line }}<br>{{ c.what_they_did }}<br><span class="mut">결과: {{ c.outcome_metric }} · 검수 {{ c.reviewed_by }} {{ c.reviewed_at }} · <a href="{{ c.source_url }}" rel="noopener nofollow">출처</a></span></div>{% endfor %}
+{% endif %}
+
+{# ---- 7. 인터뷰 질문 ---- #}
+<h2>7. 다음에 확인할 것 — 인터뷰 질문 5개</h2>
+{% if r.questions %}
+<ol id="questions">
+{% for qq in r.questions %}<li class="q">{{ qq.text }} <span class="tag">{{ qq.gap }}</span></li>{% endfor %}
+</ol>
+<div class="noprint">
+  <button type="button" id="copy-q">질문 5개 복사</button>
+  <a href="https://forms.new" target="_blank" rel="noopener">구글폼 새로 만들기</a> <span class="mut">— 복사한 질문을 붙여넣으세요.</span>
+  <span id="copy-msg" class="mut"></span>
+</div>
+{% else %}
+<div class="banner">{% for d in r.degraded if "인터뷰 질문" in d %}{{ d }}{% else %}질문 생성 실패(사유 미기록){% endfor %}</div>
+{% endif %}
+
+{# ---- diff ---- #}
+{% if r.diff %}
+<h2>직전 리포트 대비 변화</h2>
+<div class="mut">직전 리포트 <code>{{ r.diff.prev_id }}</code> ({{ r.diff.prev_created_at }})</div>
+{% for w in r.diff.warnings %}<div class="banner">{{ w }}</div>{% endfor %}
+<table class="diff">
+<tr><th>지표</th><th>직전</th><th>현재</th><th>변화</th></tr>
+<tr><td>문제제기율{% if r.diff.pain_rate.flag %} <span class="tag hi">검색어/범위 변경</span>{% endif %}</td><td>{{ r.diff.pain_rate.prev|pct }}</td><td>{{ r.diff.pain_rate.cur|pct }}</td><td class="{% if r.diff.pain_rate.delta and r.diff.pain_rate.delta > 0 %}up{% elif r.diff.pain_rate.delta and r.diff.pain_rate.delta < 0 %}down{% endif %}">{% if r.diff.pain_rate.delta is none %}—{% else %}{{ "%+.0f"|format(r.diff.pain_rate.delta * 100) }}%p{% endif %}</td></tr>
+{% if r.diff.counts %}
+{% for k, v in r.diff.counts.items() %}<tr><td>{{ k }}</td><td>{{ v.prev|num }}</td><td>{{ v.cur|num }}</td><td class="{% if v.delta and v.delta > 0 %}up{% elif v.delta and v.delta < 0 %}down{% endif %}">{% if v.delta is none %}—{% else %}{{ "%+d"|format(v.delta) }}{% endif %}</td></tr>{% endfor %}
+{% else %}
+<tr><td colspan="4" class="mut">{{ r.diff.count_note }}</td></tr>
+{% endif %}
+{% for ps in r.diff.per_source %}<tr><td>관련 글 · {{ ps.source }}{% if ps.sampled %} <span class="tag">표본</span>{% endif %}</td><td>{{ ps.prev }}</td><td>{{ ps.cur }}</td><td>{{ "%+d"|format(ps.delta) }}</td></tr>{% endfor %}
+</table>
+{% endif %}
+
+{# ---- 8. 피드백 ---- #}
+<h2>8. 피드백 한 줄</h2>
+<div>주제 결정에 도움이 됐나요? 예 / 아니오 / 이유 —
+{% if cfg.FEEDBACK_FORM_URL %}<a href="{{ cfg.FEEDBACK_FORM_URL }}" target="_blank" rel="noopener">답하기(구글폼)</a>{% endif %}
+{% if cfg.FEEDBACK_MAILTO %}<a href="mailto:{{ cfg.FEEDBACK_MAILTO }}?subject=PainPointer%20{{ r.id }}">메일로 답하기</a>{% endif %}
+{% if not cfg.FEEDBACK_FORM_URL and not cfg.FEEDBACK_MAILTO %}<span class="mut">(연락처 미설정)</span>{% endif %}</div>
+
+<footer>
+  이 리포트는 해결책을 제안하지 않으며 "수요 있음"을 판정하지 않습니다. 모든 수치는 분모와 함께 표시되고, 인용은 수집 시점 원문 스냅샷과 정규화 문자열이 일치한 것만 실었습니다.
+  인용 삭제 요청: {% if cfg.CONTACT_EMAIL %}{{ cfg.CONTACT_EMAIL }}{% else %}(연락처 미설정){% endif %} · 인용 출처 규약: 커뮤니티 = 원문 URL / 앱리뷰 = 스토어 페이지 URL + reviewId + 수집일.
+</footer>
+<script>
+(function(){
+  var b=document.getElementById('copy-q'); if(!b) return;
+  b.addEventListener('click',function(){
+    var items=[].slice.call(document.querySelectorAll('#questions li')).map(function(li,i){return (i+1)+'. '+li.firstChild.textContent.trim();});
+    var text=items.join('\n');
+    var msg=document.getElementById('copy-msg');
+    function done(){ msg.textContent='복사됨'; }
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done,function(){ window.prompt('복사하세요', text); }); }
+    else { window.prompt('복사하세요', text); }
+  });
+})();
+</script>
+</body>
+</html>

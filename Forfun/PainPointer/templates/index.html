@@ -1,0 +1,17 @@
+{% extends "_base.html" %}
+{% block body %}
+<h1>페인 한 문장 + 타깃 → 근거 리포트</h1>
+<p class="mut">해결책은 제안하지 않습니다. 코퍼스 스냅샷에서 실제 글 기반 수치(분모 표시)와 원문 인용, 이미 있는 유사 시도, 인터뷰 질문 5개를 만듭니다.</p>
+{% for w in model_warnings %}<div class="banner">{{ w }}</div>{% endfor %}
+<form method="post" action="/expand">
+  <label for="pain">페인(불편) 한 문장</label>
+  <input type="text" id="pain" name="pain" required placeholder="예: 배달이 예상 시간보다 자주 늦게 온다">
+  <label for="target">타깃(누가 겪는가)</label>
+  <input type="text" id="target" name="target" placeholder="예: 자취하는 20대 직장인">
+  <label>소스(비우면 전체)</label>
+  {% if sources %}
+  {% for s in sources %}<div><label style="display:inline;font-weight:400"><input type="checkbox" name="sources" value="{{ s.source }}"> {{ s.source }}/{{ s.board }} <span class="mut">{{ s.n }}건, 최근 {{ s.d or "—" }}</span></label></div>{% endfor %}
+  {% else %}<div class="banner">코퍼스가 비어 있습니다. <code>python -m painpointer watch add dcinside &lt;갤러리ID&gt;</code> 후 <code>python -m painpointer collect</code>로 수집하세요.</div>{% endif %}
+  <p><button class="primary" type="submit">검색어 확장 → 확인</button></p>
+</form>
+{% endblock %}

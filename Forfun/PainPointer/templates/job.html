@@ -1,0 +1,25 @@
+{% extends "_base.html" %}
+{% block title %}생성 중 — PainPointer{% endblock %}
+{% block body %}
+<h1>리포트 생성 중</h1>
+{% if joined %}<div class="banner">같은 페인·타깃으로 이미 진행 중인 작업이 있어 그 작업에 합류했습니다.</div>{% endif %}
+<div>작업 <code>{{ job.id }}</code> · 상태 <b id="st">{{ job.status }}</b> · 단계 <span id="stage">{{ job.stage }}</span></div>
+<pre id="log">{{ job.progress }}</pre>
+<div id="err" class="banner bad" {% if not job.error %}hidden{% endif %}>{{ job.error }}</div>
+<p class="mut">이 페이지를 닫아도 작업은 끝까지 진행됩니다. 3초마다 갱신합니다.</p>
+<script>
+(function(){
+  function tick(){
+    fetch('/jobs/{{ job.id }}/status').then(function(r){return r.json();}).then(function(j){
+      document.getElementById('st').textContent=j.status;
+      document.getElementById('stage').textContent=j.stage||'';
+      document.getElementById('log').textContent=j.progress||'';
+      var e=document.getElementById('err'); if(j.error){e.hidden=false;e.textContent=j.error;}
+      if(j.status==='done'&&j.report_id){ location.href='/r/'+j.report_id; return; }
+      if(j.status!=='failed'){ setTimeout(tick,3000); }
+    }).catch(function(){ setTimeout(tick,3000); });
+  }
+  setTimeout(tick,3000);
+})();
+</script>
+{% endblock %}

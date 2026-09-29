@@ -1,0 +1,27 @@
+{% extends "_base.html" %}
+{% block title %}검색어 확인 — PainPointer{% endblock %}
+{% block body %}
+<h1>검색어 확인</h1>
+<div><b>페인:</b> {{ pain }} · <b>타깃:</b> {{ target or "(없음)" }}</div>
+{% if expansion_status != "ok" %}<div class="banner">자동 확장 실패({{ expansion_status }}). 원문 검색어만으로 진행합니다. 직접 추가할 수 있습니다.</div>{% endif %}
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+<form method="post" action="/generate" id="f">
+  <input type="hidden" name="pain" value="{{ pain }}"><input type="hidden" name="target" value="{{ target }}">
+  <input type="hidden" name="expansion_status" value="{{ expansion_status }}">
+  <input type="hidden" name="generated" value="{{ generated|join('\n') }}">
+  <input type="hidden" name="user_edited" value="{{ '1' if user_edited else '0' }}">
+  {% for s in sources %}<input type="hidden" name="sources" value="{{ s }}">{% endfor %}
+  <label for="terms">검색어(한 줄에 하나, 수정 가능)</label>
+  <textarea id="terms" name="terms">{{ terms|join('\n') }}</textarea>
+  <table><tr><th>검색어</th><th>적중 건수 <span class="mut">(중복 제거 전)</span></th></tr>
+  {% for t, n in preview.per_term %}<tr><td>{{ t }}{% if t in generated %} <span class="mut">자동 확장</span>{% endif %}</td><td>{{ n }}</td></tr>{% endfor %}
+  </table>
+  <div>합집합 {{ preview.n_raw_union }}건(중복 제거 전) → <b>중복 제거 후 {{ preview.n_dedup }}건</b> <span class="mut">(규칙 (1)(2)(3) 실제 적용 확정값)</span></div>
+  {% if preview.empty_terms %}<div class="banner bad">토큰이 없어 거부된 검색어: {{ preview.empty_terms|join(", ") }}</div>{% endif %}
+  <p>
+    <button type="submit" formaction="/preview" formmethod="post">적중 다시 계산</button>
+    <button class="primary" type="submit">이 검색어로 리포트 생성</button>
+  </p>
+  <p class="mut">생성된 리포트는 읽기 전용입니다. 판정은 표본 최대 {{ cfg.SAMPLE_MAX }}건, 일일 LLM 상한 {{ cfg.DAILY_LLM_LIMIT }}회.</p>
+</form>
+{% endblock %}

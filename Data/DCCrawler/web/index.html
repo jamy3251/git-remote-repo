@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DCCrawler · 커뮤니티 페인포인트 분석</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2330; --line:#2a3140;
+    --tx:#e6edf3; --mut:#8b97a7; --acc:#4f9dff; --warn:#ff7b72; --ok:#3fb950;
+    --chip:#222c3a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Pretendard','Malgun Gothic',system-ui,sans-serif;
+       background:var(--bg);color:var(--tx);line-height:1.5}
+  header{padding:22px 28px;border-bottom:1px solid var(--line);display:flex;
+         align-items:baseline;gap:12px}
+  header h1{font-size:20px;margin:0;letter-spacing:-.3px}
+  header span{color:var(--mut);font-size:13px}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 28px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+        padding:18px 20px;margin-bottom:18px}
+  .form{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;align-items:end}
+  .form label{display:block;font-size:12px;color:var(--mut);margin-bottom:6px}
+  .form .f{display:flex;flex-direction:column}
+  select,input{background:var(--panel2);border:1px solid var(--line);color:var(--tx);
+        border-radius:8px;padding:9px 11px;font-size:14px;width:100%}
+  .col2{grid-column:span 2}.col3{grid-column:span 3}.col4{grid-column:span 4}.col12{grid-column:span 12}
+  .opts{display:flex;gap:18px;align-items:center;color:var(--mut);font-size:13px}
+  .opts label{display:flex;gap:6px;align-items:center;margin:0;color:var(--tx)}
+  button{background:var(--acc);border:0;color:#04122b;font-weight:700;border-radius:8px;
+        padding:11px 20px;font-size:14px;cursor:pointer}
+  button:disabled{opacity:.5;cursor:wait}
+  .hint{color:var(--mut);font-size:12px;margin-top:6px}
+  h2{font-size:15px;margin:0 0 12px;color:var(--acc)}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{background:var(--chip);border:1px solid var(--line);border-radius:20px;
+        padding:5px 11px;font-size:13px}
+  .chip b{color:var(--acc);font-weight:700}
+  .bar{display:flex;align-items:center;gap:10px;margin:6px 0}
+  .bar .lab{width:120px;font-size:13px;color:var(--mut)}
+  .bar .track{flex:1;background:var(--panel2);border-radius:6px;height:16px;overflow:hidden}
+  .bar .fill{height:100%;background:linear-gradient(90deg,#4f9dff,#7c5cff)}
+  .bar .n{width:48px;text-align:right;font-size:12px;color:var(--mut)}
+  .big{background:linear-gradient(135deg,#1e2a44,#231c3a);border:1px solid #3a4a6b}
+  .big .t{font-size:18px;font-weight:800;margin-bottom:8px}
+  .big .row{margin:4px 0;font-size:14px}.big .k{color:var(--acc);font-weight:700}
+  ul.pp{list-style:none;padding:0;margin:0}
+  ul.pp li{padding:10px 0;border-bottom:1px solid var(--line)}
+  ul.pp li:last-child{border:0}
+  .sev{display:inline-block;font-size:11px;background:var(--warn);color:#2a0b08;
+        border-radius:4px;padding:1px 6px;font-weight:700;margin-right:8px}
+  .idea{padding:8px 0;border-bottom:1px dashed var(--line)}
+  .idea b{color:var(--ok)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--mut);font-weight:600}
+  td a{color:var(--tx);text-decoration:none}td a:hover{color:var(--acc)}
+  .muted{color:var(--mut)}.err{color:var(--warn)}
+  .tag{font-size:11px;color:var(--mut);border:1px solid var(--line);border-radius:4px;padding:1px 5px;margin-left:4px}
+  #status,#cstatus{color:var(--mut);font-size:13px;min-height:18px}
+  .hidden{display:none}
+  .tabs{display:flex;gap:8px;margin-bottom:18px}
+  .tabs button{background:var(--panel);color:var(--mut);border:1px solid var(--line);
+        font-weight:600}
+  .tabs button.on{background:var(--acc);color:#04122b;border-color:var(--acc)}
+  .trow{display:grid;grid-template-columns:1fr 1.4fr auto;gap:10px;margin-bottom:8px;align-items:end}
+  .trow .x{background:#2a1518;color:var(--warn);border:1px solid #4a2a2e;padding:9px 12px;font-weight:700}
+  .addbtn{background:var(--panel2);color:var(--acc);border:1px dashed var(--acc);font-weight:600}
+  .matrix{overflow-x:auto}
+  .matrix td.hot{color:var(--warn);font-weight:700}
+  .src-pill{display:inline-block;font-size:11px;background:var(--chip);border:1px solid var(--line);
+        border-radius:4px;padding:1px 6px;margin:1px 2px}
+  .src-pill b{color:var(--acc)}
+</style>
+</head>
+<body>
+<header>
+  <h1>🛠️ DCCrawler</h1>
+  <span>커뮤니티 페인포인트 분석 · 현실 수요 발굴</span>
+</header>
+<div class="wrap">
+  <div class="tabs">
+    <button id="tabSingle" class="on" onclick="switchTab('single')">🔎 단일 분석</button>
+    <button id="tabCross" onclick="switchTab('cross')">🔗 교차 분석</button>
+  </div>
+
+  <div id="singleMode">
+  <div class="card">
+    <div class="form">
+      <div class="f col3"><label>소스</label><select id="source"></select></div>
+      <div class="f col4"><label>보드 / 갤러리ID / 서브레딧 / 영상ID</label>
+        <input id="board" placeholder="joonjangbee" value="joonjangbee" /></div>
+      <div class="f col2"><label>시작 페이지</label><input id="from" type="number" value="1" min="1" /></div>
+      <div class="f col2"><label>끝 페이지</label><input id="to" type="number" value="3" min="1" /></div>
+      <div class="f col12 opts">
+        <label><input type="checkbox" id="body" /> 본문까지 수집(느림)</label>
+        <label><input type="checkbox" id="llm" checked /> LLM 인사이트(키 있을 때)</label>
+        <span class="muted">요청 지연</span>
+        <input id="delay" type="number" step="0.1" value="0.8" style="width:80px" />
+        <button id="go">분석 시작</button>
+      </div>
+    </div>
+    <div class="hint" id="srcHint"></div>
+    <div id="status"></div>
+  </div>
+
+  <div id="results" class="hidden">
+    <div class="card big" id="bigCard"></div>
+    <div class="card"><h2>📌 페인포인트 (LLM)</h2><ul class="pp" id="ppList"></ul>
+      <div id="noLlm" class="muted hidden"></div></div>
+    <div class="card"><h2>💡 아이디어 기회</h2><div id="ideas"></div></div>
+    <div class="card"><h2>🔥 페인 신호 분포</h2><div id="painBars"></div>
+      <div class="hint" id="painSummary"></div></div>
+    <div class="card"><h2>🏷️ 상위 키워드</h2><div class="chips" id="kw"></div></div>
+    <div class="card"><h2>🗂️ 화제 페인 글</h2><table><thead><tr><th>제목</th><th>카테고리</th><th>댓글</th><th>조회</th></tr></thead><tbody id="painRows"></tbody></table></div>
+    <div class="card"><h2>📄 수집 글 목록</h2><table><thead><tr><th>제목</th><th>작성자</th><th>댓글</th><th>조회</th></tr></thead><tbody id="postRows"></tbody></table></div>
+  </div>
+  </div><!-- /singleMode -->
+
+  <div id="crossMode" class="hidden">
+    <div class="card">
+      <h2>🔗 교차 분석 — 여러 커뮤니티 공통 페인 = 검증된 수요</h2>
+      <div id="targets"></div>
+      <button class="addbtn" id="addTarget" type="button">+ 소스 추가</button>
+      <div class="form" style="margin-top:14px">
+        <div class="f col2"><label>시작 페이지</label><input id="cfrom" type="number" value="1" min="1" /></div>
+        <div class="f col2"><label>끝 페이지</label><input id="cto" type="number" value="2" min="1" /></div>
+        <div class="f col12 opts">
+          <label><input type="checkbox" id="cbody" /> 본문/댓글 수집(느림)</label>
+          <label><input type="checkbox" id="cllm" checked /> LLM 교차 종합(키 있을 때)</label>
+          <span class="muted">요청 지연</span>
+          <input id="cdelay" type="number" step="0.1" value="0.8" style="width:80px" />
+          <button id="cgo">교차 분석 시작</button>
+        </div>
+      </div>
+      <div id="cstatus"></div>
+    </div>
+
+    <div id="cresults" class="hidden">
+      <div class="card big" id="cBig"></div>
+      <div class="card"><h2>📊 소스별 요약</h2><table><thead><tr><th>소스</th><th>수집</th><th>페인 글</th><th>페인 비율</th></tr></thead><tbody id="cSummary"></tbody></table></div>
+      <div class="card"><h2>🔗 공통 키워드 (2개+ 소스 동시 등장)</h2><div id="cShared"></div></div>
+      <div class="card"><h2>🔥 페인 카테고리 매트릭스</h2><div class="matrix"><table id="cMatrix"></table></div></div>
+      <div class="card"><h2>🧭 소스별 고유 키워드</h2><div id="cUnique"></div></div>
+      <div class="card"><h2>🤝 공통 페인 (LLM 교차검증)</h2><ul class="pp" id="cPains"></ul>
+        <div id="cNoLlm" class="muted hidden"></div></div>
+      <div class="card"><h2>↔️ 커뮤니티별 차이</h2><div id="cDiv"></div></div>
+    </div>
+  </div><!-- /crossMode -->
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let SOURCES = [];
+
+async function loadSources(){
+  SOURCES = await (await fetch('/api/sources')).json();
+  $('source').innerHTML = SOURCES.map(s =>
+    `<option value="${s.name}">${s.name}${s.needs_auth?' 🔑':''}</option>`).join('');
+  $('source').value = 'dcinside';
+  updateHint();
+}
+function updateHint(){
+  const s = SOURCES.find(x=>x.name===$('source').value)||{};
+  const ex = {dcinside:'갤러리ID (예: joonjangbee) · 본문체크 시 댓글까지 수집',
+    todayhumor:'게시판 table (예: bestofbest 베오베, humorbest)',
+    fmkorea:'게시판 mid (예: best 포텐, humor)',
+    natepann:'카테고리 (예: ranking 랭킹, c20 연예)',
+    reddit:'서브레딧 (예: Construction) · REDDIT_CLIENT_ID/SECRET 필요',
+    fourchan:'보드코드 (예: g, biz · 1~10p)', youtube:'영상ID · YOUTUBE_API_KEY 필요'};
+  $('srcHint').textContent = (ex[s.name] || '') + (s.needs_auth ? '  🔑' : '');
+}
+$('source').addEventListener('change', updateHint);
+
+function bar(label,n,max){
+  const w = max? Math.round(n/max*100):0;
+  return `<div class="bar"><div class="lab">${label}</div>
+    <div class="track"><div class="fill" style="width:${w}%"></div></div>
+    <div class="n">${n}</div></div>`;
+}
+
+async function run(){
+  $('go').disabled = true;
+  $('status').textContent = '⏳ 크롤링 + 분석 중… (페이지 수에 따라 수 초~수십 초)';
+  $('results').classList.add('hidden');
+  try{
+    const body = {
+      source:$('source').value, board:$('board').value.trim(),
+      start_page:+$('from').value, end_page:+$('to').value,
+      fetch_body:$('body').checked, use_llm:$('llm').checked, delay:+$('delay').value
+    };
+    const res = await fetch('/api/crawl',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)});
+    const data = await res.json();
+    if(data.error){ $('status').innerHTML = `<span class="err">❌ ${data.error}</span>`; return; }
+    render(data);
+    $('status').textContent = `✅ 완료 · ${data.crawl.count}건 수집`;
+  }catch(e){ $('status').innerHTML = `<span class="err">❌ ${e}</span>`; }
+  finally{ $('go').disabled = false; }
+}
+
+function render(d){
+  const kw = d.analysis.keywords, llm = d.analysis.llm;
+  // 가장 큰 문제
+  if(llm.available && llm.biggest_problem){
+    const b = llm.biggest_problem;
+    $('bigCard').innerHTML = `<div class="t">★ 지금 가장 큰 문제</div>
+      <div class="row"><span class="k">${b.title||''}</span></div>
+      <div class="row muted">${b.why||''}</div>
+      <div class="row">💼 기회: ${b.opportunity||''}</div>
+      <div class="hint">요약: ${llm.summary||''} <span class="tag">${llm.model||'llm'}</span></div>`;
+    $('bigCard').classList.remove('hidden');
+  } else {
+    $('bigCard').innerHTML = `<div class="t muted">LLM 인사이트 없음</div>
+      <div class="hint">${llm.reason||''} — 아래 키워드/페인 신호 통계는 그대로 제공됩니다.</div>`;
+  }
+  // 페인포인트
+  const pp = $('ppList');
+  if(llm.available && (llm.pain_points||[]).length){
+    pp.innerHTML = llm.pain_points.map(p=>`<li><span class="sev">${p.severity||'?'}/5</span>
+      <b>${p.title||''}</b> <span class="tag">${p.frequency||''}</span><br>
+      <span class="muted">${p.description||''}</span></li>`).join('');
+    $('noLlm').classList.add('hidden');
+  } else {
+    pp.innerHTML=''; $('noLlm').classList.remove('hidden');
+    $('noLlm').textContent = 'LLM 미사용 (ANTHROPIC_API_KEY 설정 시 활성화).';
+  }
+  // 아이디어
+  $('ideas').innerHTML = (llm.available && (llm.idea_opportunities||[]).length)
+    ? llm.idea_opportunities.map(i=>`<div class="idea"><b>▸ ${i.idea||''}</b><br>
+        <span class="muted">${i.rationale||''}</span></div>`).join('')
+    : '<span class="muted">—</span>';
+  // 페인 신호 분포
+  const cats = kw.pain.by_category, max = Math.max(1,...cats.map(c=>c.count));
+  $('painBars').innerHTML = cats.map(c=>bar(c.category,c.count,max)).join('') || '<span class="muted">신호 없음</span>';
+  $('painSummary').textContent = `전체 ${kw.post_count}건 중 ${kw.pain.post_count}건(${Math.round(kw.pain.ratio*100)}%)에서 페인 신호 감지`;
+  // 키워드
+  $('kw').innerHTML = kw.top_keywords.map(k=>`<span class="chip">${k.word} <b>${k.count}</b></span>`).join('');
+  // 화제 페인 글
+  $('painRows').innerHTML = kw.pain.examples.map(e=>`<tr>
+    <td><a href="${e.url}" target="_blank">${e.title}</a></td>
+    <td class="muted">${(e.categories||[]).join(', ')}</td>
+    <td>${e.comment_count}</td><td class="muted">${e.views}</td></tr>`).join('');
+  // 전체 목록
+  $('postRows').innerHTML = d.crawl.posts.map(p=>`<tr>
+    <td><a href="${p.url}" target="_blank">${p.title}</a></td>
+    <td class="muted">${p.author||''}</td><td>${p.comment_count}</td>
+    <td class="muted">${p.views}</td></tr>`).join('');
+  $('results').classList.remove('hidden');
+}
+
+// ===== 교차 분석 =====
+function srcOptions(sel){
+  return SOURCES.map(s=>`<option value="${s.name}" ${s.name===sel?'selected':''}>${s.name}${s.needs_auth?' 🔑':''}</option>`).join('');
+}
+function addTargetRow(source='dcinside', board=''){
+  const div=document.createElement('div'); div.className='trow';
+  div.innerHTML=`<div class="f"><label>소스</label><select class="tsrc">${srcOptions(source)}</select></div>
+    <div class="f"><label>보드 / 갤러리ID / 서브레딧</label><input class="tboard" value="${board}" placeholder="joonjangbee"/></div>
+    <button class="x" type="button" onclick="this.closest('.trow').remove()">✕</button>`;
+  $('targets').appendChild(div);
+}
+function switchTab(mode){
+  const c = mode==='cross';
+  $('tabCross').classList.toggle('on',c); $('tabSingle').classList.toggle('on',!c);
+  $('crossMode').classList.toggle('hidden',!c); $('singleMode').classList.toggle('hidden',c);
+  if(c && !$('targets').children.length){
+    addTargetRow('dcinside','joonjangbee'); addTargetRow('natepann','ranking'); addTargetRow('fmkorea','best');
+  }
+}
+async function runCross(){
+  const rows=[...document.querySelectorAll('#targets .trow')]
+    .map(r=>({source:r.querySelector('.tsrc').value, board:r.querySelector('.tboard').value.trim()}))
+    .filter(t=>t.board);
+  if(rows.length<2){ $('cstatus').innerHTML='<span class="err">최소 2개 소스를 입력하세요.</span>'; return; }
+  $('cgo').disabled=true; $('cstatus').textContent='⏳ 여러 소스 크롤링 + 교차 분석 중… (소스 수·페이지에 비례)';
+  $('cresults').classList.add('hidden');
+  try{
+    const body={targets:rows, start_page:+$('cfrom').value, end_page:+$('cto').value,
+      fetch_body:$('cbody').checked, use_llm:$('cllm').checked, delay:+$('cdelay').value};
+    const res=await fetch('/api/cross',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await res.json();
+    if(data.error){ $('cstatus').innerHTML=`<span class="err">❌ ${data.error}</span>`; return; }
+    renderCross(data); $('cstatus').textContent=`✅ 완료 · ${data.targets.length}개 소스 · ${data.total_posts}건`;
+  }catch(e){ $('cstatus').innerHTML=`<span class="err">❌ ${e}</span>`; }
+  finally{ $('cgo').disabled=false; }
+}
+function renderCross(d){
+  const keys=d.keys, sk=k=>k.split('/')[0];
+  const llm=d.llm;
+  if(llm.available && llm.strongest_demand){
+    const s=llm.strongest_demand;
+    $('cBig').innerHTML=`<div class="t">★ 가장 강한(교차검증된) 수요</div>
+      <div class="row"><span class="k">${s.title||''}</span></div>
+      <div class="row muted">교차검증: ${s.cross_validation||''}</div>
+      <div class="row">💼 기회: ${s.opportunity||''}</div>
+      <div class="hint">${llm.summary||''} <span class="tag">${llm.model||''}</span></div>`;
+  } else {
+    $('cBig').innerHTML=`<div class="t muted">LLM 교차 종합 없음</div>
+      <div class="hint">${llm.reason||''} — 아래 통계 비교는 그대로 제공됩니다.</div>`;
+  }
+  $('cSummary').innerHTML=d.targets.map(t=>`<tr><td>${t.key}</td><td>${t.count}</td>
+    <td>${t.pain_count}</td><td>${Math.round(t.pain_ratio*100)}%</td></tr>`).join('');
+  $('cShared').innerHTML = d.shared_keywords.length ? d.shared_keywords.map(s=>{
+    const pills=Object.entries(s.sources).map(([k,v])=>`<span class="src-pill">${sk(k)} <b>${v}</b></span>`).join('');
+    return `<div style="margin:6px 0"><b>${s.word}</b> <span class="tag">${s.source_count}소스</span> ${pills}</div>`;
+  }).join('') : '<span class="muted">공통 키워드 없음 — 주제/언어가 다른 소스일 수 있습니다. 페인 매트릭스로 비교하세요.</span>';
+  const max=Math.max(1,...d.pain_matrix.flatMap(r=>keys.map(k=>r.by_source[k]||0)));
+  const head='<thead><tr><th>카테고리</th>'+keys.map(k=>`<th>${sk(k)}</th>`).join('')+'</tr></thead>';
+  const rows=d.pain_matrix.map(r=>'<tr><td>'+r.category+'</td>'+keys.map(k=>{
+    const v=r.by_source[k]||0; return `<td class="${v>=max*0.6?'hot':''}">${v}</td>`;}).join('')+'</tr>').join('');
+  $('cMatrix').innerHTML=head+'<tbody>'+rows+'</tbody>';
+  $('cUnique').innerHTML=Object.entries(d.unique_keywords).map(([k,ws])=>
+    `<div style="margin:5px 0"><b>${k}</b>: <span class="muted">${ws.map(w=>w.word).join(', ')}</span></div>`).join('');
+  if(llm.available && (llm.shared_pains||[]).length){
+    $('cPains').innerHTML=llm.shared_pains.map(p=>`<li><b>${p.pain||''}</b> ${(p.sources||[]).map(s=>`<span class="src-pill">${sk(s)}</span>`).join('')}<br>
+      <span class="muted">${p.why_strong||''}</span></li>`).join('');
+    $('cNoLlm').classList.add('hidden');
+  } else { $('cPains').innerHTML=''; $('cNoLlm').classList.remove('hidden');
+    $('cNoLlm').textContent='LLM 미사용 (ANTHROPIC_API_KEY 설정 시 활성화).'; }
+  $('cDiv').innerHTML=(llm.available && (llm.divergences||[]).length)
+    ? llm.divergences.map(v=>`<div class="idea"><b>${sk(v.source||'')}</b> — ${v.unique_focus||''}<br>
+        <span class="muted">${v.note||''}</span></div>`).join('') : '<span class="muted">—</span>';
+  $('cresults').classList.remove('hidden');
+}
+$('addTarget').addEventListener('click', ()=>addTargetRow());
+$('cgo').addEventListener('click', runCross);
+
+$('go').addEventListener('click', run);
+loadSources();
+</script>
+</body>
+</html>
