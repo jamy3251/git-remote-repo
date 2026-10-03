@@ -16,6 +16,21 @@ export interface RunnerConfig {
   runTimeoutMaxMs: number;
   outputCapBytes: number;
   allowedOrigins: string[];
+  /** Next.js origin proxied for every non-/runner path, or null to disable. */
+  webProxy: string | null;
+  /** Dashboard path opened by the tunnel QR code. */
+  dashboardPath: string;
+  supervisor: {
+    enabled: boolean;
+    defaultPolicy: "manual" | "assist" | "auto";
+    intervalMs: number;
+    brain: "auto" | "api" | "claude-cli" | "heuristic";
+    brainModel: string | null;
+    apiKey: string | null;
+    cliTimeoutMs: number;
+    /** Discord-compatible webhook that receives escalations (optional). */
+    notifyWebhook: string | null;
+  };
 }
 
 function loadToken(): string {
@@ -45,11 +60,31 @@ export function loadConfig(): RunnerConfig {
     compileTimeoutMs: 20_000,
     runTimeoutMaxMs: 30_000,
     outputCapBytes: 64 * 1024,
-    allowedOrigins: (process.env.RUNNER_ALLOWED_ORIGINS ?? "http://localhost:3000,http://127.0.0.1:3000")
+    allowedOrigins: (process.env.RUNNER_ALLOWED_ORIGINS ?? "http://localhost:3000,http://127.0.0.1:3000,http://localhost:7331,http://127.0.0.1:7331")
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean),
+    webProxy: process.env.RUNNER_WEB_PROXY === "off" ? null : (process.env.RUNNER_WEB_PROXY ?? "http://127.0.0.1:3000"),
+    dashboardPath: process.env.RUNNER_DASHBOARD_PATH ?? "/control",
+    supervisor: {
+      enabled: process.env.SUPERVISOR_ENABLED !== "0",
+      defaultPolicy: asPolicy(process.env.SUPERVISOR_DEFAULT_POLICY) ?? "assist",
+      intervalMs: Number(process.env.SUPERVISOR_INTERVAL_MS ?? 3000),
+      brain: asBrain(process.env.SUPERVISOR_BRAIN) ?? "auto",
+      brainModel: process.env.SUPERVISOR_MODEL?.trim() || null,
+      apiKey: process.env.ANTHROPIC_API_KEY?.trim() || null,
+      cliTimeoutMs: Number(process.env.SUPERVISOR_CLI_TIMEOUT_MS ?? 120_000),
+      notifyWebhook: process.env.SUPERVISOR_NOTIFY_WEBHOOK?.trim() || null,
+    },
   };
+}
+
+function asPolicy(v: string | undefined): "manual" | "assist" | "auto" | null {
+  return v === "manual" || v === "assist" || v === "auto" ? v : null;
+}
+
+function asBrain(v: string | undefined): "auto" | "api" | "claude-cli" | "heuristic" | null {
+  return v === "auto" || v === "api" || v === "claude-cli" || v === "heuristic" ? v : null;
 }
 
 export const isWindows = os.platform() === "win32";

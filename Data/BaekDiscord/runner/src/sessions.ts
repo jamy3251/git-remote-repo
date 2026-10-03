@@ -4,9 +4,10 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import * as pty from "node-pty";
-import type { CreateSessionRequest, SessionInfo, SessionStatus } from "./protocol.js";
+import type { CreateSessionRequest, Policy, SessionInfo, SessionStatus } from "./protocol.js";
 import { findPreset } from "./presets.js";
 import { isWindows } from "./config.js";
+import { tailLines } from "./supervisor/ansi.js";
 
 interface Session {
   info: SessionInfo;
@@ -19,6 +20,7 @@ export interface SessionManagerOptions {
   cwdRoot: string;
   maxSessions: number;
   historyBytes: number;
+  defaultPolicy: Policy;
 }
 
 /**
@@ -103,6 +105,13 @@ export class SessionManager extends EventEmitter {
       endedAt: null,
       bytes: 0,
       tags: req.tags ?? [],
+      goal: req.goal?.trim() || null,
+      policy: req.policy ?? this.opts.defaultPolicy,
+      state: "starting",
+      stateReason: "시작 중",
+      lastOutputAt: null,
+      lastLine: "",
+      suggestion: null,
     };
     const session: Session = { info, proc: null, history: [], historyBytes: 0 };
     this.sessions.set(id, session);
@@ -210,8 +219,25 @@ export class SessionManager extends EventEmitter {
     for (const id of this.sessions.keys()) this.kill(id);
   }
 
+  /** Partial update of supervisor-owned fields; broadcasts "updated". */
+  patch(id: string, partial: Partial<Pick<SessionInfo, "goal" | "policy" | "state" | "stateReason" | "suggestion" | "name" | "tags">>): SessionInfo | undefined {
+    const s = this.sessions.get(id);
+    if (!s) return undefined;
+    Object.assign(s.info, partial);
+    this.emit("updated", { ...s.info });
+    return { ...s.info };
+  }
+
+  /** Last `n` non-empty ANSI-stripped lines of a session's output. */
+  tail(id: string, n: number): string[] {
+    return tailLines(this.history(id), n);
+  }
+
   private push(s: Session, data: string): void {
     s.info.bytes += Buffer.byteLength(data);
+    s.info.lastOutputAt = Date.now();
+    const lines = tailLines(data, 1);
+    if (lines.length) s.info.lastLine = lines[0].slice(0, 200);
     s.history.push(data);
     s.historyBytes += data.length;
     while (s.historyBytes > this.opts.historyBytes && s.history.length > 1) {

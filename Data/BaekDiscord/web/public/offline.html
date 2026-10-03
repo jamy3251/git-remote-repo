@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b0d10" />
+    <title>오프라인 · DevHub</title>
+    <style>
+      body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #0b0d10; color: #e6e8eb; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 24px; }
+      .card { max-width: 420px; border: 1px solid #262b34; background: #12151a; border-radius: 12px; padding: 20px; }
+      h1 { font-size: 18px; margin: 0 0 8px; }
+      p { color: #8b93a1; font-size: 14px; line-height: 1.5; margin: 0 0 12px; }
+      a { color: #7c9cff; }
+      button { background: #5b7fff; color: #fff; border: 0; border-radius: 8px; padding: 10px 16px; font-size: 14px; min-height: 44px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>연결이 끊겼습니다</h1>
+      <p>DevHub 관제는 PC의 러너와 실시간으로 통신합니다. 터널이 닫혔거나 네트워크가 끊긴 상태입니다.</p>
+      <p>러너 PC에서 터널이 열려 있는지 확인한 뒤 다시 시도하세요.</p>
+      <button onclick="location.reload()">다시 연결</button>
+    </div>
+  </body>
+</html>

@@ -2,6 +2,12 @@ import Link from "next/link";
 
 const areas = [
   {
+    href: "/control",
+    title: "관제",
+    body: "모든 에이전트 세션의 상태를 한눈에 보고, 슈퍼바이저가 입력 대기·오류를 판단해 제안하거나 자율 응답합니다. 터널+QR로 휴대폰에서도 지시합니다.",
+    status: "모바일/원격",
+  },
+  {
     href: "/teams",
     title: "팀 다이제스트 (M1)",
     body: "GitHub 커밋·PR을 자동 수집해 매일 21:00 팀 디스코드 채널에 발행합니다. 점수·등수 없음, 발행 후 60분 본인 행 편집.",
@@ -56,7 +62,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ s
           개발 활동은 이미 GitHub와 에디터에 있습니다. 사람이 손으로 옮기지 않아도 팀이 보게 하는 것이 이 프로젝트의 본질이고, 콘솔과 컴파일러는 그 위에 얹은 개인 작업 도구입니다.
         </p>
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {areas.map((a) => (
           <Link key={a.href} href={a.href} className="card block p-4 transition hover:border-accent">
             <div className="mb-2 flex items-center justify-between gap-2">

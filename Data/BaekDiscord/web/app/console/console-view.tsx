@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { RunnerSettingsBar } from "@/components/runner-settings-bar";
 import { TerminalTile } from "@/components/terminal-tile";
 import { useRunner } from "@/lib/runner/use-runner";
-import type { CreateSessionRequest } from "@/lib/runner/protocol";
+import type { CreateSessionRequest, Policy } from "@/lib/runner/protocol";
 
 type Columns = 1 | 2 | 3;
 
@@ -17,6 +17,8 @@ export function ConsoleView() {
   const [name, setName] = useState("");
   const [command, setCommand] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [goal, setGoal] = useState("");
+  const [policy, setPolicy] = useState<Policy | "">("");
   const [batchCwds, setBatchCwds] = useState("");
   const [batchMode, setBatchMode] = useState(false);
   const [columns, setColumns] = useState<Columns>(2);
@@ -50,6 +52,8 @@ export function ConsoleView() {
       name: name.trim() || undefined,
       command: preset.id === "custom" ? command.trim() : undefined,
       prompt: preset.acceptsPrompt ? prompt : undefined,
+      goal: goal.trim() || undefined,
+      policy: policy || undefined,
     };
     if (batchMode) {
       const dirs = batchCwds
@@ -131,6 +135,19 @@ export function ConsoleView() {
                 <textarea className="input min-h-[72px] font-mono" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="예: 테스트를 실행하고 실패 원인을 요약해줘" />
               </label>
             )}
+            <label>
+              <span className="label">목표 (선택, 슈퍼바이저 판단 기준)</span>
+              <input className="input" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="예: 테스트 통과시키기, 커밋 금지" />
+            </label>
+            <label>
+              <span className="label">슈퍼바이저 정책 (선택)</span>
+              <select className="input" value={policy} onChange={(e) => setPolicy(e.target.value as Policy | "")}>
+                <option value="">러너 기본값</option>
+                <option value="manual">수동 (관찰만)</option>
+                <option value="assist">제안 (사람이 승인)</option>
+                <option value="auto">자율 (안전 범위 내 자동 응답)</option>
+              </select>
+            </label>
             <label className="flex items-center gap-2 text-sm md:col-span-2">
               <input type="checkbox" checked={batchMode} onChange={(e) => setBatchMode(e.target.checked)} className="accent-accent" />
               여러 폴더에 동시에 띄우기 (일괄 실행)

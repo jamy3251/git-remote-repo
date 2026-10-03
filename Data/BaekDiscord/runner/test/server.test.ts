@@ -17,6 +17,18 @@ const cfg: RunnerConfig = {
   runTimeoutMaxMs: 30_000,
   outputCapBytes: 64 * 1024,
   allowedOrigins: ["http://localhost:3000"],
+  webProxy: null,
+  dashboardPath: "/control",
+  supervisor: {
+    enabled: false,
+    defaultPolicy: "assist",
+    intervalMs: 100_000,
+    brain: "heuristic",
+    brainModel: null,
+    apiKey: null,
+    cliTimeoutMs: 1000,
+    notifyWebhook: null,
+  },
 };
 
 let runner: ReturnType<typeof createRunnerServer>;
@@ -34,7 +46,7 @@ afterAll(async () => {
 
 function connect(token = cfg.token): Promise<{ ws: WebSocket; next: (pred: (m: ServerMessage) => boolean, ms?: number) => Promise<ServerMessage>; send: (m: unknown) => void }> {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${token}`);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/runner/ws?token=${token}`);
     const queue: ServerMessage[] = [];
     const waiters: Array<{ pred: (m: ServerMessage) => boolean; resolve: (m: ServerMessage) => void }> = [];
     ws.on("message", (raw) => {
@@ -62,7 +74,7 @@ function connect(token = cfg.token): Promise<{ ws: WebSocket; next: (pred: (m: S
 
 describe("http", () => {
   it("serves /health without a token", async () => {
-    const r = await fetch(`${base()}/health`);
+    const r = await fetch(`${base()}/runner/health`);
     expect(r.status).toBe(200);
     const j = (await r.json()) as { ok: boolean; cwdRoot: string };
     expect(j.ok).toBe(true);
@@ -70,25 +82,25 @@ describe("http", () => {
   });
 
   it("rejects protected routes without a token", async () => {
-    expect((await fetch(`${base()}/languages`)).status).toBe(401);
-    expect((await fetch(`${base()}/languages?token=nope`)).status).toBe(401);
+    expect((await fetch(`${base()}/runner/languages`)).status).toBe(401);
+    expect((await fetch(`${base()}/runner/languages?token=nope`)).status).toBe(401);
   });
 
   it("rejects disallowed browser origins", async () => {
-    const r = await fetch(`${base()}/health`, { headers: { origin: "https://evil.example" } });
+    const r = await fetch(`${base()}/runner/health`, { headers: { origin: "https://evil.example" } });
     expect(r.status).toBe(403);
   });
 
   it("lists languages and presets with a bearer token", async () => {
     const h = { authorization: `Bearer ${cfg.token}` };
-    const langs = (await (await fetch(`${base()}/languages`, { headers: h })).json()) as { languages: unknown[] };
+    const langs = (await (await fetch(`${base()}/runner/languages`, { headers: h })).json()) as { languages: unknown[] };
     expect(langs.languages.length).toBeGreaterThan(3);
-    const presets = (await (await fetch(`${base()}/presets`, { headers: h })).json()) as { presets: { id: string }[] };
+    const presets = (await (await fetch(`${base()}/runner/presets`, { headers: h })).json()) as { presets: { id: string }[] };
     expect(presets.presets.map((p) => p.id)).toContain("claude");
   });
 
   it("compiles via POST /compile with an expected-output verdict", async () => {
-    const r = await fetch(`${base()}/compile?token=${cfg.token}`, {
+    const r = await fetch(`${base()}/runner/compile?token=${cfg.token}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ language: "javascript", code: "console.log(6*7)", expected: "42" }),
