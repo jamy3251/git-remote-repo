@@ -86,6 +86,10 @@ class Metrics:
     failed_warn: bool = False
     since: str = ""
     window_months: int = 12
+    # 하이브리드 검색: 의미 검색으로만 들어온 적중·그중 관련. semantic=None이면 키워드만 썼다.
+    n_hit_semantic: int = 0
+    n_relevant_semantic: int = 0
+    semantic: dict | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

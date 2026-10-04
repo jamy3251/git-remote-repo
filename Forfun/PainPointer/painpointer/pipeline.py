@@ -30,7 +30,7 @@ from .llm import LLM
 from .log import Timer, log_event
 from .models import Judgment, LLMCallRef, Query, Quote, Report, SourceStatus
 from .render import render_report
-from .search import DEDUP_RULES_TEXT, search_corpus
+from .search import DEDUP_RULES_TEXT, search_corpus, semantic_search
 from .textnorm import NORM_VERSION, mask_author, query_hash
 
 
@@ -168,10 +168,19 @@ def generate_report(req: GenerateRequest, *, db_path: str | Path | None = None, 
         raise
     try:
         conn = store.conn
+        pain_vec = embedder.encode([q.pain])[0] if embedder is not None else None
+        sem = None
         with Timer() as t:
-            sr = search_corpus(store, q.terms, sources=q.sources or None, since_day=since)
-        log_event("stage", job_id=job_id, stage="search", elapsed_ms=t.ms, n_raw=sr.n_raw, n=len(sr.posts))
-        say(f"검색 적중 {sr.n_raw}건 → 중복 제거 후 {len(sr.posts)}건")
+            if config.SEMANTIC_SEARCH and pain_vec is not None:
+                sem = semantic_search(conn, pain_vec, embedder, sources=q.sources or None, since_day=since,
+                                      threshold=config.SEMANTIC_THRESHOLD, cap=config.SEMANTIC_CAP)
+                if not sem["pool"]:
+                    sem = None          # 추출 이력 없음 → 키워드만(리포트 상세에 '사용 안 함'으로 표시)
+            sr = search_corpus(store, q.terms, sources=q.sources or None, since_day=since, semantic=sem)
+        log_event("stage", job_id=job_id, stage="search", elapsed_ms=t.ms, n_raw=sr.n_raw, n=len(sr.posts),
+                  n_semantic=len(sr.semantic_keys))
+        say(f"검색 적중 {sr.n_raw}건 → 중복 제거 후 {len(sr.posts)}건"
+            + (f" (의미 검색으로 추가 {len(sr.semantic_keys)}건)" if sr.semantic else ""))
         hits = sr.posts
         sample, sampled = stratified_sample(hits, config.SAMPLE_MAX, seed=qh)
         say(f"판정 표본 {len(sample)}건{' (층화 표본)' if sampled else ' (전수)'}")
@@ -190,7 +199,7 @@ def generate_report(req: GenerateRequest, *, db_path: str | Path | None = None, 
         posts_by_key = {p.key: p for p in sample}
         metrics = aggregate(hits=hits, sample=sample, sampled=sampled, judgments=judgments, conn=conn, today=today,
                             sources=q.sources or None, merged=sr.merged, n_cached=n_cached, n_new=n_new,
-                            n_injection=n_injection)
+                            n_injection=n_injection, semantic_keys=sr.semantic_keys, semantic=sr.semantic)
         say(f"관련 {metrics.n_relevant}건 / 페인 신호 {metrics.n_pain}건" + (" — 근거 부족" if metrics.insufficient else ""))
 
         rel_posts = [posts_by_key[j.post_id] for j in judgments if j.status == "ok" and j.relevant and j.post_id in posts_by_key]
@@ -215,8 +224,7 @@ def generate_report(req: GenerateRequest, *, db_path: str | Path | None = None, 
             if embedder is None:
                 degraded.append("유사 시도 미계산 — 임베더 없음")
             else:
-                vec = embedder.encode([q.pain])[0]
-                attempts = similar_attempts(conn, vec)
+                attempts = similar_attempts(conn, pain_vec)
                 if attempts is None:
                     degraded.append("유사 시도 미계산 — 사전 계산 배치 필요(attempt_embeddings 비어 있음)")
 

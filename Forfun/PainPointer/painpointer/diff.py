@@ -43,6 +43,12 @@ def diff_reports(prev: dict, cur_metrics: dict, cur_terms: list[str], cur_source
     terms_changed = bool(added or removed)
     if terms_changed:
         warnings.append(f"검색어 변경됨(추가 {len(added)} / 제거 {len(removed)}) — 건수 변화에 검색어 변경 효과가 섞여 있음")
+    def _sem(m: dict):
+        sm = m.get("semantic")
+        return (sm or {}).get("threshold") if sm else None
+    if _sem(pm) != _sem(cur_metrics):
+        terms_changed = True
+        warnings.append("의미 검색 사용 여부/기준 변경됨 — 건수 변화에 검색 방식 변경 효과가 섞여 있음")
     prev_src, cur_src = set(prev["sources"]), set(cur_sources)
     scope_changed = (prev_src != cur_src) or (pm.get("window_months") != cur_metrics.get("window_months"))
     if scope_changed:

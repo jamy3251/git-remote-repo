@@ -90,7 +90,8 @@ def pattern_hits(posts: list[Post]) -> int:
 
 def aggregate(*, hits: list[Post], sample: list[Post], sampled: bool, judgments: list[Judgment],
               conn: sqlite3.Connection, today: date, sources: list[str] | None,
-              merged: dict[str, int], n_cached: int = 0, n_new: int = 0, n_injection: int = 0) -> Metrics:
+              merged: dict[str, int], n_cached: int = 0, n_new: int = 0, n_injection: int = 0,
+              semantic_keys: set[str] | None = None, semantic: dict | None = None) -> Metrics:
     since = window_since(today)
     months = window_months(today)
     month_set = set(months)
@@ -142,6 +143,9 @@ def aggregate(*, hits: list[Post], sample: list[Post], sampled: bool, judgments:
         pattern_hits=pattern_hits(rel_posts), merged_detail=dict(merged),
         failed_warn=(n_judged > 0 and len(failed) / n_judged > config.FAILED_WARN_RATIO),
         since=since, window_months=config.WINDOW_MONTHS,
+        n_hit_semantic=sum(1 for p in hits if p.key in (semantic_keys or ())),
+        n_relevant_semantic=sum(1 for j in relevant if j.post_id in (semantic_keys or ())),
+        semantic=semantic,
     )
 
 

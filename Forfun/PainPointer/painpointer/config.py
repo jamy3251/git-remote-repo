@@ -55,6 +55,11 @@ QUOTE_MAX_CHARS = 120
 MAX_QUOTES = 20
 MAX_QUOTES_PER_AUTHOR = 2
 TITLE_SIM_THRESHOLD = 0.9
+# 하이브리드 검색: 페인 지도 추출 문장 ↔ 페인 문장 유사도. 0.4 실측(2026-10-05, 손라벨 14건 중 9건 회수·+53건),
+# 0.5는 5건. 글 전체 임베딩 채널은 추가 회수 0이라 없음.
+SEMANTIC_SEARCH = os.getenv("PP_SEMANTIC", "1") == "1"
+SEMANTIC_THRESHOLD = float(os.getenv("PP_SEMANTIC_THRESHOLD", "0.4"))
+SEMANTIC_CAP = int(os.getenv("PP_SEMANTIC_CAP", "150"))     # 판정 비용 상한(의미 검색으로 더하는 최대 글 수)
 
 CLUSTER_PARAMS = {
     "distance_threshold": float(os.getenv("PP_CLUSTER_DISTANCE", "0.35")),

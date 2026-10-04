@@ -69,7 +69,8 @@ def test_parse_boards_requires_source_board():
         parse_boards(["modu"])
 
 
-def test_insufficient_report_points_to_map_pains(golden_db, fake_client):
+def test_insufficient_report_points_to_map_pains(golden_db, fake_client, monkeypatch):
+    monkeypatch.setattr("painpointer.config.SEMANTIC_SEARCH", False)   # 키워드 0건 → 근거 부족 상황 고정
     _run(golden_db, fake_client)
     llm = LLM(golden_db, client=fake_client, sleep=lambda *_: None)
     report, html = generate_report(
@@ -111,3 +112,41 @@ def test_web_discover_job_redirects_to_map(golden_db, fake_client):
     page = c.get(r2.headers["location"])
     assert page.status_code == 200 and "페인 지도" in page.text
     assert c.post("/discover", data={"target": "x"}).status_code == 400
+
+
+def test_hybrid_search_adds_extract_matches_and_judges_them_the_same(golden_db, fake_client, monkeypatch):
+    """키워드가 0건이어도 지도 추출 문장과 비슷한 글을 가져오고, 관련 여부는 같은 판정이 정한다."""
+    _run(golden_db, fake_client)
+    llm = LLM(golden_db, client=fake_client, sleep=lambda *_: None)
+    late = sum(1 for p in golden_posts() if "늦" in p.body)
+    report, html = generate_report(
+        GenerateRequest(pain="배달이 늦게 온다", target="20대", terms=["우주선"]),
+        db_path=golden_db, llm=llm, embedder=HashEmbedder(), today=TODAY)
+    m = report.metrics
+    assert m.semantic and m.semantic["threshold"] == 0.4 and m.semantic["pool"] > 0
+    assert m.n_hit_total == m.n_hit_semantic >= late            # 전부 의미 검색으로 들어옴
+    assert m.n_relevant_semantic == m.n_relevant                 # 관련 수치는 판정 결과(지도 건수 아님)
+    assert m.n_relevant <= m.n_hit_semantic
+    assert "의미 검색" in html and "키워드 0 + 의미 검색" in html
+
+    monkeypatch.setattr("painpointer.config.SEMANTIC_CAP", 5)
+    r2, h2 = generate_report(
+        GenerateRequest(pain="배달이 늦게 온다", target="20대", terms=["우주선"]),
+        db_path=golden_db, llm=llm, embedder=HashEmbedder(), today=TODAY)
+    assert r2.metrics.n_hit_semantic <= 5
+
+    monkeypatch.setattr("painpointer.config.SEMANTIC_SEARCH", False)
+    r3, h3 = generate_report(
+        GenerateRequest(pain="배달이 늦게 온다", target="20대", terms=["우주선"]),
+        db_path=golden_db, llm=llm, embedder=HashEmbedder(), today=TODAY)
+    assert r3.metrics.semantic is None and r3.metrics.n_hit_total == 0
+    assert "의미 검색 사용 여부/기준 변경됨" in h3              # 이전 리포트와 검색 방식이 달라 경고
+
+
+def test_hybrid_off_without_extracts(golden_db, fake_client):
+    llm = LLM(golden_db, client=fake_client, sleep=lambda *_: None)
+    report, html = generate_report(
+        GenerateRequest(pain="배달이 늦게 온다", target="20대", terms=["배달"]),
+        db_path=golden_db, llm=llm, embedder=HashEmbedder(), today=TODAY)
+    assert report.metrics.semantic is None and report.metrics.n_hit_semantic == 0
+    assert "사용 안 함" in html and not any("의미 검색" in d for d in report.degraded)

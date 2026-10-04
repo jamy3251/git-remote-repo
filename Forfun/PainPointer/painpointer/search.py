@@ -1,4 +1,9 @@
-"""2단계 search_corpus: 형태소 FTS 검색 + 중복 제거 3단계.
+"""2단계 search_corpus: 형태소 FTS 검색 (+ 의미 검색) + 중복 제거 3단계.
+
+의미 검색(하이브리드, 2026-10-05): 키워드가 놓치는 구어체 불만("또 내일 발표래")을 줍기 위해
+페인 지도가 글마다 추출해 둔 불편 한 문장(pain_extracts)과 페인 문장의 코사인 유사도로 글을 더 가져온다.
+가져오기만 한다 — 관련 여부·수치는 키워드 적중과 똑같이 엄격 판정이 정한다(지도 수치는 근거로 쓰지 않음).
+글 전체 임베딩은 실측에서 추가 재현율이 0이고 판정 비용만 늘어 쓰지 않는다.
 
 중복 제거(설계 고정):
 (1) 동일 URL 제거 → (2) 본문 정규화 해시 동일 시 제거
@@ -38,6 +43,8 @@ class SearchResult:
     n_raw: int
     merged: dict[str, int]
     match: str | None
+    semantic: dict | None = None      # {"keys": [...], "threshold", "pool", "added_raw"} 또는 None(미사용)
+    semantic_keys: set[str] = field(default_factory=set)   # 의미 검색으로만 들어온 글(중복 제거 후)
 
     @property
     def merged_total(self) -> int:
@@ -96,13 +103,52 @@ def dedup(posts: list[Post], title_threshold: float = config.TITLE_SIM_THRESHOLD
     return res
 
 
+def semantic_search(conn, pain_vec, embedder, *, sources: list[str] | None = None, since_day: str | None = None,
+                    threshold: float = config.SEMANTIC_THRESHOLD, cap: int = config.SEMANTIC_CAP) -> dict:
+    """pain_extracts(글별 최신 추출, 불편 있음)의 문장 ↔ 페인 문장 유사도 ≥ threshold 상위 cap개 글.
+
+    반환 {"keys": [...유사도 내림차순], "threshold", "pool": 후보 추출 문장 수}. 추출 이력이 없으면 pool 0.
+    """
+    import numpy as np
+    sql = ("SELECT x.post_key, x.pain FROM pain_extracts x JOIN posts p ON p.post_key = x.post_key "
+           "WHERE x.id IN (SELECT MAX(id) FROM pain_extracts WHERE status='ok' GROUP BY post_key) "
+           "AND x.pain != '' AND x.intensity >= 1")
+    args: list = []
+    if since_day:
+        sql += " AND p.created_day >= ?"
+        args.append(since_day)
+    if sources:
+        sql += " AND p.source IN (%s)" % ",".join("?" * len(sources))
+        args += list(sources)
+    try:
+        rows = conn.execute(sql, args).fetchall()
+    except Exception:            # pain_extracts 테이블이 없는 옛 DB
+        rows = []
+    out = {"keys": [], "threshold": threshold, "pool": len(rows)}
+    if not rows:
+        return out
+    M = embedder.encode([r[1] for r in rows])
+    q = np.asarray(pain_vec, dtype=np.float32)
+    q = q / (np.linalg.norm(q) or 1)
+    sims = M @ q
+    order = [int(j) for j in np.argsort(-sims) if sims[int(j)] >= threshold][:cap]
+    out["keys"] = [rows[j][0] for j in order]
+    return out
+
+
 def search_corpus(store: Store, terms: list[str], *, sources: list[str] | None = None,
-                  since_day: str | None = None) -> SearchResult:
+                  since_day: str | None = None, semantic: dict | None = None) -> SearchResult:
+    """semantic: semantic_search() 결과(있으면 키워드 적중과 합친 뒤 한 번에 중복 제거)."""
     match = fts_match(terms)
-    if match is None:
-        return SearchResult(posts=[], n_raw=0, merged={"url": 0, "body": 0, "author_title": 0}, match=None)
-    keys = store.search_keys(match, sources=sources or None, since_day=since_day)
-    keys = sorted(set(keys))
+    kw = set(store.search_keys(match, sources=sources or None, since_day=since_day)) if match else set()
+    sem = set(semantic["keys"]) if semantic else set()
+    if not kw and not sem:
+        return SearchResult(posts=[], n_raw=0, merged={"url": 0, "body": 0, "author_title": 0}, match=match,
+                            semantic=semantic and {**semantic, "added_raw": 0})
+    keys = sorted(kw | sem)
     posts = load_posts_by_keys(store, keys)
     d = dedup(posts)
-    return SearchResult(posts=d.posts, n_raw=len(keys), merged=d.merged, match=match)
+    sem_only = {p.key for p in d.posts if p.key in sem and p.key not in kw}
+    info = semantic and {k: v for k, v in semantic.items() if k != "keys"} | {"added_raw": len(sem - kw)}
+    return SearchResult(posts=d.posts, n_raw=len(keys), merged=d.merged, match=match,
+                        semantic=info, semantic_keys=sem_only)

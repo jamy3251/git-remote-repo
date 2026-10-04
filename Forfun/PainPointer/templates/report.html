@@ -62,7 +62,7 @@ footer{margin-top:40px;padding-top:12px;border-top:1px solid var(--line);font-si
 <h2>0. 판정 기준</h2>
 <div class="box">
   <div class="funnel">
-    검색 적중 <b>{{ m.n_hit_total|num }}</b>건
+    검색 적중 <b>{{ m.n_hit_total|num }}</b>건{% if m.semantic %} (키워드 {{ (m.n_hit_total - m.n_hit_semantic)|num }} + 의미 검색 {{ m.n_hit_semantic|num }}){% endif %}
     → {% if m.sampled %}층화 표본 <b>{{ m.n_judged|num }}</b>건 판정{% else %}전수 <b>{{ m.n_judged|num }}</b>건 판정{% endif %}
     → 관련 <b>{{ m.n_relevant|num }}</b>건 / 표본 {{ m.n_judged|num }}건
     {% if m.insufficient %}
@@ -84,6 +84,14 @@ footer{margin-top:40px;padding-top:12px;border-top:1px solid var(--line);font-si
 
     <h3>검색어 ({{ q.terms|length }}개{% if q.user_edited %}, 사용자 수정{% endif %})</h3>
     <div>{% for t in q.terms %}<code>{{ t }}</code>{% if t in q.generated_terms %}<span class="tag">자동 확장</span>{% endif %} {% endfor %}</div>
+
+    <h3>의미 검색</h3>
+    {% if m.semantic %}
+    <div>키워드가 놓치는 구어체 글을 줍기 위해, 페인 지도가 글마다 뽑아 둔 불편 한 문장(AI 추출 {{ m.semantic.pool|num }}건) 중 페인 문장과 유사도 {{ m.semantic.threshold }} 이상인 글을 검색 적중에 더했습니다(상한 {{ cfg.SEMANTIC_CAP }}건). 키워드에 없던 글 {{ m.n_hit_semantic|num }}건이 추가됐고, 그중 관련 판정 {{ m.n_relevant_semantic|num }}건.</div>
+    <div class="mut">의미 검색은 글을 가져오기만 합니다. 관련 여부·강도는 키워드 적중과 같은 기준으로 판정했고, 지도의 건수는 쓰지 않습니다.</div>
+    {% else %}
+    <div>사용 안 함 — 이 소스·기간에 불편 추출(페인 지도) 이력이 없거나 임베더가 없어 키워드 검색만 썼습니다.</div>
+    {% endif %}
 
     <h3>표본·캐시</h3>
     <div>{% if m.sampled %}적중 {{ m.n_hit_total|num }}건 &gt; {{ cfg.SAMPLE_MAX }}건 → 월별·소스별 비례 층화 무작위 표본 {{ m.n_judged|num }}건. <b>표본 기준</b> 라벨이 붙은 수치는 최소값이며 외삽하지 않았습니다.{% else %}적중 {{ m.n_hit_total|num }}건 전수 판정(표본 아님).{% endif %}</div>
