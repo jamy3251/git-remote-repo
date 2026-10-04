@@ -15,6 +15,7 @@ from dccrawler.storage import Store
 
 from . import config, db
 from .aggregate import window_since
+from .discover import DiscoverRequest, load_map_html
 from .embed import Embedder
 from .expand import clean_terms, expand_query, preview_hits
 from .jobs import JobManager
@@ -106,7 +107,8 @@ def create_app(db_path: str | Path | None = None, *, llm_factory=None, embedder_
         if not st:
             raise HTTPException(404)
         if st["status"] == "done" and st.get("report_id"):
-            return RedirectResponse(f"/r/{st['report_id']}", status_code=303)
+            kind = "m" if "boards" in json.loads(st.get("request_json") or "{}") else "r"
+            return RedirectResponse(f"/{kind}/{st['report_id']}", status_code=303)
         return render_page("job.html", job=st, joined=request.query_params.get("joined") == "1")
 
     @app.get("/jobs/{job_id}/status")
@@ -131,6 +133,24 @@ def create_app(db_path: str | Path | None = None, *, llm_factory=None, embedder_
         return Response(html, media_type="text/html; charset=utf-8",
                         headers={"Content-Disposition": f'attachment; filename="painpointer-{report_id}.html"',
                                  "X-Robots-Tag": "noindex, nofollow"})
+
+    @app.post("/discover")
+    def discover_submit(boards: list[str] = Form([]), target: str = Form(""), days: int = Form(config.DISCOVER_DAYS)):
+        if not boards:
+            raise HTTPException(400, "보드를 하나 이상 고르세요")
+        try:
+            config.require_models()
+        except config.ConfigError as e:
+            raise HTTPException(400, str(e))
+        jid, joined = jobs.submit(DiscoverRequest(boards=list(boards), target=target.strip(), days=max(7, min(days, 365))))
+        return RedirectResponse(f"/jobs/{jid}" + ("?joined=1" if joined else ""), status_code=303)
+
+    @app.get("/m/{map_id}", response_class=HTMLResponse)
+    def pain_map(map_id: str):
+        html = load_map_html(db_path, map_id)
+        if html is None:
+            raise HTTPException(404)
+        return HTMLResponse(html, headers={"X-Robots-Tag": "noindex, nofollow"})
 
     @app.get("/health")
     def health():

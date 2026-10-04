@@ -15,7 +15,7 @@
       document.getElementById('stage').textContent=j.stage||'';
       document.getElementById('log').textContent=j.progress||'';
       var e=document.getElementById('err'); if(j.error){e.hidden=false;e.textContent=j.error;}
-      if(j.status==='done'&&j.report_id){ location.href='/r/'+j.report_id; return; }
+      if(j.status==='done'&&j.report_id){ location.href='/jobs/{{ job.id }}'; return; }
       if(j.status!=='failed'){ setTimeout(tick,3000); }
     }).catch(function(){ setTimeout(tick,3000); });
   }

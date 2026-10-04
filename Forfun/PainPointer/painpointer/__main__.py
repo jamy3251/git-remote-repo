@@ -122,6 +122,23 @@ def cmd_report(a):
     _print(f"리포트 {report.id} → {out}")
 
 
+def cmd_discover(a):
+    from . import db
+    from .discover import DiscoverRequest, discover
+    from .embed import Embedder
+    from .llm import LLM
+    from .render import save_html
+    db.init_db(a.db)
+    config.require_models()
+    req = DiscoverRequest(boards=a.board, target=a.target, days=a.days)
+    pm, html = discover(req, db_path=a.db, llm=LLM(a.db), embedder=Embedder(), progress=_print)
+    out = Path(a.out) if a.out else config.DATA_DIR / "reports" / f"map-{pm.id}.html"
+    save_html(html, out)
+    for it in pm.items[:10]:
+        _print(f"  {it.rank:>2}. {it.pain}  — 후보 신호 {it.n_posts}건{' (약한 신호)' if it.weak else ''}")
+    _print(f"페인 지도 {pm.id} → {out}  (가설 후보 — 근거 수치는 report로 검증)")
+
+
 def cmd_status(a):
     from . import db
     db.init_db(a.db)
@@ -175,6 +192,10 @@ def main(argv=None):
     sub.add_parser("models").set_defaults(func=cmd_models)
     r = sub.add_parser("report"); r.add_argument("--pain", required=True); r.add_argument("--target", default="")
     r.add_argument("--term", action="append"); r.add_argument("--source", action="append"); r.add_argument("--out"); r.add_argument("--no-expand", action="store_true"); r.set_defaults(func=cmd_report)
+    d = sub.add_parser("discover", help="페인 지도: 보드의 최근 글에서 반복 불편 찾기")
+    d.add_argument("--board", action="append", required=True, help="source:board (여러 번)")
+    d.add_argument("--target", default=""); d.add_argument("--days", type=int, default=config.DISCOVER_DAYS)
+    d.add_argument("--out"); d.set_defaults(func=cmd_discover)
     sub.add_parser("status").set_defaults(func=cmd_status)
     a = p.parse_args(argv)
     a.db = Path(a.db)

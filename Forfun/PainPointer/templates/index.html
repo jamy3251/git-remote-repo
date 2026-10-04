@@ -1,8 +1,23 @@
 {% extends "_base.html" %}
 {% block body %}
-<h1>페인 한 문장 + 타깃 → 근거 리포트</h1>
-<p class="mut">해결책은 제안하지 않습니다. 코퍼스 스냅샷에서 실제 글 기반 수치(분모 표시)와 원문 인용, 이미 있는 유사 시도, 인터뷰 질문 5개를 만듭니다.</p>
 {% for w in model_warnings %}<div class="banner">{{ w }}</div>{% endfor %}
+<h1>1. 페인 찾기 — 페인 지도</h1>
+<p class="mut">아직 페인을 모르면: 커뮤니티만 고르세요. 최근 글에서 <b>반복되는 불편</b>을 찾아 언급 건수 순으로 보여줍니다(분모 표시, 원문 인용). 각 항목에서 바로 2번 검증으로 넘어갑니다.</p>
+<form method="post" action="/discover">
+  <label>커뮤니티(보드)</label>
+  {% if sources %}
+  {% for s in sources %}<div><label style="display:inline;font-weight:400"><input type="checkbox" name="boards" value="{{ s.source }}:{{ s.board }}"> {{ s.source }}/{{ s.board }} <span class="mut">{{ s.n }}건, 최근 {{ s.d or "—" }}</span></label></div>{% endfor %}
+  {% endif %}
+  <label for="mtarget">타깃(선택, 검증 단계로 넘겨줌)</label>
+  <input type="text" id="mtarget" name="target" placeholder="예: 예비창업자">
+  <label for="days">기간(일)</label>
+  <input type="text" id="days" name="days" value="{{ cfg.DISCOVER_DAYS }}" inputmode="numeric" style="width:90px">
+  <p class="mut">비용: 표본 최대 {{ cfg.SAMPLE_MAX }}건 기준 1회 약 $0.3~1 (일일 예산 ${{ "%.2f"|format(cfg.DAILY_BUDGET_USD) }} 안에서만 실행). 한 번 추출한 글은 캐시되어 다시 과금되지 않습니다.</p>
+  <p><button class="primary" type="submit">페인 지도 만들기</button></p>
+</form>
+<hr>
+<h1>2. 페인 검증 — 근거 리포트</h1>
+<p class="mut">페인 한 문장 + 타깃 → 실제 글 기반 수치(분모 표시)와 원문 인용, 이미 있는 유사 시도, 인터뷰 질문 5개. 해결책은 제안하지 않습니다.</p>
 <form method="post" action="/expand">
   <label for="pain">페인(불편) 한 문장</label>
   <input type="text" id="pain" name="pain" required placeholder="예: 배달이 예상 시간보다 자주 늦게 온다">

@@ -1,0 +1,70 @@
+{% extends "_base.html" %}
+{% block title %}페인 지도 — {{ pm.boards|join(", ") }}{% endblock %}
+{% block body %}
+<style>
+.item{border:1px solid #ddd;border-radius:6px;padding:14px 16px;margin:14px 0}
+.item h3{margin:0 0 4px;font-size:17px}.rank{display:inline-block;min-width:28px;color:#888}
+.nums{font-size:13px;color:#333;margin:4px 0 8px}.nums b{font-size:15px}
+.src{display:inline-block;font-size:11px;color:#888;border:1px solid #ccc;border-radius:3px;padding:0 5px;margin-right:6px;vertical-align:2px}
+blockquote{margin:6px 0;padding:4px 10px;border-left:3px solid #ccc;font-size:14px}
+.tag{display:inline-block;font-size:12px;padding:0 6px;border:1px solid #f0a030;border-radius:3px;color:#a06000;margin-left:6px}
+form.v{display:inline}
+@media print{form.v{display:none}}
+</style>
+<h1>페인 지도</h1>
+<div class="banner bad"><strong>가설 후보 목록입니다. 근거가 아닙니다.</strong>
+이 페이지의 건수는 글마다 AI가 느슨하게 뽑은 불편을 묶어 센 <b>후보 신호</b>이고, 공지·잡담까지 포함한 글에서 나왔습니다.
+지원서·발표 자료에 근거로 인용하지 마세요. 근거 수치는 각 항목의 <b>검증하기</b>로 만든 리포트에만 있습니다.</div>
+<p class="mut">{{ pm.boards|join(", ") }} · {{ pm.since }} 이후 글{% if pm.target %} · 타깃: {{ pm.target }}{% endif %} · 생성 {{ pm.created_at }}</p>
+
+<div class="banner">
+  수집 <b>{{ pm.n_collected|num }}</b>건 → 중복 제거 <b>{{ pm.n_dedup|num }}</b>건 →
+  {% if pm.sampled %}층화 표본{% else %}전수{% endif %} <b>{{ pm.n_sample|num }}</b>건 판정 →
+  불편이 있는 글 <b>{{ pm.n_with_pain|num }}</b>건 →
+  {{ min_size }}건 이상 반복된 불편 <b>{{ pm.items|length }}</b>개 (묶인 글 {{ pm.n_grouped|num }}건 · 기타 {{ pm.n_other|num }}건)
+  {% if pm.n_failed %}<br>추출 실패 {{ pm.n_failed }}건은 분자·분모 어디에도 넣지 않았습니다.{% endif %}
+</div>
+<p class="mut">순서는 후보 신호 건수순일 뿐, 시장 크기·지불 의향·중요도가 아닙니다.
+항목 제목은 AI가 글에서 뽑은 문장 중 묶음을 가장 잘 대표하는 것이고 원문이 아닙니다. 원문은 아래 인용(글자 그대로 대조 통과)만 믿으세요.</p>
+
+{% if not pm.items %}
+<div class="banner bad">{{ min_size }}건 이상 반복된 불편이 없습니다. 보드를 늘리거나 기간을 넓혀 보세요.</div>
+{% endif %}
+
+{% for it in pm.items %}
+<div class="item">
+  <h3><span class="rank">{{ it.rank }}.</span><span class="src">AI 추출</span>{{ it.pain }}{% if it.weak %}<span class="tag">약한 신호(&lt;{{ weak }}건)</span>{% endif %}</h3>
+  {% if it.variants %}<div class="mut">비슷한 표현: {{ it.variants|join(" / ") }}</div>{% endif %}
+  <div class="nums">
+    후보 신호 <b>{{ it.n_posts }}</b>건
+    · 고정닉 {% if it.unique_authors_strong is not none %}<b>{{ it.unique_authors_strong }}</b>명 이상{% else %}—{% endif %}
+    · 유동 IP 대역 {% if it.distinct_ip_bands_weak is not none %}{{ it.distinct_ip_bands_weak }}개{% else %}—{% endif %}
+    · 등장 월 {{ it.months_present }}
+    · 강도 {% for k, v in it.intensity_counts.items() %}{{ k }}:{{ v }}{% if not loop.last %} {% endif %}{% endfor %}
+    {% if it.boards|length > 1 %}· {{ it.boards|join(", ") }}{% endif %}
+  </div>
+  {% for qt in it.quotes %}
+  <blockquote>“{{ qt.text }}”<br><span class="mut">{{ qt.source }}/{{ qt.board }} · {{ qt.created_at }} · {{ qt.author_masked or "익명" }}{% if qt.url %} · <a href="{{ qt.url }}" rel="noopener noreferrer nofollow" target="_blank">원문</a>{% endif %}</span></blockquote>
+  {% else %}<div class="mut">원문 대조를 통과한 인용 없음</div>{% endfor %}
+  <form class="v" method="post" action="http://{{ cfg.HOST }}:{{ cfg.PORT }}/expand" target="_blank">
+    <input type="hidden" name="pain" value="{{ it.pain }}">
+    <input type="hidden" name="target" value="{{ pm.target }}">
+    {% for s in sources %}<input type="hidden" name="sources" value="{{ s }}">{% endfor %}
+    <button type="submit">이 페인 검증하기 →</button>
+  </form>
+</div>
+{% endfor %}
+
+<details><summary>상세(방법·명령)</summary>
+<ul class="mut">
+  <li>불편 추출: {{ pm.model }} (프롬프트 {{ pm.prompt_hash }}), 글 단위 캐시 · 이번 호출 {{ pm.n_calls }}회</li>
+  <li>묶기: 불편 문장 임베딩({{ cfg.EMBED_MODEL }}) 코사인 거리 {{ cfg.DISCOVER_CLUSTER.distance_threshold }} 평균 연결 · {{ min_size }}건 미만 묶음은 기타</li>
+  <li>인용: 원문에 글자 그대로 있는 문장만, 같은 작성자 1건 · 인젝션 의심 {{ pm.n_injection }}건은 인용 제외</li>
+  <li>수치·순위·묶음 소속은 전부 파이썬이 계산했습니다. LLM은 글별 불편 문장·강도·인용 후보만 냅니다.</li>
+  {% for d in pm.degraded %}<li>{{ d }}</li>{% endfor %}
+</ul>
+<p class="mut">검증 버튼은 로컬 서버(<code>python -m painpointer serve</code>)가 떠 있을 때 동작합니다. 서버 없이:</p>
+<pre>{% for it in pm.items[:3] %}python -m painpointer report --pain "{{ it.pain }}"{% if pm.target %} --target "{{ pm.target }}"{% endif %}{% for s in sources %} --source {{ s }}{% endfor %}
+{% endfor %}</pre>
+</details>
+{% endblock %}

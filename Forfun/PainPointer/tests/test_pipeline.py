@@ -224,7 +224,10 @@ def test_app_flow(golden_db, fake_client):
     assert rep.status_code == 200 and rep.headers["x-robots-tag"].startswith("noindex")
     assert c.get(f"/r/{st['report_id']}/download").headers["content-disposition"].startswith("attachment")
     assert c.get("/r/nope").status_code == 404
-    n_hit = _expected_counts(golden_posts())[0]
+    # 앱은 실제 오늘 기준 12개월 창을 쓰므로 기대값도 같은 창으로 거른다(날짜가 넘어가면 오래된 달이 빠짐)
+    from painpointer.aggregate import window_since
+    since = window_since(date.today())
+    n_hit = _expected_counts([p for p in golden_posts() if p.created_at[:10] >= since])[0]
     assert fake_client.n_stage("judgments") == n_hit   # 두 번 제출했지만 판정은 1회
 
 

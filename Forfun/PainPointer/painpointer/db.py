@@ -117,6 +117,30 @@ _DDL = [
         model TEXT NOT NULL,
         computed_at TEXT NOT NULL
     )""",
+    # 페인 지도(발견 모드): 글별 불편 추출 캐시. 타깃·질의와 무관하게 글 단위로 재사용한다.
+    """CREATE TABLE IF NOT EXISTS pain_extracts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        post_key TEXT NOT NULL,
+        prompt_hash TEXT NOT NULL,
+        model TEXT NOT NULL,
+        pain TEXT NOT NULL DEFAULT '',
+        intensity INTEGER NOT NULL DEFAULT 0,
+        quote TEXT NOT NULL DEFAULT '',
+        injection_flag INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL,
+        error TEXT,
+        created_at TEXT NOT NULL,
+        UNIQUE (post_key, prompt_hash, model)
+    )""",
+    """CREATE TABLE IF NOT EXISTS pain_maps (
+        id TEXT PRIMARY KEY,
+        boards_json TEXT NOT NULL,
+        target TEXT NOT NULL DEFAULT '',
+        since TEXT NOT NULL,
+        map_json TEXT NOT NULL,
+        html TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )""",
     """CREATE TABLE IF NOT EXISTS post_embeddings (
         post_key TEXT PRIMARY KEY,
         vector BLOB NOT NULL,

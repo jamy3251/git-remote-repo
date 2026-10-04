@@ -178,6 +178,7 @@ class Report:
     quotes_pool_size: int = 0
     dedup_rules: str = ""
     norm_version: str = ""
+    adjacent: dict | None = None      # 근거 부족일 때 같은 소스 페인 지도의 상위 불편
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

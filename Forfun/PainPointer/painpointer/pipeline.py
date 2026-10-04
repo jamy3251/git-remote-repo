@@ -240,6 +240,11 @@ def generate_report(req: GenerateRequest, *, db_path: str | Path | None = None, 
             cands, cand_stale = candidates(conn, today)
             if cand_stale is not None and cand_stale >= config.CANDIDATES_STALE_DAYS:
                 cands = []
+        adjacent = None
+        if metrics.insufficient:
+            from .discover import adjacent_pains
+            adjacent = adjacent_pains(conn, q.sources or sorted({row.source for row in metrics.monthly}),
+                                      exclude_pain=q.pain, today=today)
         prev = load_previous(conn, qh)
     finally:
         store.close()
@@ -253,7 +258,7 @@ def generate_report(req: GenerateRequest, *, db_path: str | Path | None = None, 
         cases=None, questions=questions, flags=flags, llm_calls=llm_refs, degraded=degraded,
         cluster_params=dict(config.CLUSTER_PARAMS), source_status=status, candidates=cands,
         candidates_stale_days=cand_stale, diff=diff, created_at=now, quotes_pool_size=pool,
-        dedup_rules=DEDUP_RULES_TEXT, norm_version=NORM_VERSION,
+        dedup_rules=DEDUP_RULES_TEXT, norm_version=NORM_VERSION, adjacent=adjacent,
     )
     html = render_report(report)
     wconn = db.open_write(db_path)

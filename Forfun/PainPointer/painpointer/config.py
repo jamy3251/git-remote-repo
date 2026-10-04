@@ -63,6 +63,12 @@ CLUSTER_PARAMS = {
     "linkage": "average",
     "metric": "cosine",
 }
+# 페인 지도: 불편 문장 임베딩 군집. 0.55 = 실데이터(모두의창업+창업갤 622건) 비교 결과:
+# 0.4는 '발표 늦음'이 3조각, 0.6은 서로 다른 불편이 섞임(2026-10-04).
+DISCOVER_CLUSTER = {"distance_threshold": float(os.getenv("PP_DISCOVER_DIST", "0.55")), "metric": "cosine", "linkage": "average"}
+DISCOVER_MIN_SIZE = 3          # 이보다 작은 묶음은 지도에 올리지 않는다(나머지 = 기타)
+DISCOVER_WEAK = 5              # 이보다 작으면 "약한 신호" 라벨
+DISCOVER_DAYS = int(os.getenv("PP_DISCOVER_DAYS", "120"))
 EMBED_MODEL = os.getenv("PP_EMBED_MODEL", "jhgan/ko-sroberta-multitask")
 SIM_THRESHOLD = float(os.getenv("PP_SIM_THRESHOLD", "0.5"))   # 설계 고정값 0.5. 실측(ko-sroberta, 페인 문장 vs 프로젝트 제목)은 0.35~0.45가 의미 있는 상위권 — 첫 코퍼스에서 재확인
 SIM_HIGH = float(os.getenv("PP_SIM_HIGH", "0.65"))

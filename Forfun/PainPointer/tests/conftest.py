@@ -157,6 +157,22 @@ class FakeMessages:
                     continue
                 items.append(item)
             out = {"judgments": items}
+        elif "extracts" in schema_keys:
+            items = []
+            for pid, block in re.findall(r'<post id="(\d+)">(.*?)</post>', user, re.S):
+                lines = [l for l in block.strip().split(chr(10)) if l.strip()]
+                body = lines[-1] if lines else ""
+                rel, inten = expected_judgment(body)
+                sent = body.split(" (글")[0]
+                if "늦" in body:
+                    pain = "배달이 늦게 온다"
+                elif "지연" in body:
+                    pain = "고객센터 연결이 안 된다"
+                else:
+                    pain, inten = "", 0
+                quote = (("없는 문장 지어내기" if self.p.fabricate else sent) if pain else "")
+                items.append({"id": pid, "pain": pain, "intensity": inten, "quote": quote, "inj": False})
+            out = {"extracts": items}
         elif "names" in schema_keys:
             ids = re.findall(r'<cluster id="([^"]+)">', user)
             if self.p.bad_cluster_ids:

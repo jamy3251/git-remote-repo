@@ -16,6 +16,7 @@ from pathlib import Path
 from . import config, db
 from .llm import DailyLimitExceeded
 from .log import log_event
+from .discover import DiscoverRequest, discover
 from .pipeline import DBBusy, GenerateRequest, generate_report
 from .textnorm import query_hash
 
@@ -63,9 +64,12 @@ class JobManager:
             conn.close()
 
     # ---- 제출 ----
-    def submit(self, req: GenerateRequest) -> tuple[str, bool]:
-        """반환 (job_id, joined). joined=True면 기존 running 잡에 합류."""
-        qh = query_hash(req.pain, req.target)
+    def submit(self, req: GenerateRequest | DiscoverRequest) -> tuple[str, bool]:
+        """반환 (job_id, joined). joined=True면 기존 running 잡에 합류. 페인 지도 잡도 같은 큐를 쓴다."""
+        if isinstance(req, DiscoverRequest):
+            qh = "map:" + query_hash("|".join(sorted(req.boards)), f"{req.target}|{req.days}")
+        else:
+            qh = query_hash(req.pain, req.target)
         with self._lock:
             jid = self._inflight.get(qh)
             if jid:
@@ -102,10 +106,14 @@ class JobManager:
         try:
             llm = self.llm_factory() if self.llm_factory else None
             embedder = self.embedder_factory() if self.embedder_factory else None
-            report, _html = generate_report(req, db_path=self.db_path, llm=llm, embedder=embedder,
-                                            job_id=job_id, progress=progress)
-            self._update(job_id, status="done", stage="done", report_id=report.id)
-            log_event("job_done", job_id=job_id, report_id=report.id)
+            if isinstance(req, DiscoverRequest):
+                result, _html = discover(req, db_path=self.db_path, llm=llm, embedder=embedder,
+                                         job_id=job_id, progress=progress)
+            else:
+                result, _html = generate_report(req, db_path=self.db_path, llm=llm, embedder=embedder,
+                                                job_id=job_id, progress=progress)
+            self._update(job_id, status="done", stage="done", report_id=result.id)   # 지도면 map id
+            log_event("job_done", job_id=job_id, report_id=result.id)
         except DailyLimitExceeded as e:
             self._update(job_id, status="failed", stage="failed", error=f"일일 한도 도달: {e}")
             log_event("job_failed", job_id=job_id, error=str(e))
