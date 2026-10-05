@@ -278,11 +278,32 @@ def extract_pending(db_path: str | Path, llm: LLM, boards: list[tuple[str, str]]
 
 
 # ---- 묶기·수치 ----
+def center_vectors(vectors: np.ndarray) -> np.ndarray:
+    """평균 벡터를 빼고 다시 L2 정규화.
+
+    한 커뮤니티의 불편 문장은 전부 같은 주제("지원·심사·합격")라 원래 임베딩에서는 서로 다 비슷해 보이고,
+    평균 연결 군집이 다른 불편을 한 묶음으로 끌어들인다(2026-10-05 실측: 2위 묶음에 심사 불공정·자격 선택 실수·
+    합격 불확실이 섞임). 공통 성분을 빼면 불편마다 다른 부분만으로 거리를 잰다.
+    평균과 같은 벡터(전부 같은 문장일 때)는 원래 벡터를 쓴다.
+    """
+    X = np.asarray(vectors, dtype=np.float32)
+    if X.shape[0] < 2:
+        return X
+    C = X - X.mean(axis=0, keepdims=True)
+    n = np.linalg.norm(C, axis=1, keepdims=True)
+    flat = n[:, 0] < 1e-6
+    if flat.any():
+        C[flat] = X[flat]
+        n[flat] = np.linalg.norm(X[flat], axis=1, keepdims=True)
+    return C / np.where(n == 0, 1, n)
+
+
 def group_pains(rows: list[tuple[Post, Extract]], vectors: np.ndarray, *, n_sample: int,
                 months_set: set[str] | None = None) -> tuple[list[PainItem], int]:
     """불편 문장 벡터로 군집 → PainItem 목록(건수 내림차순)과 '기타' 건수."""
     if not rows:
         return [], 0
+    vectors = center_vectors(vectors)
     labels = _labels(vectors, config.DISCOVER_CLUSTER)
     groups: dict[int, list[int]] = {}
     for i, l in enumerate(labels):

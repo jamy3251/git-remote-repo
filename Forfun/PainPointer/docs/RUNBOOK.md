@@ -53,7 +53,7 @@ CLI: `python -m painpointer report --pain "..." --target "..." [--term 추가검
 ```
 python -m painpointer discover --board dcinside:modu --board dcinside:changup --target "예비창업자"
 ```
-- 보드의 최근 `PP_DISCOVER_DAYS`(기본 120)일 글 → 글별 불편 한 문장 추출(Haiku, `pain_extracts`에 글 단위 캐시 — 같은 글은 다시 과금 안 됨) → 불편 문장 임베딩 군집(`PP_DISCOVER_DIST` 0.55) → 언급 건수 순위.
+- 보드의 최근 `PP_DISCOVER_DAYS`(기본 120)일 글 → 글별 불편 한 문장 추출(Haiku, `pain_extracts`에 글 단위 캐시 — 같은 글은 다시 과금 안 됨) → 불편 문장 임베딩에서 평균 벡터를 뺀 뒤 군집(`PP_DISCOVER_DIST` 0.65 — 공통 주제 성분 때문에 다른 불편이 섞이는 것 방지) → 언급 건수 순위.
 - **원칙: 지도는 질문(가설 후보)만, 답(근거 수치)은 검증 리포트만.** 지도엔 비율·막대 없음, 건수는 "후보 신호". 리포트의 '다른 가설 후보' 블록엔 지도 수치를 싣지 않고 문장+검증 링크만. 결과 통보(떨어졌다)·막연한 하소연(어렵다)은 추출 제외.
 - 항목 이름은 LLM 요약이 아니라 묶음 중심에 가까운 **실제 추출 문장**. 수치는 전부 "표본 S건 중 n건". 5건 미만은 "약한 신호", 3건 미만은 지도에서 제외(기타).
 - 웹: 홈의 "1. 페인 지도" → `/m/{id}`. 각 항목 "이 페인 검증하기"는 `http://127.0.0.1:8765/expand`로 넘어감(서버 필요).

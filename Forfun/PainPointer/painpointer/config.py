@@ -68,9 +68,9 @@ CLUSTER_PARAMS = {
     "linkage": "average",
     "metric": "cosine",
 }
-# 페인 지도: 불편 문장 임베딩 군집. 0.55 = 실데이터(모두의창업+창업갤 622건) 비교 결과:
-# 0.4는 '발표 늦음'이 3조각, 0.6은 서로 다른 불편이 섞임(2026-10-04).
-DISCOVER_CLUSTER = {"distance_threshold": float(os.getenv("PP_DISCOVER_DIST", "0.55")), "metric": "cosine", "linkage": "average"}
+# 페인 지도: 불편 문장 임베딩 군집. 처음엔 원래 공간 0.55(2026-10-04)였으나 2위 묶음 섞임 → 평균 벡터를 뺀(center_vectors) 공간의 거리. 실측(2026-10-05, 불편 문장 160): 0.6 깨끗하지만 묶임 62건,
+# 0.65 묶음 20개·묶임 81건·섞임 없음, 0.7은 지원금 묶음에 무관한 문장 섞임. complete 연결은 원래 공간에서 섞임 남음.
+DISCOVER_CLUSTER = {"distance_threshold": float(os.getenv("PP_DISCOVER_DIST", "0.65")), "metric": "cosine", "linkage": "average"}
 DISCOVER_MIN_SIZE = 3          # 이보다 작은 묶음은 지도에 올리지 않는다(나머지 = 기타)
 DISCOVER_WEAK = 5              # 이보다 작으면 "약한 신호" 라벨
 DISCOVER_DAYS = int(os.getenv("PP_DISCOVER_DAYS", "120"))

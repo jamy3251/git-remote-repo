@@ -150,3 +150,21 @@ def test_hybrid_off_without_extracts(golden_db, fake_client):
         db_path=golden_db, llm=llm, embedder=HashEmbedder(), today=TODAY)
     assert report.metrics.semantic is None and report.metrics.n_hit_semantic == 0
     assert "사용 안 함" in html and not any("의미 검색" in d for d in report.degraded)
+
+
+def test_centering_separates_pains_sharing_a_common_topic():
+    """같은 주제 성분이 큰 두 불편: 원래 공간에선 한 묶음, 평균 빼면 둘로 갈린다."""
+    import numpy as np
+    from painpointer import config
+    from painpointer.cluster import _labels
+    from painpointer.discover import center_vectors
+    rng = np.random.default_rng(0)
+    topic, a, b = np.eye(16)[0] * 3.0, np.eye(16)[1], np.eye(16)[2]
+    X = np.stack([topic + a + rng.normal(0, 0.05, 16) for _ in range(5)] +
+                 [topic + b + rng.normal(0, 0.05, 16) for _ in range(5)]).astype(np.float32)
+    X /= np.linalg.norm(X, axis=1, keepdims=True)
+    assert len(set(_labels(X, config.DISCOVER_CLUSTER))) == 1               # 주제 성분 때문에 섞임
+    labels = _labels(center_vectors(X), config.DISCOVER_CLUSTER)
+    assert len(set(labels)) == 2 and len(set(labels[:5])) == 1 and len(set(labels[5:])) == 1
+    same = np.tile(X[:1], (4, 1))                                            # 전부 같은 문장 → NaN 없이 한 묶음
+    assert np.isfinite(center_vectors(same)).all() and len(set(_labels(center_vectors(same), config.DISCOVER_CLUSTER))) == 1
