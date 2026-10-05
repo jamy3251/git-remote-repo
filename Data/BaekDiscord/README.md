@@ -28,8 +28,10 @@ npm run dev:web             # 웹:   http://localhost:3000 (러너가 7331로 �
 ### 관제 (`/control`) — CLI·AI 에이전트 종합 관제
 - **세션 보드**: 세션마다 상태(시작 중 · 작업 중 · 입력 대기 · 대기 · 오류 · 완료 · 종료됨), 마지막 출력 줄, 경과 시간, 목표, 정책, 슈퍼바이저 제안(승인/무시), 빠른 입력(y⏎ · ⏎ · Ctrl+C · Esc), 터미널 펼치기.
 - **작업 현황 시각화**: 세션별 출력 활동 스파크라인(30초 단위 30분), 작업 폴더의 git 브랜치·ahead/behind·변경 파일(+/−)·최근 커밋. 상단 타일에 실행 중/입력 대기/오류/완료 집계와 전체 활동 그래프.
-- **새 작업**: 프롬프트 + 폴더 + 목표 + 정책만 적으면 `claude -p` 세션이 뜹니다. 폰에서 지시를 보내는 기본 경로.
-- **관제 AI 채팅**: "RunClue 폴더에서 테스트 돌려줘" 같은 자연어를 도구 호출(세션 목록·출력 읽기·입력·생성·종료·목표/정책·제안 승인·폴더 탐색)로 바꿔 실행하고 결과를 요약합니다.
+- **새 작업**: 폴더 탐색기로 폴더를 고르고(프로젝트 표시, 최근 수정, 지금 CLI가 켜진 폴더와 Claude 마지막 작업 시각) 지시를 쓰면 세션이 뜹니다. **지시서로 다듬기**는 프롬프트 모델이 짧은 지시를 목표·할 일·지키기·완료 기준·보고가 있는 지시서로 바꿔 미리 보여줍니다.
+- **대화 (메신저형)**: 관제 AI와의 대화에 세션 시작·완료 알림이 섞여 흐르고, 입력을 기다리는 세션은 승인·`1`·`y⏎`·Esc 버튼이 달린 카드로 입력창 위에 고정됩니다. 관제 AI는 자연어를 도구 호출(세션 목록·출력 읽기·입력·생성·종료·목표/정책·제안 승인·폴더 탐색·지금 켜진 폴더·작업 내역)로 바꿔 실행하고, 세션을 띄울 때는 지시서 형태로 프롬프트를 써서 넘깁니다.
+- **작업 내역**: 끝난 세션을 `runner/.data/worklog.jsonl`에 남깁니다. 결과, 마지막 출력, 세션 시작 시점 대비 git 변경량, 요약(기본은 규칙, "AI로 요약"을 누르면 프롬프트 모델). "이 지시로 다시"로 같은 지시를 재실행합니다.
+- **모델 역할 분담**: 다듬기·요약 같은 짧은 일은 프롬프트 모델(판단 엔진과 같은 `api` 또는 `claude -p`), 실제 코드 작업은 Claude Code·Codex 세션. 모델 호출은 클라이언트당 분당 12회로 제한합니다.
 - **이벤트 로그**: 슈퍼바이저 판단, 사람의 조작, 관제 AI의 행동을 누가(actor) 언제 했는지 모두 남깁니다(감사 로그).
 - **원격 접속**: ngrok 또는 cloudflared 터널을 한 버튼으로 열고 QR을 띄웁니다. 폰에서 QR을 찍으면 토큰이 들어간 링크로 바로 접속됩니다.
 
@@ -60,6 +62,15 @@ npm run dev:web             # 웹:   http://localhost:3000 (러너가 7331로 �
 2. 폰으로 QR을 찍습니다. 링크의 `#rt=` 토큰이 폰에 저장되고 주소창에서 지워집니다. ngrok 무료 플랜은 첫 접속에 경고 페이지가 뜨니 Visit Site를 누릅니다.
 3. 폰 브라우저 메뉴에서 **홈 화면에 추가**: 독립 창으로 뜨는 PWA 앱(`DevHub 관제`)이 됩니다. 오프라인이면 안내 페이지가 뜨고, `/runner/*`는 절대 캐시하지 않습니다.
 4. 끝나면 **터널 닫기**. 터널 주소는 매번 바뀌며, 토큰이 유출됐다고 생각되면 `runner/.runner-token`을 지우고 러너를 재시작하세요.
+
+폰 화면은 하단 탭(대화 · 세션 · 새 작업 · 내역)으로 된 전체 화면 앱입니다. 세션의 **터미널**은 전체 화면으로 열리고, Esc · ⇧Tab(모드 전환) · 화살표 · 1/2/3 키 버튼, `/compact` 같은 명령 바로가기, 한글 입력창(여러 줄은 붙여넣기로 한 메시지)을 제공합니다.
+
+### PC 창과 폰이 같은 Claude Code를 보기 (`dclaude`)
+`runner/bin`을 PATH에 넣고 `claude` 대신 `dclaude`로 실행합니다. 인자는 그대로 넘어갑니다(`dclaude --continue`, `dclaude --resume <id>`).
+- 세션은 러너에서 돌고, 이 창은 그 세션에 붙은 화면입니다. 폰 대시보드에도 **PC 공유** 표시로 같은 화면이 보이고, 어느 쪽에서 입력해도 됩니다.
+- PTY 크기는 PC 창이 정합니다. 폰은 글꼴을 줄여 같은 격자를 보여줍니다.
+- `Ctrl+]`는 이 창만 분리합니다(세션은 계속 실행). 다시 붙기: `devhubctl attach <id>`.
+- 이미 열려 있는 일반 `claude` 창에는 나중에 붙을 수 없습니다. 폰으로 이어받으려면 새 작업의 **Claude Code (이전 대화 이어서)**(`claude --continue`)를 쓰세요.
 
 Claude Code에서 이 러너를 쓰려면 `/devhub-runner` 스킬(`D:\Projects\.claude\skills\devhub-runner`)이 `devhubctl` 사용법을 제공합니다.
 
@@ -97,7 +108,7 @@ Claude Code에서 이 러너를 쓰려면 `/devhub-runner` 스킬(`D:\Projects\.
 | `npm test` | 러너(50) + 웹(40) vitest |
 | `npm run build` | 러너 `tsc` + 웹 `next build` |
 | `npm run lint` | 웹 eslint |
-| `npm run ctl -w runner -- sessions` | devhubctl (health · sessions · create · send · output · kill · workspace · events · chat · tunnel) |
+| `npm run ctl -w runner -- sessions` | devhubctl (health · sessions · create · send · output · kill · workspace · events · chat · tunnel · fs · claude · attach) |
 | `npm run db:generate -w web` | Drizzle 마이그레이션 생성 |
 
 ## 러너 API (요약, 모두 `/runner` 아래)

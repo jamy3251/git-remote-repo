@@ -1,7 +1,8 @@
 import http from "node:http";
+import path from "node:path";
 import { WebSocketServer, WebSocket } from "ws";
 import type { RunnerConfig } from "./config.js";
-import type { ClientMessage, CompileRequest, CreateSessionRequest, Policy, ServerMessage, SupervisorEvent } from "./protocol.js";
+import type { ClientMessage, CompileRequest, CreateSessionRequest, GitFileChange, Policy, ServerMessage, SupervisorEvent, WorkLogEntry } from "./protocol.js";
 import { SessionManager } from "./sessions.js";
 import { presetInfos } from "./presets.js";
 import { languageInfos } from "./compiler/languages.js";
@@ -10,9 +11,13 @@ import { createBrain } from "./supervisor/brain.js";
 import { Supervisor } from "./supervisor/supervisor.js";
 import { ControlChat } from "./supervisor/chat.js";
 import { TunnelManager } from "./tunnel.js";
+import { listFolder, type FolderContext } from "./fsbrowse.js";
+import { claudeActivity } from "./cliactivity.js";
+import { WorkLog, gitDelta } from "./worklog.js";
+import { heuristicSummary, refinePrompt, summarizeWork } from "./prompts.js";
 import { proxyHttp, proxyUpgrade } from "./proxy.js";
 import { gitSummary } from "./workspace.js";
-import { AuthLockout, RateLimiter, clampString, clientKey, isSafeId, tokenMatches } from "./security.js";
+import { AuthLockout, RateLimiter, clampString, clientKey, isSafeId, redactSecrets, tokenMatches } from "./security.js";
 
 export const RUNNER_VERSION = "0.2.0";
 const API_PREFIX = "/runner";
@@ -96,13 +101,82 @@ export function createRunnerServer(cfg: RunnerConfig) {
     intervalMs: cfg.supervisor.intervalMs,
     notify: cfg.supervisor.notifyWebhook ? (text) => postDiscord(cfg.supervisor.notifyWebhook as string, text) : null,
   });
-  const chat = new ControlChat(brain, sessions, supervisor, { cwdRoot: cfg.cwdRoot });
+  const chat = new ControlChat(brain, sessions, supervisor, {
+    cwdRoot: cfg.cwdRoot,
+    worklog: (limit) => worklog.list(limit),
+    liveFolders: () => listFolder(cfg.cwdRoot, null, folderContext()).live,
+  });
   const tunnel = new TunnelManager({ port: cfg.port, token: cfg.token, dashboardPath: cfg.dashboardPath });
   const compileGate = new Semaphore(2);
   const clients = new Set<ClientState>();
   const lockout = new AuthLockout();
   const httpLimiter = new RateLimiter(240, 60_000);
   const compileLimiter = new RateLimiter(20, 60_000);
+  // Prompt-model calls (refine, summarize) cost tokens; keep a phone tapping a button from burning them.
+  const aiLimiter = new RateLimiter(12, 60_000);
+  const folderContext = (): FolderContext => ({
+    running: sessions
+      .list()
+      .filter((s) => s.status === "running")
+      .map((s) => s.cwd),
+    claude: claudeActivity(),
+  });
+  const worklog = new WorkLog(path.join(process.cwd(), ".data", "worklog.jsonl"));
+  const summarizing = new Set<string>();
+  /** Uncommitted changes in each session's folder when it started, so the log shows only its own. */
+  const gitBaseline = new Map<string, Promise<GitFileChange[] | null>>();
+
+  async function recordWork(id: string): Promise<void> {
+    const s = sessions.get(id);
+    if (!s || worklog.get(id)) return;
+    const git = await gitSummary(s.cwd, 0).catch(() => null);
+    const before = (await gitBaseline.get(id)) ?? null;
+    gitBaseline.delete(id);
+    const entry: WorkLogEntry = {
+      id,
+      name: s.name,
+      preset: s.preset,
+      cwd: s.cwd,
+      goal: s.goal,
+      prompt: sessions.promptOf(id)?.slice(0, 4000) ?? null,
+      startedAt: s.createdAt,
+      endedAt: s.endedAt ?? Date.now(),
+      status: s.status,
+      exitCode: s.exitCode,
+      bytes: s.bytes,
+      tail: sessions.tail(id, 80).map((l) => redactSecrets(l).slice(0, 400)),
+      git: git ? gitDelta(before, git) : null,
+      summary: "",
+      summarySource: "heuristic",
+    };
+    entry.summary = heuristicSummary(entry);
+    worklog.add(entry);
+    broadcast({ type: "worklog_entry", entry });
+  }
+
+  /** Ask the prompt model for a short result summary of one finished session (on demand: costs tokens). */
+  async function summarizeEntry(id: string): Promise<WorkLogEntry> {
+    const e = worklog.get(id);
+    if (!e) throw new Error(`작업 내역 ${id} 없음`);
+    if (summarizing.has(id)) throw new Error("이미 요약 중입니다");
+    summarizing.add(id);
+    try {
+      const text = await summarizeWork(brain, e);
+      if (!text) throw new Error("요약할 모델이 없습니다 (판단 엔진: heuristic)");
+      const next = worklog.update(id, { summary: redactSecrets(text), summarySource: "brain" })!;
+      broadcast({ type: "worklog_entry", entry: next });
+      supervisor.log("info", id, "system", `작업 요약: ${next.summary.slice(0, 120)}`);
+      return next;
+    } finally {
+      summarizing.delete(id);
+    }
+  }
+
+  async function refine(text: string, cwdInput?: string) {
+    const listing = listFolder(cfg.cwdRoot, cwdInput ?? null);
+    const git = await gitSummary(listing.path).catch(() => null);
+    return refinePrompt(brain, clampString(text, 4000), { cwd: listing.path, markers: listing.markers, branch: git?.branch ?? null });
+  }
   const runnerInfo = { version: RUNNER_VERSION, platform: process.platform, cwdRoot: cfg.cwdRoot };
   const webTarget = cfg.webProxy ? new URL(cfg.webProxy) : null;
 
@@ -114,8 +188,22 @@ export function createRunnerServer(cfg: RunnerConfig) {
   };
 
   sessions.on("output", (id: string, data: string) => broadcast({ type: "output", id, data }, (c) => c.attached.has(id)));
-  sessions.on("exit", (id: string, exitCode: number | null, status) => broadcast({ type: "exit", id, exitCode, status }));
-  sessions.on("updated", (session) => broadcast({ type: "updated", session }));
+  sessions.on("exit", (id: string, exitCode: number | null, status) => {
+    broadcast({ type: "exit", id, exitCode, status });
+    // Record the finished session once its last output and the git state have settled.
+    setTimeout(() => void recordWork(id), 1500);
+  });
+  sessions.on("updated", (session) => {
+    if (!gitBaseline.has(session.id)) {
+      gitBaseline.set(
+        session.id,
+        gitSummary(session.cwd, 0)
+          .then((g) => g?.changed ?? null)
+          .catch(() => null),
+      );
+    }
+    broadcast({ type: "updated", session });
+  });
   sessions.on("removed", (id: string) => broadcast({ type: "removed", id }));
   supervisor.on("event", (event: SupervisorEvent) => broadcast({ type: "event", event }));
   supervisor.on("config", () => broadcast({ type: "supervisor", config: supervisor.config() }));
@@ -175,6 +263,14 @@ export function createRunnerServer(cfg: RunnerConfig) {
       if (route === "/events" && req.method === "GET") return json(200, { events: supervisor.recentEvents(Number(url.searchParams.get("limit")) || 200) });
       if (route === "/supervisor" && req.method === "GET") return json(200, { config: supervisor.config() });
       if (route === "/tunnel" && req.method === "GET") return json(200, { status: tunnel.status() });
+      if (route === "/worklog" && req.method === "GET") return json(200, { entries: worklog.list(Number(url.searchParams.get("limit")) || 50) });
+      if (route === "/refine" && req.method === "POST") {
+        const body = (await readJson(req, 64_000)) as { text?: string; cwd?: string };
+        if (!body.text?.trim()) return json(400, { error: "text required" });
+        if (!aiLimiter.allow(client)) return json(429, { error: "refine rate limit" });
+        return json(200, { result: await refine(body.text, body.cwd) });
+      }
+      if (route === "/fs" && req.method === "GET") return json(200, { listing: listFolder(cfg.cwdRoot, url.searchParams.get("path"), folderContext()) });
       if (route === "/compile" && req.method === "POST") {
         if (!compileLimiter.allow(client)) return json(429, { error: "compile rate limit" });
         const body = (await readJson(req)) as CompileRequest & { expected?: string };
@@ -235,6 +331,8 @@ export function createRunnerServer(cfg: RunnerConfig) {
 
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_WS_MESSAGE });
   server.on("upgrade", (req, socket, head) => {
+    // A client that drops mid-handshake (flaky phone network, killed tab) must not crash the runner.
+    socket.on("error", () => socket.destroy());
     const url = new URL(req.url ?? "/", "http://localhost");
     if (url.pathname === `${API_PREFIX}/ws`) {
       if (!originAllowed(req.headers.origin)) {
@@ -297,6 +395,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
     });
 
     ws.on("close", () => clients.delete(state));
+    ws.on("error", () => ws.terminate());
   });
 
   async function handle(state: ClientState, msg: ClientMessage): Promise<void> {
@@ -326,9 +425,13 @@ export function createRunnerServer(cfg: RunnerConfig) {
           for (const id of msg.ids.filter(isSafeId)) sessions.write(id, data);
           return;
         }
-        case "resize":
-          if (isSafeId(msg.id)) sessions.resize(msg.id, Number(msg.cols), Number(msg.rows));
+        case "resize": {
+          if (!isSafeId(msg.id)) return;
+          // A PC-mirrored session keeps the PC console's size; phones and browsers follow it instead.
+          if (sessions.get(msg.id)?.tags.includes("pc") && msg.owner !== true) return;
+          sessions.resize(msg.id, Number(msg.cols), Number(msg.rows));
           return;
+        }
         case "kill":
           for (const id of msg.ids.filter(isSafeId)) {
             sessions.kill(id);
@@ -384,6 +487,34 @@ export function createRunnerServer(cfg: RunnerConfig) {
             supervisor.log("action", null, "human", "원격 터널 종료");
           }
           return send(state, { type: "tunnel", status: tunnel.status() });
+        }
+        case "refine": {
+          const text = clampString(msg.text, 4000);
+          if (!text.trim()) return send(state, { type: "error", message: "다듬을 지시가 비어 있습니다", reqId: msg.reqId });
+          if (!aiLimiter.allow(state.client)) return send(state, { type: "error", message: "모델 호출이 너무 잦습니다. 잠시 뒤 다시 시도하세요", reqId: msg.reqId });
+          try {
+            return send(state, { type: "refine", result: await refine(text, typeof msg.cwd === "string" ? msg.cwd : undefined), reqId: msg.reqId });
+          } catch (e) {
+            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+          }
+        }
+        case "worklog":
+          return send(state, { type: "worklog", entries: worklog.list(msg.limit ?? 100), reqId: msg.reqId });
+        case "worklog_summarize": {
+          if (!isSafeId(msg.id)) return;
+          if (!aiLimiter.allow(state.client)) return send(state, { type: "error", message: "모델 호출이 너무 잦습니다. 잠시 뒤 다시 시도하세요", reqId: msg.reqId });
+          try {
+            return send(state, { type: "worklog_entry", entry: await summarizeEntry(msg.id), reqId: msg.reqId });
+          } catch (e) {
+            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+          }
+        }
+        case "fs": {
+          try {
+            return send(state, { type: "fs", listing: listFolder(cfg.cwdRoot, typeof msg.path === "string" ? msg.path.slice(0, 1024) : null, folderContext()), reqId: msg.reqId });
+          } catch (e) {
+            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+          }
         }
         case "workspace": {
           if (!isSafeId(msg.id)) return;

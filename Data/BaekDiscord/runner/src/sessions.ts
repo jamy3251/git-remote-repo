@@ -14,6 +14,8 @@ interface Session {
   proc: pty.IPty | ChildProcess | null;
   history: string[];
   historyBytes: number;
+  /** The prompt a one-shot preset was started with (for the work log). */
+  prompt: string | null;
 }
 
 export interface SessionManagerOptions {
@@ -40,6 +42,10 @@ function shellWrap(command: string): { file: string; args: string[]; ptyArgs: st
 function isInside(root: string, target: string): boolean {
   const rel = path.relative(root, target);
   return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+function clampDim(v: number | undefined, fallback: number): number {
+  return typeof v === "number" && Number.isFinite(v) && v > 0 && v < 1000 ? Math.floor(v) : fallback;
 }
 
 function isPty(p: pty.IPty | ChildProcess): p is pty.IPty {
@@ -112,8 +118,10 @@ export class SessionManager extends EventEmitter {
       lastOutputAt: null,
       lastLine: "",
       suggestion: null,
+      cols: clampDim(req.cols, 100),
+      rows: clampDim(req.rows, 30),
     };
-    const session: Session = { info, proc: null, history: [], historyBytes: 0 };
+    const session: Session = { info, proc: null, history: [], historyBytes: 0, prompt: prompt || null };
     this.sessions.set(id, session);
 
     const env = { ...process.env, DEVHUB_SESSION: id, TERM: "xterm-256color", FORCE_COLOR: "1" } as Record<string, string>;
@@ -123,8 +131,8 @@ export class SessionManager extends EventEmitter {
       if (preset.mode === "pty") {
         const p = pty.spawn(file, ptyArgs, {
           name: "xterm-256color",
-          cols: req.cols ?? 100,
-          rows: req.rows ?? 30,
+          cols: info.cols,
+          rows: info.rows,
           cwd,
           env,
           useConpty: isWindows,
@@ -187,6 +195,12 @@ export class SessionManager extends EventEmitter {
         s.proc.resize(cols, rows);
       } catch {
         /* the pty exited between the status check and the resize */
+        return;
+      }
+      if (s.info.cols !== cols || s.info.rows !== rows) {
+        s.info.cols = cols;
+        s.info.rows = rows;
+        this.emit("updated", { ...s.info });
       }
     }
   }
@@ -229,6 +243,10 @@ export class SessionManager extends EventEmitter {
   }
 
   /** Last `n` non-empty ANSI-stripped lines of a session's output. */
+  promptOf(id: string): string | null {
+    return this.sessions.get(id)?.prompt ?? null;
+  }
+
   tail(id: string, n: number): string[] {
     return tailLines(this.history(id), n);
   }

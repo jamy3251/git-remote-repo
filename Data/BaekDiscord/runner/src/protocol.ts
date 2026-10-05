@@ -51,6 +51,9 @@ export interface SessionInfo {
   /** Last line of output, ANSI-stripped, for list views. */
   lastLine: string;
   suggestion: Suggestion | null;
+  /** Current PTY size. A session tagged "pc" is mirrored to a PC console that owns this size. */
+  cols: number;
+  rows: number;
 }
 
 export interface PresetInfo {
@@ -160,7 +163,8 @@ export type ClientMessage =
   | { type: "attach"; id: string }
   | { type: "detach"; id: string }
   | { type: "input"; ids: string[]; data: string }
-  | { type: "resize"; id: string; cols: number; rows: number }
+  /** owner: sent by the PC console that owns a "pc" session's size (devhubctl claude/attach). */
+  | { type: "resize"; id: string; cols: number; rows: number; owner?: boolean }
   | { type: "kill"; ids: string[] }
   | { type: "remove"; ids: string[] }
   | { type: "presets" }
@@ -173,7 +177,11 @@ export type ClientMessage =
   | { type: "chat_history" }
   | { type: "chat_reset" }
   | { type: "tunnel"; action: "start" | "stop" | "status"; provider?: "ngrok" | "cloudflared" }
-  | { type: "workspace"; id: string };
+  | { type: "workspace"; id: string }
+  | { type: "fs"; path?: string; reqId?: string }
+  | { type: "refine"; text: string; cwd?: string; reqId?: string }
+  | { type: "worklog"; limit?: number; reqId?: string }
+  | { type: "worklog_summarize"; id: string; reqId?: string };
 
 export type ServerMessage =
   | { type: "welcome"; runner: { version: string; platform: string; cwdRoot: string } }
@@ -193,6 +201,10 @@ export type ServerMessage =
   | { type: "chat_status"; busy: boolean }
   | { type: "tunnel"; status: TunnelStatus }
   | { type: "workspace"; info: WorkspaceInfo }
+  | { type: "fs"; listing: FsListing; reqId?: string }
+  | { type: "refine"; result: RefinedPrompt; reqId?: string }
+  | { type: "worklog"; entries: WorkLogEntry[]; reqId?: string }
+  | { type: "worklog_entry"; entry: WorkLogEntry; reqId?: string }
   | { type: "error"; message: string; reqId?: string };
 
 export interface CompileRequest {
@@ -228,4 +240,73 @@ export interface LanguageInfo {
   /** The file name the source is written to (e.g. Main.java). */
   fileName: string;
   template: string;
+}
+
+/** One folder in the folder picker. */
+export interface FsEntry {
+  name: string;
+  path: string;
+  /** Project markers found directly inside: git, claude (CLAUDE.md / .claude), node, python, flutter, unity, rust, go, dotnet, java. */
+  markers: string[];
+  modifiedAt: number;
+  /** Runner sessions running in this folder or below it. */
+  running: number;
+  /** Last Claude Code activity (any Claude window, not only runner sessions) in this folder or below. */
+  claudeAt: number | null;
+}
+
+/** A folder where a CLI is running now or Claude worked recently. */
+export interface LiveFolder {
+  path: string;
+  running: number;
+  claudeAt: number | null;
+}
+
+export interface FsListing {
+  path: string;
+  /** null at the runner root (cannot go above it). */
+  parent: string | null;
+  root: string;
+  /** Root → path, for breadcrumbs. */
+  crumbs: Array<{ name: string; path: string }>;
+  markers: string[];
+  entries: FsEntry[];
+  truncated: boolean;
+  /** Folders under the root with a running session or recent Claude activity, newest first. */
+  live: LiveFolder[];
+}
+
+/** A rough instruction rewritten by the prompt model into a task an agent can execute. */
+export interface RefinedPrompt {
+  title: string;
+  prompt: string;
+  /** One-line done criterion; used as the supervisor goal. */
+  goal: string;
+  /** Suggested preset: one-shot (claude-print) or interactive (claude). */
+  preset: "claude-print" | "claude";
+  /** Assumptions or questions the user may want to check. */
+  notes: string[];
+  /** "brain" when a model rewrote it, "template" when no model was available. */
+  source: "brain" | "template";
+}
+
+/** One finished session, kept on disk so the phone can review what was done. */
+export interface WorkLogEntry {
+  id: string;
+  name: string;
+  preset: string;
+  cwd: string;
+  goal: string | null;
+  prompt: string | null;
+  startedAt: number;
+  endedAt: number;
+  status: SessionStatus;
+  exitCode: number | null;
+  bytes: number;
+  /** Last lines of output (ANSI-stripped, secrets masked). */
+  tail: string[];
+  git: { branch: string; insertions: number; deletions: number; files: string[] } | null;
+  /** Short result summary: from the prompt model when requested, otherwise a heuristic. */
+  summary: string;
+  summarySource: "brain" | "heuristic";
 }

@@ -5,13 +5,16 @@ import type {
   ChatTurn,
   ClientMessage,
   CreateSessionRequest,
+  FsListing,
   Policy,
   PresetInfo,
+  RefinedPrompt,
   ServerMessage,
   SessionInfo,
   SupervisorConfig,
   SupervisorEvent,
   TunnelStatus,
+  WorkLogEntry,
   WorkspaceInfo,
 } from "./protocol";
 import { loadRunnerSettings, saveRunnerSettings, wsUrl, type RunnerSettings } from "./settings";
@@ -56,6 +59,14 @@ export interface RunnerApi {
   resetChat: () => void;
   tunnelAction: (action: "start" | "stop" | "status", provider?: "ngrok" | "cloudflared") => void;
   requestWorkspace: (id: string) => void;
+  /** Child folders of `path` inside the runner root (folder picker). */
+  listFolder: (path?: string) => Promise<FsListing>;
+  /** Rewrite a rough instruction into an executable task (prompt model). */
+  refine: (text: string, cwd?: string) => Promise<RefinedPrompt>;
+  /** Finished sessions, newest first. */
+  worklog: WorkLogEntry[];
+  /** Ask the prompt model to summarize one finished session. */
+  summarizeWork: (id: string) => Promise<WorkLogEntry>;
   /** Attach to a session's output stream; the runner replays history first. */
   subscribe: (id: string, listener: OutputListener) => () => void;
 }
@@ -79,6 +90,8 @@ export function useRunner(): RunnerApi {
   const retry = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Latest connect() for the reconnect timer (avoids referencing the callback before its declaration). */
   const connectRef = useRef<() => void>(() => {});
+  const pending = useRef(new Map<string, { resolve: (m: ServerMessage) => void; reject: (e: Error) => void }>());
+  const [worklog, setWorklog] = useState<WorkLogEntry[]>([]);
 
   const send = useCallback((msg: ClientMessage) => {
     const ws = wsRef.current;
@@ -113,6 +126,7 @@ export function useRunner(): RunnerApi {
       setStatus("open");
       for (const id of listeners.current.keys()) ws.send(JSON.stringify({ type: "attach", id } satisfies ClientMessage));
       ws.send(JSON.stringify({ type: "chat_history" } satisfies ClientMessage));
+      ws.send(JSON.stringify({ type: "worklog", limit: 100 } satisfies ClientMessage));
     };
     ws.onclose = (ev) => {
       if (wsRef.current !== ws) return;
@@ -133,7 +147,21 @@ export function useRunner(): RunnerApi {
       } catch {
         return;
       }
+      // Replies to request(): resolve the waiting promise instead of touching shared state.
+      if ("reqId" in msg && msg.reqId && pending.current.has(msg.reqId) && msg.type !== "created") {
+        const p = pending.current.get(msg.reqId)!;
+        pending.current.delete(msg.reqId);
+        if (msg.type === "error") p.reject(new Error(msg.message));
+        else p.resolve(msg);
+        if (msg.type !== "worklog_entry") return;
+      }
       switch (msg.type) {
+        case "worklog":
+          setWorklog(msg.entries);
+          break;
+        case "worklog_entry":
+          setWorklog((prev) => [msg.entry, ...prev.filter((e) => e.id !== msg.entry.id)].sort((a, b) => b.endedAt - a.endedAt));
+          break;
         case "welcome":
           setInfo(msg.runner);
           break;
@@ -191,10 +219,11 @@ export function useRunner(): RunnerApi {
         case "workspace":
           setWorkspaces((prev) => ({ ...prev, [msg.info.id]: msg.info }));
           break;
-        case "error":
+        case "error": {
           setLastError(msg.message);
           if (msg.message === "invalid token") setStatus("unauthorized");
           break;
+        }
       }
     };
   }, []);
@@ -240,6 +269,47 @@ export function useRunner(): RunnerApi {
     [send],
   );
 
+  /** Send a message carrying a reqId and wait for the runner's reply to it. */
+  const request = useCallback(
+    (msg: ClientMessage & { reqId?: string }, timeoutMs = 10_000) =>
+      new Promise<ServerMessage>((resolve, reject) => {
+        const ws = wsRef.current;
+        if (!ws || ws.readyState !== WebSocket.OPEN) return reject(new Error("러너에 연결되어 있지 않습니다"));
+        const reqId = Math.random().toString(36).slice(2, 10);
+        pending.current.set(reqId, { resolve, reject });
+        ws.send(JSON.stringify({ ...msg, reqId }));
+        setTimeout(() => {
+          if (pending.current.delete(reqId)) reject(new Error("러너 응답이 없습니다"));
+        }, timeoutMs);
+      }),
+    [],
+  );
+  const listFolder = useCallback(
+    async (path?: string) => {
+      const m = await request({ type: "fs", path });
+      if (m.type !== "fs") throw new Error("unexpected reply");
+      return m.listing;
+    },
+    [request],
+  );
+  // Prompt-model calls go through `claude -p` without an API key: allow a couple of minutes.
+  const refine = useCallback(
+    async (text: string, cwd?: string) => {
+      const m = await request({ type: "refine", text, cwd }, 150_000);
+      if (m.type !== "refine") throw new Error("unexpected reply");
+      return m.result;
+    },
+    [request],
+  );
+  const summarizeWork = useCallback(
+    async (id: string) => {
+      const m = await request({ type: "worklog_summarize", id }, 150_000);
+      if (m.type !== "worklog_entry") throw new Error("unexpected reply");
+      return m.entry;
+    },
+    [request],
+  );
+
   return useMemo<RunnerApi>(
     () => ({
       settings,
@@ -271,8 +341,12 @@ export function useRunner(): RunnerApi {
       resetChat: () => send({ type: "chat_reset" }),
       tunnelAction: (action, provider) => send({ type: "tunnel", action, provider }),
       requestWorkspace: (id) => send({ type: "workspace", id }),
+      listFolder,
+      refine,
+      worklog,
+      summarizeWork,
       subscribe,
     }),
-    [settings, updateSettings, status, info, presets, sessions, events, supervisor, tunnel, chat, chatBusy, workspaces, lastError, connect, disconnect, send, subscribe],
+    [settings, updateSettings, status, info, presets, sessions, events, supervisor, tunnel, chat, chatBusy, workspaces, lastError, connect, disconnect, send, subscribe, listFolder, refine, worklog, summarizeWork],
   );
 }

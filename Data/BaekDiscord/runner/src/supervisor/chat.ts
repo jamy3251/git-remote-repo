@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { ChatAction, ChatTurn, CreateSessionRequest, Policy } from "../protocol.js";
+import type { ChatAction, ChatTurn, CreateSessionRequest, LiveFolder, Policy, WorkLogEntry } from "../protocol.js";
 import type { SessionManager } from "../sessions.js";
 import type { Supervisor } from "./supervisor.js";
 import type { Brain, BrainMessage } from "./brain.js";
@@ -13,6 +13,10 @@ export interface ChatOptions {
   maxSteps?: number;
   /** Keep the conversation this many turns long when talking to the brain (token control). */
   historyTurns?: number;
+  /** Finished sessions, newest first (work log). */
+  worklog?: (limit: number) => WorkLogEntry[];
+  /** Folders with a running session or recent Claude Code activity. */
+  liveFolders?: () => LiveFolder[];
 }
 
 const DANGEROUS_INPUT = /\brm\s+-rf?\b|Remove-Item.*-Recurse|\bgit\s+push\b.*(--force|-f\b)|\bgit\s+reset\s+--hard\b|\bDROP\s+(TABLE|DATABASE)\b|\bformat\s+[a-z]:|\bshutdown\b|\bnpm\s+publish\b|\bvercel\s+--prod\b/i;
@@ -33,8 +37,14 @@ const SYSTEM = `당신은 개발자의 PC에서 돌아가는 CLI 에이전트 �
 - approve_suggestion {"id":"..."} / dismiss_suggestion {"id":"..."} — 대기 중인 제안 처리.
 - list_dirs {"path":"..."} — 폴더 목록(루트 안만). 프로젝트 폴더를 찾을 때.
 - list_presets {} — 사용 가능한 프리셋.
+- live_folders {} — 지금 세션이 돌거나 최근 30분 안에 Claude Code가 작업한 폴더. "하던 거", "아까 그 프로젝트"를 찾을 때 먼저 보세요.
+- list_worklog {"limit":10} — 끝난 작업 내역(이름, 폴더, 결과 요약, 변경량). "뭐 했지", "결과 어때"에 답할 때.
 
-원칙: 파괴적 명령(삭제, force push, 배포, 비밀값)은 사용자가 "확인"이라고 명시하지 않는 한 실행하지 말고 물어보세요. 모르는 폴더는 list_dirs로 확인한 뒤 쓰세요. 한 번에 한 도구.`;
+create_session의 prompt 쓰는 법 (사용자의 짧은 지시를 그대로 넘기지 말고 지시서로 바꾸세요):
+목표: 한두 문장 / 할 일: 번호 목록(먼저 관련 파일을 읽고 현재 동작 확인) / 지키기: 커밋·푸시·삭제·배포·새 의존성은 사용자가 말하지 않으면 하지 않음 / 완료 기준: 확인 가능한 조건 / 보고: 바꾼 파일·결과·남은 문제 요약.
+goal에는 완료 기준을 한 줄로 넣으세요. 사용자의 의도를 넓히지 말고, 모호하면 보수적으로 해석한 뒤 최종 답에 그 가정을 밝히세요.
+
+원칙: 파괴적 명령(삭제, force push, 배포, 비밀값)은 사용자가 "확인"이라고 명시하지 않는 한 실행하지 말고 물어보세요. 모르는 폴더는 live_folders나 list_dirs로 확인한 뒤 쓰세요. 한 번에 한 도구. 최종 답은 휴대폰에서 읽기 좋게 3줄 이내로, 무엇을 했고(세션 id) 다음에 사용자가 할 일이 있으면 그것만.`;
 
 export class ControlChat {
   private turns: ChatTurn[] = [];
@@ -191,6 +201,19 @@ export class ControlChat {
         if (tool === "approve_suggestion" && s.suggestion.input && DANGEROUS_INPUT.test(s.suggestion.input) && !confirmed) return "거부: 파괴적 입력. 사용자 '확인' 필요.";
         this.supervisor.decide(id, s.suggestion.id, tool === "approve_suggestion" ? "approve" : "dismiss", "chat");
         return tool === "approve_suggestion" ? "제안 승인됨" : "제안 무시됨";
+      }
+      case "live_folders": {
+        const live = this.opts.liveFolders?.() ?? [];
+        if (!live.length) return "지금 켜진 CLI 폴더 없음";
+        return live.map((l) => `${l.path}  세션 ${l.running}개${l.claudeAt ? ` · Claude ${Math.round((Date.now() - l.claudeAt) / 60000)}분 전` : ""}`).join("\n");
+      }
+      case "list_worklog": {
+        const limit = Math.max(1, Math.min(30, Number(args.limit) || 10));
+        const entries = this.opts.worklog?.(limit) ?? [];
+        if (!entries.length) return "작업 내역 없음";
+        return entries
+          .map((e) => `${e.id} ${e.name} [${e.status}${e.exitCode !== null ? ` ${e.exitCode}` : ""}] ${e.cwd} ${new Date(e.endedAt).toLocaleString("ko-KR")}\n  ${e.summary.slice(0, 240)}`)
+          .join("\n");
       }
       case "list_dirs": {
         const dir = this.safeDir(args.path);

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import type { Policy, SessionInfo, WorkspaceInfo } from "@/lib/runner/protocol";
 import type { RunnerApi } from "@/lib/runner/use-runner";
-import { TerminalTile } from "@/components/terminal-tile";
 import { Sparkline } from "./sparkline";
+import { TerminalScreen } from "./terminal-screen";
 import { fmtDuration, policyLabel, policyOptions, shortPath, stateMeta } from "./labels";
 
 interface Props {
@@ -50,10 +50,13 @@ export function SessionCard({ session: s, workspace, runner }: Props) {
         <span className={`inline-block h-2.5 w-2.5 rounded-full ${meta.dot} ${s.state === "working" ? "animate-pulse" : ""}`} />
         <span className="font-medium">{s.name}</span>
         <span className="badge">{s.preset}</span>
+        {s.tags.includes("pc") && (
+          <span className="badge border-accent/50 text-accent" title="PC 콘솔(dclaude)에서 시작해 PC 창과 화면을 공유합니다">
+            PC 공유
+          </span>
+        )}
         <span className={`badge ${meta.cls}`}>{meta.label}</span>
-        <span className="ml-auto text-xs text-muted">
-          {running ? fmtDuration(s.createdAt, null) : `${s.status}${s.exitCode !== null ? ` · code ${s.exitCode}` : ""}`}
-        </span>
+        <span className="ml-auto text-xs text-muted">{running ? fmtDuration(s.createdAt, null) : `${s.status}${s.exitCode !== null ? ` · code ${s.exitCode}` : ""}`}</span>
       </header>
       <div className="px-3 pb-1 text-xs text-muted">
         <span>{s.stateReason}</span>
@@ -91,62 +94,71 @@ export function SessionCard({ session: s, workspace, runner }: Props) {
         </div>
       )}
 
-      <div className="grid gap-2 px-3 pb-2 sm:grid-cols-[1fr_auto]">
-        <label className="min-w-0">
-          <span className="label">목표</span>
-          <input
-            className="input min-h-10"
-            value={goalDraft ?? s.goal ?? ""}
-            placeholder="슈퍼바이저가 판단할 때 쓸 목표"
-            onChange={(e) => setGoalDraft(e.target.value)}
-            onBlur={() => {
-              if (goalDraft !== null && goalDraft !== (s.goal ?? "")) runner.setGoal(s.id, goalDraft.trim() || null);
-              setGoalDraft(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
-            }}
-          />
-        </label>
-        <label>
-          <span className="label">정책</span>
-          <select className="input min-h-10 sm:w-28" value={s.policy} onChange={(e) => runner.setPolicy(s.id, e.target.value as Policy)}>
-            {policyOptions.map((p) => (
-              <option key={p} value={p}>
-                {policyLabel[p]}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      {/* Steering controls only make sense while the session runs. */}
+      {running && (
+        <div className="grid gap-2 px-3 pb-2 sm:grid-cols-[1fr_auto]">
+          <label className="min-w-0">
+            <span className="label">목표</span>
+            <input
+              className="input min-h-10"
+              value={goalDraft ?? s.goal ?? ""}
+              placeholder="슈퍼바이저가 판단할 때 쓸 목표"
+              onChange={(e) => setGoalDraft(e.target.value)}
+              onBlur={() => {
+                if (goalDraft !== null && goalDraft !== (s.goal ?? "")) runner.setGoal(s.id, goalDraft.trim() || null);
+                setGoalDraft(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+              }}
+            />
+          </label>
+          <label>
+            <span className="label">정책</span>
+            <select className="input min-h-10 sm:w-28" value={s.policy} onChange={(e) => runner.setPolicy(s.id, e.target.value as Policy)}>
+              {policyOptions.map((p) => (
+                <option key={p} value={p}>
+                  {policyLabel[p]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
 
-      <form
-        className="flex gap-2 px-3 pb-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!quick.trim() && quick !== "") return;
-          sendQuick(`${quick}\r`);
-          setQuick("");
-        }}
-      >
-        <input className="input min-h-10 font-mono" value={quick} onChange={(e) => setQuick(e.target.value)} placeholder="세션에 입력…" disabled={!running} enterKeyHint="send" />
-        <button className="btn btn-primary min-h-10" type="submit" disabled={!running}>
-          전송
-        </button>
-      </form>
+      {running && (
+        <form
+          className="flex gap-2 px-3 pb-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!quick.trim() && quick !== "") return;
+            sendQuick(`${quick}\r`);
+            setQuick("");
+          }}
+        >
+          <input className="input min-h-10 font-mono" value={quick} onChange={(e) => setQuick(e.target.value)} placeholder="세션에 입력…" disabled={!running} enterKeyHint="send" />
+          <button className="btn btn-primary min-h-10 shrink-0 whitespace-nowrap" type="submit" disabled={!running}>
+            전송
+          </button>
+        </form>
+      )}
       <div className="flex flex-wrap gap-1.5 px-3 pb-2">
-        <button className="btn min-h-9 px-2 text-xs" disabled={!running} onClick={() => sendQuick("y\r")}>
-          y ⏎
-        </button>
-        <button className="btn min-h-9 px-2 text-xs" disabled={!running} onClick={() => sendQuick("\r")}>
-          ⏎
-        </button>
-        <button className="btn min-h-9 px-2 text-xs" disabled={!running} onClick={() => sendQuick("\u0003")}>
-          Ctrl+C
-        </button>
-        <button className="btn min-h-9 px-2 text-xs" disabled={!running} onClick={() => sendQuick("\u001b")}>
-          Esc
-        </button>
+        {running && (
+          <>
+            <button className="btn min-h-9 px-2 text-xs" disabled={!running} onClick={() => sendQuick("y\r")}>
+              y ⏎
+            </button>
+            <button className="btn min-h-9 px-2 text-xs" disabled={!running} onClick={() => sendQuick("\r")}>
+              ⏎
+            </button>
+            <button className="btn min-h-9 px-2 text-xs" disabled={!running} onClick={() => sendQuick("\u0003")}>
+              Ctrl+C
+            </button>
+            <button className="btn min-h-9 px-2 text-xs" disabled={!running} onClick={() => sendQuick("\u001b")}>
+              Esc
+            </button>
+          </>
+        )}
         <span className="ml-auto flex gap-1.5">
           <button className={`btn min-h-9 px-2 text-xs ${showWork ? "border-accent text-foreground" : ""}`} onClick={() => setShowWork((v) => !v)}>
             작업 현황
@@ -161,11 +173,7 @@ export function SessionCard({ session: s, workspace, runner }: Props) {
       </div>
 
       {showWork && <WorkspaceView workspace={workspace} />}
-      {showTerm && (
-        <div className="border-t border-border p-2">
-          <TerminalTile session={s} runner={runner} selected={false} onToggleSelect={() => undefined} focused onFocus={() => undefined} />
-        </div>
-      )}
+      {showTerm && <TerminalScreen session={s} runner={runner} onClose={() => setShowTerm(false)} />}
     </article>
   );
 }

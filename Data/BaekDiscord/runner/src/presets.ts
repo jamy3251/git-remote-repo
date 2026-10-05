@@ -25,6 +25,15 @@ export const PRESETS: Preset[] = [
     acceptsPrompt: false,
   },
   {
+    id: "claude-continue",
+    label: "Claude Code (이전 대화 이어서)",
+    description: "claude --continue: 이 폴더에서 마지막으로 하던 Claude Code 대화를 이어서 엽니다. PC에서 하던 걸 폰에서 이어받을 때.",
+    mode: "pty",
+    command: "claude --continue",
+    binary: "claude",
+    acceptsPrompt: false,
+  },
+  {
     id: "claude-print",
     label: "Claude Code (프롬프트 1회)",
     description: "claude -p 로 프롬프트를 한 번 실행하고 종료합니다. 여러 폴더에 같은 지시를 뿌릴 때 사용.",

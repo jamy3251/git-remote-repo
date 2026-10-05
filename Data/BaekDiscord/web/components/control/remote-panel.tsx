@@ -7,6 +7,7 @@ import type { RunnerApi } from "@/lib/runner/use-runner";
 interface Props {
   tunnel: TunnelStatus | null;
   runner: RunnerApi;
+  defaultOpen?: boolean;
 }
 
 const stateLabel: Record<TunnelStatus["state"], { text: string; cls: string }> = {
@@ -16,8 +17,9 @@ const stateLabel: Record<TunnelStatus["state"], { text: string; cls: string }> =
   error: { text: "오류", cls: "text-danger" },
 };
 
-export function RemotePanel({ tunnel, runner }: Props) {
-  const [open, setOpen] = useState(false);
+export function RemotePanel({ tunnel, runner, defaultOpen = true }: Props) {
+  // Open by default on the PC: the "ngrok 열기" button must be visible without hunting for it.
+  const [open, setOpen] = useState(defaultOpen);
   const [copied, setCopied] = useState(false);
   const t = tunnel;
   const s = t ? stateLabel[t.state] : stateLabel.stopped;

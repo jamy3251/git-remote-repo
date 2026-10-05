@@ -12,6 +12,12 @@
  *   devhubctl events [--limit 50]
  *   devhubctl chat "지시" [--confirm]
  *   devhubctl tunnel status|start|stop
+ *   devhubctl fs [path]                          폴더 목록(프로젝트 표시 포함)
+ *   devhubctl claude [claude 인자...]             이 폴더에서 Claude Code를 러너 세션으로 실행하고 이 창에 붙음.
+ *                                               폰 대시보드와 같은 화면을 공유. Ctrl+] = 분리(세션은 계속 실행)
+ *   devhubctl attach <id>                        실행 중인 세션을 이 창에 붙임 (Ctrl+] 분리)
+ *
+ * Shortcut: runner/bin/dclaude.cmd 를 PATH에 두면 `dclaude --continue` 처럼 claude 대신 씁니다.
  *
  * Connection: DEVHUB_RUNNER_URL (default http://127.0.0.1:7331) and DEVHUB_RUNNER_TOKEN
  * (default: contents of runner/.runner-token next to this script, or RUNNER_TOKEN).
@@ -61,6 +67,80 @@ async function api(method, route, body) {
   return json;
 }
 
+function wsUrl() {
+  const u = new URL(`${baseUrl}/runner/ws`);
+  u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
+  u.searchParams.set("token", token());
+  return u.toString();
+}
+
+async function openWs() {
+  const { default: WebSocket } = await import("ws");
+  const ws = new WebSocket(wsUrl(), { headers: { Origin: new URL(baseUrl).origin, "ngrok-skip-browser-warning": "1" } });
+  await new Promise((resolve, reject) => {
+    ws.once("open", resolve);
+    ws.once("error", reject);
+  });
+  return ws;
+}
+
+/** Quote one argument for the runner's `cmd /d /s /c "..."` (Windows) or `sh -lc` wrapper. */
+function quoteArg(a) {
+  if (/^[A-Za-z0-9_\-.,:=@/\\]+$/.test(a)) return a;
+  return process.platform === "win32" ? `"${a.replace(/"/g, '\\"')}"` : `'${a.replace(/'/g, "'\\''")}'`;
+}
+
+/**
+ * Mirror a runner session into this console: raw keystrokes go to the PTY, its output comes back
+ * here, and this console owns the PTY size so the phone sees exactly what the PC sees.
+ */
+async function attachConsole(id, { announce } = {}) {
+  const ws = await openWs();
+  const out = process.stdout;
+  const send = (m) => ws.readyState === 1 && ws.send(JSON.stringify(m));
+  const size = () => send({ type: "resize", id, cols: out.columns || 100, rows: out.rows || 30, owner: true });
+  let detached = false;
+
+  const restore = () => {
+    if (process.stdin.isTTY) process.stdin.setRawMode(false);
+    process.stdin.pause();
+  };
+  const done = (code, msg) => {
+    restore();
+    if (msg) out.write(`\r\n${msg}\r\n`);
+    ws.close();
+    process.exit(code);
+  };
+
+  ws.on("message", (raw) => {
+    const m = JSON.parse(String(raw));
+    if ((m.type === "history" || m.type === "output") && m.id === id) out.write(m.data);
+    else if (m.type === "exit" && m.id === id) done(m.exitCode ?? 0, `[devhub] 세션 종료 (${m.status}${m.exitCode !== null ? ` · code ${m.exitCode}` : ""})`);
+    else if (m.type === "removed" && m.id === id) done(0, "[devhub] 세션이 제거됐습니다");
+    else if (m.type === "error" && /no session/.test(m.message)) done(1, `[devhub] ${m.message}`);
+  });
+  ws.on("close", () => {
+    if (!detached) done(1, "[devhub] 러너 연결이 끊겼습니다. 세션은 러너에서 계속 실행 중일 수 있습니다.");
+  });
+
+  if (announce) out.write(`${announce}\r\n`);
+  send({ type: "attach", id });
+  size();
+  out.on("resize", size);
+  if (process.stdin.isTTY) process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdin.on("data", (buf) => {
+    const data = buf.toString("utf8");
+    const cut = data.indexOf("\u001d"); // Ctrl+]
+    if (cut >= 0) {
+      if (cut > 0) send({ type: "input", ids: [id], data: data.slice(0, cut) });
+      detached = true;
+      return done(0, `[devhub] 분리했습니다. 세션 ${id}은(는) 계속 실행 중 — 다시 붙기: devhubctl attach ${id}`);
+    }
+    send({ type: "input", ids: [id], data });
+  });
+}
+
 const stateIcon = { starting: "…", working: "▶", waiting_input: "?", idle: "·", error: "✗", done: "✓", killed: "■" };
 
 function printSessions(list) {
@@ -75,6 +155,21 @@ function printSessions(list) {
 }
 
 async function main() {
+  // `claude` passes every remaining argument through untouched (e.g. --continue, --resume <id>, -p "...").
+  if (process.argv[2] === "claude") {
+    const extra = process.argv.slice(3);
+    const command = ["claude", ...extra.map(quoteArg)].join(" ");
+    const { session } = await api("POST", "/sessions", {
+      preset: "custom",
+      command,
+      cwd: process.cwd(),
+      name: `pc-${path.basename(process.cwd())}`,
+      cols: process.stdout.columns || 100,
+      rows: process.stdout.rows || 30,
+      tags: ["pc"],
+    });
+    return attachConsole(session.id, { announce: `[devhub] ${session.id} · ${session.cwd} · 폰 대시보드에서도 보입니다 (Ctrl+] 분리)` });
+  }
   const { positional, flags } = parseArgs(process.argv.slice(2));
   const [cmd, a1, a2] = positional;
   const asJson = (v) => console.log(JSON.stringify(v, null, 2));
@@ -140,10 +235,36 @@ async function main() {
       for (const act of turn.actions ?? []) console.log(`  [${act.tool}] ${act.result.split("\n")[0].slice(0, 120)}`);
       return console.log(turn.text);
     }
+    case "attach": {
+      if (!a1) throw new Error("usage: attach <id>");
+      return attachConsole(a1, { announce: `[devhub] ${a1}에 붙었습니다 (Ctrl+] 분리)` });
+    }
+    case "fs": {
+      const { listing } = await api("GET", `/fs${a1 ? `?path=${encodeURIComponent(a1)}` : ""}`);
+      if (flags.json) return asJson(listing);
+      console.log(listing.path);
+      for (const e of listing.entries) console.log(`  ${e.name}${e.markers.length ? `  [${e.markers.join(", ")}]` : ""}`);
+      return;
+    }
     case "tunnel": {
       if (a1 === "status" || !a1) return asJson((await api("GET", "/tunnel")).status);
-      // start/stop are WebSocket-only in the runner; use the dashboard for those.
-      throw new Error("tunnel start/stop 은 대시보드(/control)에서 하세요. 러너 시작 시 RUNNER_TUNNEL=1 로 자동 시작도 가능합니다.");
+      if (a1 !== "start" && a1 !== "stop") throw new Error("usage: tunnel status|start|stop");
+      const ws = await openWs();
+      ws.send(JSON.stringify({ type: "tunnel", action: a1, provider: flags.provider }));
+      await new Promise((resolve) => {
+        const timer = setTimeout(resolve, 30_000);
+        ws.on("message", (raw) => {
+          const m = JSON.parse(String(raw));
+          if (m.type !== "tunnel") return;
+          const st = m.status;
+          if (a1 === "stop" ? st.state === "stopped" : st.url || st.state === "error") {
+            console.log(st.url ? `${st.state} ${st.url}` : `${st.state}${st.error ? ` ${st.error}` : ""}`);
+            clearTimeout(timer);
+            resolve();
+          }
+        });
+      });
+      return ws.close();
     }
     default:
       console.log(fs.readFileSync(fileURLToPath(import.meta.url), "utf8").split("*/")[0].replace(/^\/\*\*?\s?/, ""));

@@ -16,9 +16,16 @@ export function proxyHttp(req: http.IncomingMessage, res: http.ServerResponse, t
     { hostname: target.hostname, port: target.port, method: req.method, path: req.url, headers },
     (up) => {
       res.writeHead(up.statusCode ?? 502, up.headers);
+      up.on("error", () => res.destroy());
       up.pipe(res);
     },
   );
+  // The browser can abort mid-request (navigation, dropped mobile link); tear down the upstream quietly.
+  req.on("error", () => upstream.destroy());
+  res.on("error", () => upstream.destroy());
+  res.on("close", () => {
+    if (!res.writableFinished) upstream.destroy();
+  });
   upstream.on("error", (e) => {
     if (res.headersSent) return res.destroy();
     res.writeHead(502, { "content-type": "text/html; charset=utf-8" });
