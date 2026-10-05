@@ -149,3 +149,53 @@ def test_backfill_spike_does_not_inflate_threshold(tmp_db, tmp_path):
     c = Collector(tmp_db, source_factory=FakeSource, lock_path=tmp_path / "l", today=date(2026, 9, 21), delay=0,
                   webhook=lambda url, text: None)
     assert c.run()[0]["status"] == "ok"
+
+
+def _extracts(db_path):
+    conn = db.open_read(db_path)
+    rows = [dict(r) for r in conn.execute("SELECT post_key, pain FROM pain_extracts ORDER BY post_key")]
+    conn.close()
+    return rows
+
+
+def test_daily_batch_extracts_new_posts_newest_first_with_cap(tmp_db, tmp_path, monkeypatch):
+    """수집 후 미추출 글만 최신순·상한 안에서 불편 추출 → 다음날은 남은 것만(캐시)."""
+    from conftest import FakeClient
+    from painpointer import config
+    from painpointer.llm import LLM
+    FakeSource.registry = {("dcinside", "A"): {"pages": [_posts("A", "2026-09-20", [1, 2]), _posts("A", "2026-09-10", [3]),
+                                                         _posts("A", "2025-01-01", [4])]}}
+    _watch(tmp_db, [("dcinside", "A", "")])
+    monkeypatch.setattr(config, "COLLECT_EXTRACT_MAX", 2)
+    client = FakeClient()
+    llm = LLM(tmp_db, client=client, sleep=lambda *_: None)
+    c = Collector(tmp_db, source_factory=FakeSource, lock_path=tmp_path / "l", today=date(2026, 9, 21),
+                  max_pages=10, delay=0, llm=llm)
+    msgs = []
+    c.run(progress=msgs.append)
+    rows = _extracts(tmp_db)
+    assert [r["post_key"] for r in rows] == ["dcinside:A:1", "dcinside:A:2"]     # 최신 2건, 120일 밖(4번)은 제외
+    assert all(r["pain"] == "배달이 늦게 온다" for r in rows)
+    assert any("남은 미추출 1건" in m for m in msgs)
+
+    n_calls = len(client.calls)
+    c2 = Collector(tmp_db, source_factory=FakeSource, lock_path=tmp_path / "l", today=date(2026, 9, 21),
+                   max_pages=10, delay=0, llm=llm)
+    c2.run()
+    assert [r["post_key"] for r in _extracts(tmp_db)] == ["dcinside:A:1", "dcinside:A:2", "dcinside:A:3"]
+    assert len(client.calls) == n_calls + 1                                      # 캐시된 글은 다시 부르지 않음
+
+
+def test_daily_extract_over_budget_skips_without_failing_batch(tmp_db, tmp_path):
+    from conftest import FakeClient
+    from painpointer.llm import LLM
+    FakeSource.registry = {("dcinside", "A"): {"pages": [_posts("A", "2026-09-20", [1, 2])]}}
+    _watch(tmp_db, [("dcinside", "A", "")])
+    client = FakeClient()
+    llm = LLM(tmp_db, client=client, sleep=lambda *_: None, budget_usd=0.0)
+    msgs = []
+    res = Collector(tmp_db, source_factory=FakeSource, lock_path=tmp_path / "l", today=date(2026, 9, 21),
+                    max_pages=10, delay=0, llm=llm).run(progress=msgs.append)
+    assert res[0]["status"] == "ok" and res[0]["n_new"] == 2
+    assert client.calls == [] and _extracts(tmp_db) == []
+    assert any("불편 추출 건너뜀" in m for m in msgs)

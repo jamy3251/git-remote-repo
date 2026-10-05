@@ -8,7 +8,8 @@
   하루 0~3건인 저빈도 갤러리는 0건이 정상이라 의심하지 않는다. 평균 대신 중앙값: 백필한 날의
   수백 건 스파이크가 일주일 내내 기준을 부풀리지 않게.
 - 같은 소스 2일 연속 실패/의심이면 웹훅(토큰은 .env). 전송 실패는 로그만.
-- 수집 후 post_embeddings 배치 → source_candidates 갱신(하루 1회, 실패해도 배치는 성공).
+- 수집 후 post_embeddings 배치 → 불편 추출(의미 검색 풀, 하루 상한·달러 예산 안에서) → source_candidates 갱신.
+  후처리 단계는 하루 1회, 실패해도 배치는 성공(로그만).
 """
 from __future__ import annotations
 
@@ -80,9 +81,10 @@ class Collector:
     def __init__(self, db_path: str | Path | None = None, *, embedder: Embedder | None = None,
                  source_factory=get_source, webhook=send_webhook, today: date | None = None,
                  max_pages: int = config.COLLECT_MAX_PAGES, delay: float = 1.0, lock_path: Path | None = None,
-                 fetch_body: bool = True):
+                 fetch_body: bool = True, llm=None):
         self.db_path = Path(db_path or config.DB_PATH)
         self.embedder = embedder
+        self.llm = llm                  # None이면 불편 추출 건너뜀(--no-extract·키 없음)
         self.source_factory = source_factory
         self.webhook = webhook
         self.today = today or date.today()
@@ -197,6 +199,8 @@ class Collector:
                     log_event("embed", n=n)
                 except Exception as e:  # noqa: BLE001
                     log_event("embed_failed", error=str(e))
+            if self.llm is not None:
+                self.extract_pains(watch, progress=progress)
             try:
                 self.refresh_candidates(progress=progress)
             except Exception as e:  # noqa: BLE001
@@ -204,6 +208,30 @@ class Collector:
             return results
         finally:
             self.lock.release()
+
+    # ---- 불편 추출(의미 검색 풀) ----
+    def extract_pains(self, watch: list[dict], *, progress=None) -> dict | None:
+        from .discover import extract_pending
+        from .llm import DailyLimitExceeded
+        boards = [(w["source"], w["board"]) for w in watch]
+        if not boards:
+            return None
+        try:
+            r = extract_pending(self.db_path, self.llm, boards, today=self.today, progress=progress)
+        except DailyLimitExceeded as e:
+            log_event("extract_skipped", reason="budget", error=str(e))
+            if progress:
+                progress(f"불편 추출 건너뜀 — {e}")
+            return None
+        except Exception as e:  # noqa: BLE001
+            log_event("extract_failed", error=f"{type(e).__name__}: {e}"[:300])
+            if progress:
+                progress(f"불편 추출 실패(배치는 계속) — {type(e).__name__}")
+            return None
+        log_event("extract", **r)
+        if progress:
+            progress(f"불편 추출 {r['done']}건(실패 {r['failed']}) · 남은 미추출 {r['pending'] - r['done'] - r['failed']}건")
+        return r
 
     # ---- 8f 후보 목록 ----
     def refresh_candidates(self, keywords: list[str] | None = None, *, client=None, progress=None) -> int:

@@ -20,7 +20,8 @@ python -m painpointer init
 ```powershell
 python -m painpointer watch add dcinside <갤러리ID> --label "첫 팀 주제"
 python -m painpointer watch add googleplay <패키지ID>
-python -m painpointer collect                 # 락 → watch_list 순회 → 임베딩 → 후보 갱신
+python -m painpointer collect                 # 락 → watch_list 순회 → 임베딩 → 불편 추출 → 후보 갱신
+python -m painpointer collect --no-extract    # 불편 추출(LLM) 없이
 python -m painpointer collect --source dcinside:<갤러리ID>   # 한 소스만 재실행(백필)
 python -m painpointer status
 ```
@@ -28,6 +29,7 @@ python -m painpointer status
 - 첫 실행은 소스당 최대 `PP_COLLECT_MAX_PAGES`(기본 30) 페이지 백필. 이후는 마지막 성공 실행일 − 1일 이후 글만.
 - 디시는 `fetch_body=True`(글당 상세 요청 1회 + 댓글 AJAX). 시간이 문제면 `--no-body`(제목만 색인됨 — 판정 품질 저하).
 - 4h 목표 미달 시 설계의 축소 경로: 소스 1곳, 6개월.
+- 불편 추출: 워치 보드의 최근 `PP_DISCOVER_DAYS`일 글 중 현재 discover 프롬프트·모델로 미추출인 글을 최신순 하루 `PP_COLLECT_EXTRACT_MAX`(300, ≈$0.15)건. 리포트 의미 검색 풀과 페인 지도 캐시를 매일 채운다. 키 없음·달러 예산 초과면 건너뛰고 배치는 성공(로그 `extract_skipped`/`extract_failed`). 끄기: `PP_COLLECT_EXTRACT=0`. 프롬프트를 바꾸면 창 안 글이 전부 미추출이 되어 며칠에 걸쳐 다시 채워진다.
 - 임베딩 모델(ko-sroberta)은 로컬 캐시만 사용(`HF_HUB_OFFLINE=1`). 최초 다운로드는 `PP_HF_ONLINE=1 python -m painpointer embed-posts`.
 - 한이음 유사 시도: `python -m painpointer precompute-attempts` (HanCrawler `data/public_projects.json`, `award_projects.json`).
 
@@ -62,7 +64,7 @@ python -m painpointer discover --board dcinside:modu --board dcinside:changup --
 
 - `python -m painpointer status`: 코퍼스, 상시 수집(마지막 성공·경과·suspect), 후보 갱신일, 오늘 LLM 호출/상한 %, 최근 잡·리포트.
 - JSONL 로그: `data/logs/YYYY-MM-DD.jsonl` (event, job_id/run_id, stage, elapsed_ms).
-- 테이블: `judgments`(판정 캐시, 4중키), `llm_calls`, `reports`, `jobs`, `collection_runs`, `watch_list`, `source_candidates`, `post_embeddings`, `attempt_embeddings`.
+- 테이블: `judgments`(판정 캐시, 4중키), `llm_calls`, `reports`, `jobs`, `collection_runs`, `watch_list`, `source_candidates`, `post_embeddings`, `attempt_embeddings`, `pain_extracts`, `pain_maps`.
 
 ## 4. 장애 대응
 

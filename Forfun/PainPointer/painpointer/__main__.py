@@ -5,7 +5,7 @@
   python -m painpointer watch add dcinside <갤러리ID> [--label ...]
   python -m painpointer watch add googleplay <패키지ID>
   python -m painpointer watch list | rm <source> <board>
-  python -m painpointer collect [--source dcinside|dcinside:board] [--no-embed] [--no-body]
+  python -m painpointer collect [--source dcinside|dcinside:board] [--no-embed] [--no-body] [--no-extract]
   python -m painpointer embed-posts               # 임베딩 미계산 글 배치
   python -m painpointer precompute-attempts       # 한이음 임베딩 사전 계산
   python -m painpointer models                    # /v1/models 목록(스냅샷 ID 확인)
@@ -65,7 +65,16 @@ def cmd_watch(a):
 def cmd_collect(a):
     from .collect_daily import Collector
     from .embed import Embedder
-    c = Collector(a.db, embedder=None if a.no_embed else Embedder(), fetch_body=not a.no_body, delay=a.delay)
+    import os
+    from . import config
+    llm = None
+    if config.COLLECT_EXTRACT and not a.no_extract:
+        if os.getenv("ANTHROPIC_API_KEY"):
+            from .llm import LLM
+            llm = LLM(a.db)
+        else:
+            _print("불편 추출 건너뜀 — ANTHROPIC_API_KEY 없음(.env)")
+    c = Collector(a.db, embedder=None if a.no_embed else Embedder(), fetch_body=not a.no_body, delay=a.delay, llm=llm)
     res = c.run(a.source, progress=_print)
     for r in res:
         _print(f"  {r['source']}/{r['board']}: {r['status']} 신규 {r['n_new']}" + (f" — {r['error']}" if r['error'] else ""))
@@ -186,7 +195,7 @@ def main(argv=None):
     sub.add_parser("init").set_defaults(func=cmd_init)
     s = sub.add_parser("serve"); s.add_argument("--port", type=int); s.set_defaults(func=cmd_serve)
     w = sub.add_parser("watch"); w.add_argument("action", choices=["add", "rm", "list"]); w.add_argument("source", nargs="?"); w.add_argument("board", nargs="?"); w.add_argument("--label"); w.set_defaults(func=cmd_watch)
-    c = sub.add_parser("collect"); c.add_argument("--source"); c.add_argument("--no-embed", action="store_true"); c.add_argument("--no-body", action="store_true"); c.add_argument("--delay", type=float, default=1.0); c.set_defaults(func=cmd_collect)
+    c = sub.add_parser("collect"); c.add_argument("--source"); c.add_argument("--no-embed", action="store_true"); c.add_argument("--no-body", action="store_true"); c.add_argument("--no-extract", action="store_true"); c.add_argument("--delay", type=float, default=1.0); c.set_defaults(func=cmd_collect)
     sub.add_parser("embed-posts").set_defaults(func=cmd_embed_posts)
     pa = sub.add_parser("precompute-attempts"); pa.add_argument("--data-dir"); pa.set_defaults(func=cmd_precompute)
     sub.add_parser("models").set_defaults(func=cmd_models)

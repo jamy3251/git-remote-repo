@@ -246,6 +246,37 @@ def extract(sample: list[Post], llm: LLM, *, db_path: str | Path, model: str | N
     return [by_key[p.key] for p in sample if p.key in by_key], len(batches), ph
 
 
+def extract_pending(db_path: str | Path, llm: LLM, boards: list[tuple[str, str]], *, today: date | None = None,
+                    days: int | None = None, limit: int | None = None, progress=None) -> dict:
+    """수집 배치용: 보드들의 최근 days일 글 중 현재 프롬프트·모델로 아직 추출 안 된 글을 최신순 limit건 추출.
+
+    반환 {"pending": 미추출 전체, "done": 이번에 추출(ok), "failed", "calls"}. 예산·일일 상한 초과는 호출자에게 예외로.
+    """
+    today = today or date.today()
+    days = config.DISCOVER_DAYS if days is None else days
+    limit = config.COLLECT_EXTRACT_MAX if limit is None else limit
+    since = (today - timedelta(days=days)).isoformat()
+    store = Store(db_path, readonly=True)
+    try:
+        posts = dedup(load_window(store, boards, since)).posts
+    finally:
+        store.close()
+    model = config.MODEL_CLASSIFY
+    ph = prompt_hash(load_prompt("discover"))
+    conn = db.open_read(db_path)
+    try:
+        cached = _load_cache(conn, [p.key for p in posts], ph, model)
+    finally:
+        conn.close()
+    pending = sorted((p for p in posts if p.key not in cached), key=lambda p: (p.created_at or "", p.key), reverse=True)
+    todo = pending[:max(0, limit)]
+    if not todo:
+        return {"pending": len(pending), "done": 0, "failed": 0, "calls": 0}
+    rows, calls, _ = extract(todo, llm, db_path=db_path, model=model, progress=progress)
+    failed = sum(1 for e in rows if e.status != "ok")
+    return {"pending": len(pending), "done": len(rows) - failed, "failed": failed, "calls": calls}
+
+
 # ---- 묶기·수치 ----
 def group_pains(rows: list[tuple[Post, Extract]], vectors: np.ndarray, *, n_sample: int,
                 months_set: set[str] | None = None) -> tuple[list[PainItem], int]:

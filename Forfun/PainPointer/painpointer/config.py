@@ -74,6 +74,10 @@ DISCOVER_CLUSTER = {"distance_threshold": float(os.getenv("PP_DISCOVER_DIST", "0
 DISCOVER_MIN_SIZE = 3          # 이보다 작은 묶음은 지도에 올리지 않는다(나머지 = 기타)
 DISCOVER_WEAK = 5              # 이보다 작으면 "약한 신호" 라벨
 DISCOVER_DAYS = int(os.getenv("PP_DISCOVER_DAYS", "120"))
+# 일일 수집 배치의 불편 추출(의미 검색 풀 유지). 하루 상한: 300건 ≈ $0.15(Haiku 4.5, 실측 632건 $0.33).
+# 프롬프트가 바뀌면 창 안 글이 전부 미추출이 되므로 상한이 며칠에 나눠 다시 채운다(최신 글부터).
+COLLECT_EXTRACT = os.getenv("PP_COLLECT_EXTRACT", "1") == "1"
+COLLECT_EXTRACT_MAX = int(os.getenv("PP_COLLECT_EXTRACT_MAX", "300"))
 EMBED_MODEL = os.getenv("PP_EMBED_MODEL", "jhgan/ko-sroberta-multitask")
 SIM_THRESHOLD = float(os.getenv("PP_SIM_THRESHOLD", "0.5"))   # 설계 고정값 0.5. 실측(ko-sroberta, 페인 문장 vs 프로젝트 제목)은 0.35~0.45가 의미 있는 상위권 — 첫 코퍼스에서 재확인
 SIM_HIGH = float(os.getenv("PP_SIM_HIGH", "0.65"))
