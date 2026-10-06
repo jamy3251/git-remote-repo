@@ -31,6 +31,7 @@ npm run dev:web             # 웹:   http://localhost:3000 (러너가 7331로 �
 - **새 작업**: 폴더 탐색기로 폴더를 고르고(프로젝트 표시, 최근 수정, 지금 CLI가 켜진 폴더와 Claude 마지막 작업 시각) 지시를 쓰면 세션이 뜹니다. **지시서로 다듬기**는 프롬프트 모델이 짧은 지시를 목표·할 일·지키기·완료 기준·보고가 있는 지시서로 바꿔 미리 보여줍니다.
 - **대화 (메신저형)**: 관제 AI와의 대화에 세션 시작·완료 알림이 섞여 흐르고, 입력을 기다리는 세션은 승인·`1`·`y⏎`·Esc 버튼이 달린 카드로 입력창 위에 고정됩니다. 관제 AI는 자연어를 도구 호출(세션 목록·출력 읽기·입력·생성·종료·목표/정책·제안 승인·폴더 탐색·지금 켜진 폴더·작업 내역)로 바꿔 실행하고, 세션을 띄울 때는 지시서 형태로 프롬프트를 써서 넘깁니다.
 - **작업 내역**: 끝난 세션을 `runner/.data/worklog.jsonl`에 남깁니다. 결과, 마지막 출력, 세션 시작 시점 대비 git 변경량, 요약(기본은 규칙, "AI로 요약"을 누르면 프롬프트 모델). "이 지시로 다시"로 같은 지시를 재실행합니다.
+- **교차검증**: 끝난 작업을 다른 AI가 읽기 전용으로 검토합니다(Claude Code가 한 일은 Codex가, Codex가 한 일은 Claude가). 세션 시작 시점 대비 그 세션의 diff와 원래 지시를 넘기고, 검토자는 테스트 실행 같은 읽기 전용 확인 후 통과·수정 필요·판단 보류와 P1~P3 지적을 냅니다. 리뷰 / 깨뜨려 보기 두 모드. 새 작업에서 "끝나면 다른 AI로 교차검증"을 켜면 자동으로, 내역에서 버튼으로 수동으로 시작합니다. 수정 필요면 "원래 AI에게 고치게 하기"가 지적 목록과 확인 절차가 든 지시를 새 작업에 채웁니다. Codex는 `--sandbox read-only`, Claude는 `--permission-mode plan`으로 돌아 파일을 바꾸지 못합니다. 관제 AI의 `cross_review` 도구와 `devhubctl review <id> --wait`로도 씁니다.
 - **모델 역할 분담**: 다듬기·요약 같은 짧은 일은 프롬프트 모델(판단 엔진과 같은 `api` 또는 `claude -p`), 실제 코드 작업은 Claude Code·Codex 세션. 모델 호출은 클라이언트당 분당 12회로 제한합니다.
 - **이벤트 로그**: 슈퍼바이저 판단, 사람의 조작, 관제 AI의 행동을 누가(actor) 언제 했는지 모두 남깁니다(감사 로그).
 - **원격 접속**: ngrok 또는 cloudflared 터널을 한 버튼으로 열고 QR을 띄웁니다. 폰에서 QR을 찍으면 토큰이 들어간 링크로 바로 접속됩니다.
@@ -108,7 +109,7 @@ Claude Code에서 이 러너를 쓰려면 `/devhub-runner` 스킬(`D:\Projects\.
 | `npm test` | 러너(50) + 웹(40) vitest |
 | `npm run build` | 러너 `tsc` + 웹 `next build` |
 | `npm run lint` | 웹 eslint |
-| `npm run ctl -w runner -- sessions` | devhubctl (health · sessions · create · send · output · kill · workspace · events · chat · tunnel · fs · claude · attach) |
+| `npm run ctl -w runner -- sessions` | devhubctl (health · sessions · create · send · output · kill · workspace · events · chat · tunnel · fs · claude · attach · worklog · review) |
 | `npm run db:generate -w web` | Drizzle 마이그레이션 생성 |
 
 ## 러너 API (요약, 모두 `/runner` 아래)

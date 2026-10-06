@@ -65,6 +65,8 @@ export interface PresetInfo {
   acceptsPrompt: boolean;
   /** Whether the tool binary was found on PATH. */
   available: boolean;
+  /** Runner-internal preset (cross-verification); not offered for new tasks. */
+  internal: boolean;
 }
 
 export interface CreateSessionRequest {
@@ -80,6 +82,8 @@ export interface CreateSessionRequest {
   tags?: string[];
   goal?: string;
   policy?: Policy;
+  /** When the session ends, have a different AI review its work. */
+  crossReview?: ReviewerId | "auto";
 }
 
 export interface SupervisorEvent {
@@ -181,7 +185,8 @@ export type ClientMessage =
   | { type: "fs"; path?: string; reqId?: string }
   | { type: "refine"; text: string; cwd?: string; reqId?: string }
   | { type: "worklog"; limit?: number; reqId?: string }
-  | { type: "worklog_summarize"; id: string; reqId?: string };
+  | { type: "worklog_summarize"; id: string; reqId?: string }
+  | { type: "cross_review"; id: string; reviewer?: ReviewerId | "auto"; mode?: ReviewMode; reqId?: string };
 
 export type ServerMessage =
   | { type: "welcome"; runner: { version: string; platform: string; cwdRoot: string } }
@@ -309,4 +314,32 @@ export interface WorkLogEntry {
   /** Short result summary: from the prompt model when requested, otherwise a heuristic. */
   summary: string;
   summarySource: "brain" | "heuristic";
+  /** Cross-verification runs by a different AI, oldest first. */
+  reviews?: CrossReview[];
+}
+
+export type ReviewerId = "codex" | "claude";
+export type ReviewMode = "review" | "challenge";
+
+export interface ReviewFinding {
+  severity: "P1" | "P2" | "P3";
+  file: string;
+  line: number | null;
+  issue: string;
+  fix: string;
+}
+
+export interface CrossReview {
+  /** The reviewer's runner session id. */
+  sessionId: string;
+  reviewer: ReviewerId;
+  mode: ReviewMode;
+  status: "running" | "done" | "failed";
+  verdict: "pass" | "fail" | "uncertain" | null;
+  summary: string;
+  findings: ReviewFinding[];
+  startedAt: number;
+  endedAt: number | null;
+  /** Ready-made instruction for the original AI to fix the findings (set when verdict is fail). */
+  fixPrompt?: string;
 }

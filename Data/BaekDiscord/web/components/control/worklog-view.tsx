@@ -1,14 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { WorkLogEntry } from "@/lib/runner/protocol";
+import type { CrossReview, ReviewMode, ReviewerId, WorkLogEntry } from "@/lib/runner/protocol";
 import type { RunnerApi } from "@/lib/runner/use-runner";
 import { fmtDuration, shortPath } from "./labels";
 
+/** A new task to pre-fill (past instruction, or a fix for review findings). */
+export interface DraftRequest {
+  cwd: string;
+  prompt: string;
+  goal?: string;
+  preset?: string;
+}
+
 interface Props {
   runner: RunnerApi;
-  /** Pre-fill the new-task form with a past instruction. */
-  onReuse?: (e: WorkLogEntry) => void;
+  onDraft?: (d: DraftRequest) => void;
   className?: string;
 }
 
@@ -32,7 +39,7 @@ function outcome(e: WorkLogEntry): { text: string; cls: string } {
 }
 
 /** Finished sessions grouped by day: what ran where, how it ended, what changed. */
-export function WorkLogView({ runner, onReuse, className = "" }: Props) {
+export function WorkLogView({ runner, onDraft, className = "" }: Props) {
   const { worklog } = runner;
   const [folder, setFolder] = useState<string>("all");
   const folders = useMemo(() => [...new Set(worklog.map((e) => e.cwd))], [worklog]);
@@ -73,7 +80,7 @@ export function WorkLogView({ runner, onReuse, className = "" }: Props) {
               <div className="sticky top-0 z-[1] bg-surface/95 px-3 pb-1 pt-3 text-[11px] font-medium text-muted backdrop-blur">{g.day}</div>
               <ul className="divide-y divide-border/70">
                 {g.items.map((e) => (
-                  <Item key={e.id} entry={e} runner={runner} onReuse={onReuse} />
+                  <Item key={e.id} entry={e} runner={runner} onDraft={onDraft} />
                 ))}
               </ul>
             </div>
@@ -84,11 +91,28 @@ export function WorkLogView({ runner, onReuse, className = "" }: Props) {
   );
 }
 
-function Item({ entry: e, runner, onReuse }: { entry: WorkLogEntry; runner: RunnerApi; onReuse?: (e: WorkLogEntry) => void }) {
+function Item({ entry: e, runner, onDraft }: { entry: WorkLogEntry; runner: RunnerApi; onDraft?: (d: DraftRequest) => void }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [reviewer, setReviewer] = useState<ReviewerId | "auto">("auto");
+  const [mode, setMode] = useState<ReviewMode>("review");
+  const [starting, setStarting] = useState(false);
   const o = outcome(e);
+  const last = e.reviews?.[e.reviews.length - 1];
+  const reviewing = last?.status === "running";
+
+  async function review() {
+    setStarting(true);
+    setErr(null);
+    try {
+      await runner.crossReview(e.id, reviewer, mode);
+    } catch (x) {
+      setErr((x as Error).message);
+    } finally {
+      setStarting(false);
+    }
+  }
 
   async function summarize() {
     setBusy(true);
@@ -121,6 +145,7 @@ function Item({ entry: e, runner, onReuse }: { entry: WorkLogEntry; runner: Runn
           )}
         </div>
         <p className={`mt-1 text-[13px] leading-snug ${e.summarySource === "brain" ? "text-foreground" : "text-foreground/80"} ${open ? "" : "line-clamp-2"}`}>{e.summary}</p>
+        {last && !open && <ReviewLine review={last} />}
       </button>
 
       {open && (
@@ -140,14 +165,34 @@ function Item({ entry: e, runner, onReuse }: { entry: WorkLogEntry; runner: Runn
               {e.git.files.length > 6 ? " …" : ""}
             </div>
           )}
+          {e.reviews?.map((r) => (
+            <ReviewCard key={r.sessionId} review={r} onFix={r.fixPrompt && onDraft ? () => onDraft({ cwd: e.cwd, prompt: r.fixPrompt!, goal: `교차검증 지적 해결: ${e.name}`, preset: e.preset }) : undefined} />
+          ))}
+          <div className="rounded-md border border-border px-2.5 py-2">
+            <div className="mb-1.5 text-[11px] text-muted">교차검증: 다른 AI가 읽기 전용으로 이 작업을 검토합니다</div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <select className="input min-h-9 w-auto text-xs" value={reviewer} onChange={(x) => setReviewer(x.target.value as ReviewerId | "auto")} disabled={reviewing}>
+                <option value="auto">자동 (작업한 AI의 반대)</option>
+                <option value="codex">Codex</option>
+                <option value="claude">Claude</option>
+              </select>
+              <select className="input min-h-9 w-auto text-xs" value={mode} onChange={(x) => setMode(x.target.value as ReviewMode)} disabled={reviewing}>
+                <option value="review">리뷰</option>
+                <option value="challenge">깨뜨려 보기</option>
+              </select>
+              <button className="btn btn-primary min-h-9 text-xs" onClick={review} disabled={reviewing || starting || runner.status !== "open"}>
+                {reviewing ? "검증 중…" : starting ? "시작하는 중…" : "교차검증"}
+              </button>
+            </div>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             {e.summarySource !== "brain" && (
               <button className="btn min-h-9 text-xs" onClick={summarize} disabled={busy || runner.status !== "open"}>
                 {busy ? "요약하는 중…" : "AI로 요약"}
               </button>
             )}
-            {onReuse && (e.prompt || e.goal) && (
-              <button className="btn min-h-9 text-xs" onClick={() => onReuse(e)}>
+            {onDraft && (e.prompt || e.goal) && (
+              <button className="btn min-h-9 text-xs" onClick={() => onDraft({ cwd: e.cwd, prompt: e.prompt ?? e.goal ?? "", goal: e.goal ?? undefined, preset: e.preset })}>
                 이 지시로 다시
               </button>
             )}
@@ -157,5 +202,72 @@ function Item({ entry: e, runner, onReuse }: { entry: WorkLogEntry; runner: Runn
         </div>
       )}
     </li>
+  );
+}
+
+const reviewerName: Record<ReviewerId, string> = { codex: "Codex", claude: "Claude" };
+
+function verdictMeta(r: CrossReview): { text: string; cls: string } {
+  if (r.status === "running") return { text: "검증 중", cls: "text-accent" };
+  if (r.status === "failed") return { text: "결과 없음", cls: "text-muted" };
+  if (r.verdict === "pass") return { text: "통과", cls: "text-ok" };
+  if (r.verdict === "fail") return { text: "수정 필요", cls: "text-danger" };
+  return { text: "판단 보류", cls: "text-warn" };
+}
+
+/** One-line review status for the collapsed list row. */
+function ReviewLine({ review: r }: { review: CrossReview }) {
+  const v = verdictMeta(r);
+  const p1 = r.findings.filter((f) => f.severity === "P1").length;
+  return (
+    <span className="mt-1 flex items-center gap-1.5 text-[11px]">
+      <span className="text-muted">{reviewerName[r.reviewer]} 검증</span>
+      <span className={v.cls}>{v.text}</span>
+      {r.findings.length > 0 && (
+        <span className="text-muted">
+          · 지적 {r.findings.length}
+          {p1 ? <span className="text-danger"> (P1 {p1})</span> : null}
+        </span>
+      )}
+    </span>
+  );
+}
+
+const sevCls: Record<string, string> = { P1: "bg-danger/15 text-danger", P2: "bg-warn/15 text-warn", P3: "bg-border/60 text-muted" };
+
+function ReviewCard({ review: r, onFix }: { review: CrossReview; onFix?: () => void }) {
+  const v = verdictMeta(r);
+  return (
+    <div className={`rounded-md border px-2.5 py-2 ${r.verdict === "fail" ? "border-danger/40" : r.verdict === "pass" ? "border-ok/30" : "border-border"}`}>
+      <div className="flex items-center gap-2 text-xs">
+        <span className="font-medium">{reviewerName[r.reviewer]}</span>
+        <span className="text-muted">{r.mode === "challenge" ? "깨뜨려 보기" : "리뷰"}</span>
+        <span className={`font-medium ${v.cls}`}>{v.text}</span>
+        <span className="ml-auto font-mono text-[10px] text-muted">{r.sessionId}</span>
+      </div>
+      {r.summary && <p className="mt-1 text-[13px] leading-snug">{r.summary}</p>}
+      {r.findings.length > 0 && (
+        <ul className="mt-1.5 space-y-1.5">
+          {r.findings.map((f, i) => (
+            <li key={i} className="text-xs leading-snug">
+              <span className={`mr-1.5 rounded px-1 font-mono text-[10px] ${sevCls[f.severity]}`}>{f.severity}</span>
+              {f.file && (
+                <span className="font-mono text-[11px] text-muted">
+                  {f.file}
+                  {f.line ? `:${f.line}` : ""}{" "}
+                </span>
+              )}
+              <span>{f.issue}</span>
+              {f.fix && <div className="mt-0.5 pl-7 text-muted">{f.fix}</div>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {onFix && (
+        <button className="btn btn-primary mt-2 min-h-9 text-xs" onClick={onFix}>
+          원래 AI에게 고치게 하기
+        </button>
+      )}
+    </div>
   );
 }

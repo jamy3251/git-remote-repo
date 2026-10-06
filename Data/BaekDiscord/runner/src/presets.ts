@@ -12,6 +12,8 @@ export interface Preset {
   /** Binary probed for availability. */
   binary: string | null;
   acceptsPrompt: boolean;
+  /** Used by the runner itself (cross-verification); hidden from the new-task picker. */
+  internal?: boolean;
 }
 
 export const PRESETS: Preset[] = [
@@ -36,9 +38,9 @@ export const PRESETS: Preset[] = [
   {
     id: "claude-print",
     label: "Claude Code (프롬프트 1회)",
-    description: "claude -p 로 프롬프트를 한 번 실행하고 종료합니다. 여러 폴더에 같은 지시를 뿌릴 때 사용.",
+    description: "claude -p 로 프롬프트를 한 번 실행하고 종료합니다. 작업 폴더 안 파일 편집은 허용, 셸 명령은 막힙니다.",
     mode: "pipe",
-    command: "claude -p --output-format text",
+    command: "claude -p --permission-mode acceptEdits --output-format text",
     binary: "claude",
     acceptsPrompt: true,
   },
@@ -59,6 +61,26 @@ export const PRESETS: Preset[] = [
     command: "codex exec -",
     binary: "codex",
     acceptsPrompt: true,
+  },
+  {
+    id: "claude-review",
+    label: "Claude 교차검증 (읽기 전용)",
+    description: "다른 AI가 한 작업을 Claude가 계획 모드(파일 수정 불가)로 검토합니다.",
+    mode: "pipe",
+    command: "claude -p --permission-mode plan --output-format text",
+    binary: "claude",
+    acceptsPrompt: true,
+    internal: true,
+  },
+  {
+    id: "codex-review",
+    label: "Codex 교차검증 (읽기 전용)",
+    description: "다른 AI가 한 작업을 Codex가 읽기 전용 샌드박스로 검토합니다.",
+    mode: "pipe",
+    command: "codex exec --sandbox read-only --skip-git-repo-check --color never -",
+    binary: "codex",
+    acceptsPrompt: true,
+    internal: true,
   },
   {
     id: "shell",
@@ -98,6 +120,7 @@ export function presetInfos(): PresetInfo[] {
     description: p.description,
     mode: p.mode,
     acceptsPrompt: p.acceptsPrompt,
+    internal: p.internal ?? false,
     available: p.binary ? binaryAvailable(p.binary) : true,
   }));
 }

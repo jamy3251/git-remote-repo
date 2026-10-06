@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { ChatAction, ChatTurn, CreateSessionRequest, LiveFolder, Policy, WorkLogEntry } from "../protocol.js";
+import type { ChatAction, ChatTurn, CreateSessionRequest, LiveFolder, Policy, ReviewMode, ReviewerId, WorkLogEntry } from "../protocol.js";
 import type { SessionManager } from "../sessions.js";
 import type { Supervisor } from "./supervisor.js";
 import type { Brain, BrainMessage } from "./brain.js";
@@ -17,6 +17,8 @@ export interface ChatOptions {
   worklog?: (limit: number) => WorkLogEntry[];
   /** Folders with a running session or recent Claude Code activity. */
   liveFolders?: () => LiveFolder[];
+  /** Start a cross-verification of a finished session by a different AI. */
+  crossReview?: (id: string, reviewer: ReviewerId | "auto", mode: ReviewMode) => Promise<WorkLogEntry>;
 }
 
 const DANGEROUS_INPUT = /\brm\s+-rf?\b|Remove-Item.*-Recurse|\bgit\s+push\b.*(--force|-f\b)|\bgit\s+reset\s+--hard\b|\bDROP\s+(TABLE|DATABASE)\b|\bformat\s+[a-z]:|\bshutdown\b|\bnpm\s+publish\b|\bvercel\s+--prod\b/i;
@@ -38,7 +40,8 @@ const SYSTEM = `당신은 개발자의 PC에서 돌아가는 CLI 에이전트 �
 - list_dirs {"path":"..."} — 폴더 목록(루트 안만). 프로젝트 폴더를 찾을 때.
 - list_presets {} — 사용 가능한 프리셋.
 - live_folders {} — 지금 세션이 돌거나 최근 30분 안에 Claude Code가 작업한 폴더. "하던 거", "아까 그 프로젝트"를 찾을 때 먼저 보세요.
-- list_worklog {"limit":10} — 끝난 작업 내역(이름, 폴더, 결과 요약, 변경량). "뭐 했지", "결과 어때"에 답할 때.
+- list_worklog {"limit":10} — 끝난 작업 내역(이름, 폴더, 결과 요약, 변경량, 교차검증 결과). "뭐 했지", "결과 어때"에 답할 때.
+- cross_review {"id":"<작업 내역 id>","reviewer":"auto|codex|claude","mode":"review|challenge"} — 끝난 작업을 다른 AI가 읽기 전용으로 검토. auto는 작업한 AI와 다른 쪽. "검증해줘", "다른 AI로 확인"에 쓰세요. 결과는 몇 분 뒤 작업 내역에 붙습니다.
 
 create_session의 prompt 쓰는 법 (사용자의 짧은 지시를 그대로 넘기지 말고 지시서로 바꾸세요):
 목표: 한두 문장 / 할 일: 번호 목록(먼저 관련 파일을 읽고 현재 동작 확인) / 지키기: 커밋·푸시·삭제·배포·새 의존성은 사용자가 말하지 않으면 하지 않음 / 완료 기준: 확인 가능한 조건 / 보고: 바꾼 파일·결과·남은 문제 요약.
@@ -212,8 +215,20 @@ export class ControlChat {
         const entries = this.opts.worklog?.(limit) ?? [];
         if (!entries.length) return "작업 내역 없음";
         return entries
-          .map((e) => `${e.id} ${e.name} [${e.status}${e.exitCode !== null ? ` ${e.exitCode}` : ""}] ${e.cwd} ${new Date(e.endedAt).toLocaleString("ko-KR")}\n  ${e.summary.slice(0, 240)}`)
+          .map((e) => {
+            const r = e.reviews?.[e.reviews.length - 1];
+            const rv = r ? `\n  교차검증(${r.reviewer}): ${r.status === "running" ? "진행 중" : (r.verdict ?? r.status)} ${r.findings.map((f) => `[${f.severity}] ${f.issue}`).join(" / ").slice(0, 300)}` : "";
+            return `${e.id} ${e.name} [${e.status}${e.exitCode !== null ? ` ${e.exitCode}` : ""}] ${e.cwd} ${new Date(e.endedAt).toLocaleString("ko-KR")}\n  ${e.summary.slice(0, 240)}${rv}`;
+          })
           .join("\n");
+      }
+      case "cross_review": {
+        if (!this.opts.crossReview) return "교차검증을 쓸 수 없습니다";
+        const reviewer = args.reviewer === "codex" || args.reviewer === "claude" ? args.reviewer : "auto";
+        const mode = args.mode === "challenge" ? "challenge" : "review";
+        const e = await this.opts.crossReview(id, reviewer, mode);
+        const r = e.reviews?.[e.reviews.length - 1];
+        return `교차검증 시작: ${e.name} → ${r?.reviewer} (검토 세션 ${r?.sessionId}). 끝나면 작업 내역에 결과가 붙습니다.`;
       }
       case "list_dirs": {
         const dir = this.safeDir(args.path);

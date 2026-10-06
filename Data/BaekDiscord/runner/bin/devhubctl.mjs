@@ -13,6 +13,9 @@
  *   devhubctl chat "지시" [--confirm]
  *   devhubctl tunnel status|start|stop
  *   devhubctl fs [path]                          폴더 목록(프로젝트 표시 포함)
+ *   devhubctl worklog [--limit 10]               끝난 작업 내역(결과·교차검증)
+ *   devhubctl review <worklog id> [--reviewer auto|codex|claude] [--mode review|challenge] [--wait]
+ *                                               다른 AI가 읽기 전용으로 교차검증. --wait 이면 결과까지 기다림
  *   devhubctl claude [claude 인자...]             이 폴더에서 Claude Code를 러너 세션으로 실행하고 이 창에 붙음.
  *                                               폰 대시보드와 같은 화면을 공유. Ctrl+] = 분리(세션은 계속 실행)
  *   devhubctl attach <id>                        실행 중인 세션을 이 창에 붙임 (Ctrl+] 분리)
@@ -238,6 +241,47 @@ async function main() {
     case "attach": {
       if (!a1) throw new Error("usage: attach <id>");
       return attachConsole(a1, { announce: `[devhub] ${a1}에 붙었습니다 (Ctrl+] 분리)` });
+    }
+    case "worklog": {
+      const { entries } = await api("GET", `/worklog?limit=${Number(flags.limit) || 10}`);
+      if (flags.json) return asJson(entries);
+      for (const e of entries) {
+        console.log(`${e.id}  ${e.name}  [${e.status}${e.exitCode !== null ? ` ${e.exitCode}` : ""}]  ${e.cwd}`);
+        console.log(`    ${e.summary}`);
+        for (const r of e.reviews ?? []) console.log(`    교차검증 ${r.reviewer}/${r.mode}: ${r.status} ${r.verdict ?? ""} ${r.summary}`);
+      }
+      return;
+    }
+    case "review": {
+      if (!a1) throw new Error("usage: review <worklog id> [--reviewer auto|codex|claude] [--mode review|challenge] [--wait]");
+      const ws = await openWs();
+      const reqId = Math.random().toString(36).slice(2, 10);
+      ws.send(JSON.stringify({ type: "cross_review", id: a1, reviewer: flags.reviewer ?? "auto", mode: flags.mode ?? "review", reqId }));
+      await new Promise((resolve, reject) => {
+        let reviewSession = null;
+        ws.on("message", (raw) => {
+          const m = JSON.parse(String(raw));
+          if (m.type === "error" && m.reqId === reqId) return reject(new Error(m.message));
+          if (m.type !== "worklog_entry" || m.entry.id !== a1) return;
+          const r = m.entry.reviews?.[m.entry.reviews.length - 1];
+          if (!r) return;
+          if (m.reqId === reqId) {
+            reviewSession = r.sessionId;
+            console.log(`교차검증 시작: ${r.reviewer} (세션 ${r.sessionId})`);
+            if (!flags.wait) return resolve();
+            return;
+          }
+          if (r.sessionId === reviewSession && r.status !== "running") {
+            if (flags.json) asJson(r);
+            else {
+              console.log(`결과: ${r.status} ${r.verdict ?? ""} — ${r.summary}`);
+              for (const f of r.findings) console.log(`  [${f.severity}] ${f.file}${f.line ? `:${f.line}` : ""} ${f.issue}${f.fix ? ` → ${f.fix}` : ""}`);
+            }
+            resolve();
+          }
+        });
+      });
+      return ws.close();
     }
     case "fs": {
       const { listing } = await api("GET", `/fs${a1 ? `?path=${encodeURIComponent(a1)}` : ""}`);

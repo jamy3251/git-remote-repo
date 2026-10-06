@@ -16,6 +16,7 @@ interface Session {
   historyBytes: number;
   /** The prompt a one-shot preset was started with (for the work log). */
   prompt: string | null;
+  crossReview: CreateSessionRequest["crossReview"] | null;
 }
 
 export interface SessionManagerOptions {
@@ -23,6 +24,8 @@ export interface SessionManagerOptions {
   maxSessions: number;
   historyBytes: number;
   defaultPolicy: Policy;
+  /** Called synchronously right before the process spawns (e.g. to snapshot the folder's git state). */
+  beforeSpawn?: (info: SessionInfo) => void;
 }
 
 /**
@@ -121,10 +124,15 @@ export class SessionManager extends EventEmitter {
       cols: clampDim(req.cols, 100),
       rows: clampDim(req.rows, 30),
     };
-    const session: Session = { info, proc: null, history: [], historyBytes: 0, prompt: prompt || null };
+    const session: Session = { info, proc: null, history: [], historyBytes: 0, prompt: prompt || null, crossReview: req.crossReview ?? null };
     this.sessions.set(id, session);
 
     const env = { ...process.env, DEVHUB_SESSION: id, TERM: "xterm-256color", FORCE_COLOR: "1" } as Record<string, string>;
+    try {
+      this.opts.beforeSpawn?.({ ...info });
+    } catch {
+      /* a snapshot failure must not block the session */
+    }
     const { file, args, ptyArgs } = shellWrap(command);
 
     try {
@@ -243,6 +251,11 @@ export class SessionManager extends EventEmitter {
   }
 
   /** Last `n` non-empty ANSI-stripped lines of a session's output. */
+  /** Cross-verification requested at creation, if any. */
+  crossReviewOf(id: string): CreateSessionRequest["crossReview"] | null {
+    return this.sessions.get(id)?.crossReview ?? null;
+  }
+
   promptOf(id: string): string | null {
     return this.sessions.get(id)?.prompt ?? null;
   }

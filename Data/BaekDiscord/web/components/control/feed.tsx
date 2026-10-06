@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChatTurn, SessionInfo, WorkLogEntry } from "@/lib/runner/protocol";
+import type { ChatTurn, CrossReview, SessionInfo, WorkLogEntry } from "@/lib/runner/protocol";
 import type { RunnerApi } from "@/lib/runner/use-runner";
 import { needsAttention, shortPath, stateMeta } from "./labels";
 
@@ -15,7 +15,8 @@ interface Props {
 type Item =
   | { kind: "turn"; ts: number; key: string; turn: ChatTurn }
   | { kind: "started"; ts: number; key: string; session: SessionInfo }
-  | { kind: "finished"; ts: number; key: string; entry: WorkLogEntry };
+  | { kind: "finished"; ts: number; key: string; entry: WorkLogEntry }
+  | { kind: "reviewed"; ts: number; key: string; entry: WorkLogEntry; review: CrossReview };
 
 const QUICK = ["지금 켜진 폴더랑 상태 알려줘", "오늘 끝난 작업 정리해줘", "입력 기다리는 세션 처리해줘"];
 const DAY = 24 * 3600_000;
@@ -39,7 +40,10 @@ export function Feed({ runner, onOpenTerminal, onOpenLog, className = "" }: Prop
   const items = useMemo<Item[]>(() => {
     const out: Item[] = chat.map((t) => ({ kind: "turn", ts: t.ts, key: `t${t.id}`, turn: t }));
     for (const s of sessions) if (s.createdAt >= since) out.push({ kind: "started", ts: s.createdAt, key: `s${s.id}`, session: s });
-    for (const e of worklog) if (e.endedAt >= since) out.push({ kind: "finished", ts: e.endedAt, key: `f${e.id}`, entry: e });
+    for (const e of worklog) {
+      if (e.endedAt >= since) out.push({ kind: "finished", ts: e.endedAt, key: `f${e.id}`, entry: e });
+      for (const r of e.reviews ?? []) if (r.endedAt && r.endedAt >= since) out.push({ kind: "reviewed", ts: r.endedAt, key: `r${r.sessionId}`, entry: e, review: r });
+    }
     return out.sort((a, b) => a.ts - b.ts).slice(-150);
   }, [chat, sessions, worklog, since]);
 
@@ -82,8 +86,10 @@ export function Feed({ runner, onOpenTerminal, onOpenLog, className = "" }: Prop
                 <span className="text-foreground">{it.session.name}</span> 시작 · <span className="font-mono">{shortPath(it.session.cwd, 28)}</span>
               </button>
             </Notice>
-          ) : (
+          ) : it.kind === "finished" ? (
             <Finished key={it.key} entry={it.entry} onOpenLog={onOpenLog} />
+          ) : (
+            <Reviewed key={it.key} entry={it.entry} review={it.review} onOpenLog={onOpenLog} />
           ),
         )}
         {chatBusy && (
@@ -177,6 +183,41 @@ function Finished({ entry: e, onOpenLog }: { entry: WorkLogEntry; onOpenLog?: ()
           <span className="text-muted">{clock(e.endedAt)}</span>
         </div>
         <p className="mt-0.5 line-clamp-3 text-[13px] leading-snug text-foreground/90">{e.summary}</p>
+      </button>
+    </div>
+  );
+}
+
+function Reviewed({ entry: e, review: r, onOpenLog }: { entry: WorkLogEntry; review: CrossReview; onOpenLog?: () => void }) {
+  const who = r.reviewer === "codex" ? "Codex" : "Claude";
+  const p1 = r.findings.filter((f) => f.severity === "P1").length;
+  const v =
+    r.status === "failed"
+      ? { text: "결과 없음", cls: "text-muted", border: "border-border" }
+      : r.verdict === "pass"
+        ? { text: "통과", cls: "text-ok", border: "border-ok/30" }
+        : r.verdict === "fail"
+          ? { text: "수정 필요", cls: "text-danger", border: "border-danger/40" }
+          : { text: "판단 보류", cls: "text-warn", border: "border-warn/40" };
+  return (
+    <div className="flex justify-start">
+      <button className={`max-w-[92%] rounded-lg border ${v.border} bg-surface-2 px-3 py-2 text-left`} onClick={onOpenLog}>
+        <div className="flex items-center gap-2 text-[11px]">
+          <span className="text-muted">{who} 교차검증</span>
+          <span className={v.cls}>{v.text}</span>
+          <span className="font-medium text-foreground">{e.name}</span>
+          <span className="text-muted">{clock(r.endedAt ?? r.startedAt)}</span>
+        </div>
+        <p className="mt-0.5 line-clamp-3 text-[13px] leading-snug text-foreground/90">
+          {r.summary}
+          {r.findings.length > 0 && (
+            <span className="text-muted">
+              {" "}
+              · 지적 {r.findings.length}
+              {p1 ? ` (P1 ${p1})` : ""}
+            </span>
+          )}
+        </p>
       </button>
     </div>
   );

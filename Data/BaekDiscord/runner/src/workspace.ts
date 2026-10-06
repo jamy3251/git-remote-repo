@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
 import type { GitFileChange, GitSummary } from "./protocol.js";
 
@@ -86,4 +86,43 @@ export async function gitSummary(cwd: string, maxAgeMs = 15_000): Promise<GitSum
   }
   cache.set(cwd, { at: Date.now(), value });
   return value;
+}
+
+/**
+ * Every uncommitted change under `cwd` (no cap), synchronously. Used to snapshot a folder right
+ * before a session spawns, so the work log can attribute only that session's own changes even
+ * when the session finishes within milliseconds.
+ */
+export function gitChangesSync(cwd: string): GitFileChange[] | null {
+  const opts = { cwd, windowsHide: true, timeout: 8000, maxBuffer: 16 * 1024 * 1024, encoding: "utf8" as const, stdio: ["ignore", "pipe", "ignore"] as ["ignore", "pipe", "ignore"] };
+  try {
+    const status = execFileSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "."], opts);
+    const changed = new Map<string, GitFileChange>();
+    const entries = status.split("\0").filter(Boolean);
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i];
+      const code = e.slice(0, 2);
+      if (code[0] === "R" || code[0] === "C") i += 1;
+      const p = e.slice(3).replace(/\\/g, "/");
+      changed.set(p, { path: p, status: code.trim() || "?", insertions: 0, deletions: 0 });
+    }
+    let numstat = "";
+    try {
+      numstat = execFileSync("git", ["diff", "--numstat", "HEAD", "--", "."], opts);
+    } catch {
+      numstat = "";
+    }
+    for (const line of numstat.split("\n")) {
+      const [ins, del, ...rest] = line.split("\t");
+      const p = rest.join("\t").replace(/\\/g, "/");
+      if (!p) continue;
+      const f = changed.get(p) ?? { path: p, status: "M", insertions: 0, deletions: 0 };
+      f.insertions = ins === "-" ? 0 : Number(ins) || 0;
+      f.deletions = del === "-" ? 0 : Number(del) || 0;
+      changed.set(p, f);
+    }
+    return [...changed.values()];
+  } catch {
+    return null;
+  }
 }

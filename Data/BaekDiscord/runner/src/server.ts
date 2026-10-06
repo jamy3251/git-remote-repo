@@ -2,7 +2,7 @@ import http from "node:http";
 import path from "node:path";
 import { WebSocketServer, WebSocket } from "ws";
 import type { RunnerConfig } from "./config.js";
-import type { ClientMessage, CompileRequest, CreateSessionRequest, GitFileChange, Policy, ServerMessage, SupervisorEvent, WorkLogEntry } from "./protocol.js";
+import type { ClientMessage, CompileRequest, CreateSessionRequest, CrossReview, GitFileChange, Policy, ReviewMode, ReviewerId, ServerMessage, SupervisorEvent, WorkLogEntry } from "./protocol.js";
 import { SessionManager } from "./sessions.js";
 import { presetInfos } from "./presets.js";
 import { languageInfos } from "./compiler/languages.js";
@@ -14,9 +14,11 @@ import { TunnelManager } from "./tunnel.js";
 import { listFolder, type FolderContext } from "./fsbrowse.js";
 import { claudeActivity } from "./cliactivity.js";
 import { WorkLog, gitDelta } from "./worklog.js";
+import { buildReviewPrompt, collectDiff, fixPrompt, parseReview, pickReviewer } from "./crossreview.js";
+import { binaryAvailable } from "./presets.js";
 import { heuristicSummary, refinePrompt, summarizeWork } from "./prompts.js";
 import { proxyHttp, proxyUpgrade } from "./proxy.js";
-import { gitSummary } from "./workspace.js";
+import { gitChangesSync, gitSummary } from "./workspace.js";
 import { AuthLockout, RateLimiter, clampString, clientKey, isSafeId, redactSecrets, tokenMatches } from "./security.js";
 
 export const RUNNER_VERSION = "0.2.0";
@@ -79,11 +81,16 @@ export function createRunnerServer(cfg: RunnerConfig) {
   const allowedOrigins = new Set(cfg.allowedOrigins);
   const originAllowed = (origin: string | undefined): boolean => !origin || allowedOrigins.has(origin);
 
+  /** Uncommitted changes in each session's folder right before it spawned, so the log shows only its own. */
+  const gitBaseline = new Map<string, GitFileChange[] | null>();
   const sessions = new SessionManager({
     cwdRoot: cfg.cwdRoot,
     maxSessions: cfg.maxSessions,
     historyBytes: cfg.historyBytes,
     defaultPolicy: cfg.supervisor.defaultPolicy,
+    beforeSpawn: (info) => {
+      if (!info.tags.includes("review")) gitBaseline.set(info.id, gitChangesSync(info.cwd));
+    },
   });
   const brain = createBrain({
     preference: cfg.supervisor.brain,
@@ -104,6 +111,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
   const chat = new ControlChat(brain, sessions, supervisor, {
     cwdRoot: cfg.cwdRoot,
     worklog: (limit) => worklog.list(limit),
+    crossReview: (id, reviewer, mode) => startReview(id, reviewer, mode, "chat"),
     liveFolders: () => listFolder(cfg.cwdRoot, null, folderContext()).live,
   });
   const tunnel = new TunnelManager({ port: cfg.port, token: cfg.token, dashboardPath: cfg.dashboardPath });
@@ -123,14 +131,63 @@ export function createRunnerServer(cfg: RunnerConfig) {
   });
   const worklog = new WorkLog(path.join(process.cwd(), ".data", "worklog.jsonl"));
   const summarizing = new Set<string>();
-  /** Uncommitted changes in each session's folder when it started, so the log shows only its own. */
-  const gitBaseline = new Map<string, Promise<GitFileChange[] | null>>();
+
+  /** Have a different AI review a finished session, read-only. Returns the updated log entry. */
+  async function startReview(entryId: string, requested?: ReviewerId | "auto", mode: ReviewMode = "review", actor: "human" | "chat" | "system" = "human"): Promise<WorkLogEntry> {
+    const entry = worklog.get(entryId);
+    if (!entry) throw new Error(`작업 내역 ${entryId} 없음`);
+    if (entry.reviews?.some((r) => r.status === "running")) throw new Error("이미 교차검증 중입니다");
+    const reviewer = pickReviewer(entry.preset, requested, { codex: binaryAvailable("codex"), claude: binaryAvailable("claude") });
+    if (!reviewer) throw new Error("검토할 AI CLI(codex 또는 claude)가 설치되어 있지 않습니다");
+    const git = await gitSummary(entry.cwd, 0).catch(() => null);
+    const diff = git && entry.git?.files.length ? await collectDiff(git.repoRoot, entry.git.files) : "";
+    const session = sessions.create({
+      preset: `${reviewer}-review`,
+      cwd: entry.cwd,
+      prompt: buildReviewPrompt(entry, diff, mode, reviewer),
+      name: `검증 · ${entry.name}`.slice(0, 60),
+      goal: `${entry.name} 교차검증`,
+      policy: "manual",
+      tags: ["review", `review-of:${entryId}`],
+    });
+    broadcast({ type: "created", session });
+    const review: CrossReview = { sessionId: session.id, reviewer, mode, status: "running", verdict: null, summary: "", findings: [], startedAt: Date.now(), endedAt: null };
+    const next = worklog.update(entryId, { reviews: [...(entry.reviews ?? []), review] })!;
+    broadcast({ type: "worklog_entry", entry: next });
+    supervisor.log("action", session.id, actor, `교차검증 시작: ${entry.name} → ${reviewer === "codex" ? "Codex" : "Claude"} (${mode === "challenge" ? "도전" : "리뷰"})`);
+    return next;
+  }
+
+  /** A reviewer session ended: parse its verdict onto the reviewed entry instead of logging it as work. */
+  function finishReview(reviewSessionId: string, targetId: string): void {
+    const entry = worklog.get(targetId);
+    const s = sessions.get(reviewSessionId);
+    if (!entry || !s) return;
+    const parsed = parseReview(sessions.history(reviewSessionId));
+    const reviews = (entry.reviews ?? []).map((r) =>
+      r.sessionId !== reviewSessionId
+        ? r
+        : parsed
+          ? { ...r, ...parsed, summary: redactSecrets(parsed.summary), status: "done" as const, endedAt: Date.now() }
+          : { ...r, status: "failed" as const, summary: `검토 결과를 읽지 못했습니다 (${s.status}${s.exitCode !== null ? ` code ${s.exitCode}` : ""}). 세션 출력을 확인하세요.`, endedAt: Date.now() },
+    );
+    const r = reviews.find((x) => x.sessionId === reviewSessionId)!;
+    if (r.verdict === "fail" && r.findings.length) r.fixPrompt = fixPrompt(entry, r);
+    const next = worklog.update(targetId, { reviews })!;
+    broadcast({ type: "worklog_entry", entry: next });
+    const p1 = r.findings.filter((f) => f.severity === "P1").length;
+    const verdict = r.status === "failed" ? "실패" : r.verdict === "pass" ? "통과" : r.verdict === "fail" ? `수정 필요 (P1 ${p1}건, 전체 ${r.findings.length}건)` : "판단 보류";
+    supervisor.log(r.verdict === "fail" ? "warn" : "info", reviewSessionId, "system", `교차검증 ${verdict}: ${entry.name}`);
+  }
 
   async function recordWork(id: string): Promise<void> {
     const s = sessions.get(id);
     if (!s || worklog.get(id)) return;
+    const reviewOf = s.tags.find((t) => t.startsWith("review-of:"));
+    if (reviewOf) return finishReview(id, reviewOf.slice("review-of:".length));
     const git = await gitSummary(s.cwd, 0).catch(() => null);
-    const before = (await gitBaseline.get(id)) ?? null;
+    const after = gitChangesSync(s.cwd);
+    const before = gitBaseline.get(id) ?? null;
     gitBaseline.delete(id);
     const entry: WorkLogEntry = {
       id,
@@ -145,13 +202,17 @@ export function createRunnerServer(cfg: RunnerConfig) {
       exitCode: s.exitCode,
       bytes: s.bytes,
       tail: sessions.tail(id, 80).map((l) => redactSecrets(l).slice(0, 400)),
-      git: git ? gitDelta(before, git) : null,
+      git: git ? gitDelta(before, { ...git, changed: after ?? git.changed }) : null,
       summary: "",
       summarySource: "heuristic",
     };
     entry.summary = heuristicSummary(entry);
     worklog.add(entry);
     broadcast({ type: "worklog_entry", entry });
+    const auto = sessions.crossReviewOf(id);
+    if (auto && s.status === "exited") {
+      startReview(id, auto, "review", "system").catch((e) => supervisor.log("error", id, "system", `자동 교차검증 실패: ${(e as Error).message}`));
+    }
   }
 
   /** Ask the prompt model for a short result summary of one finished session (on demand: costs tokens). */
@@ -193,17 +254,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
     // Record the finished session once its last output and the git state have settled.
     setTimeout(() => void recordWork(id), 1500);
   });
-  sessions.on("updated", (session) => {
-    if (!gitBaseline.has(session.id)) {
-      gitBaseline.set(
-        session.id,
-        gitSummary(session.cwd, 0)
-          .then((g) => g?.changed ?? null)
-          .catch(() => null),
-      );
-    }
-    broadcast({ type: "updated", session });
-  });
+  sessions.on("updated", (session) => broadcast({ type: "updated", session }));
   sessions.on("removed", (id: string) => broadcast({ type: "removed", id }));
   supervisor.on("event", (event: SupervisorEvent) => broadcast({ type: "event", event }));
   supervisor.on("config", () => broadcast({ type: "supervisor", config: supervisor.config() }));
@@ -505,6 +556,15 @@ export function createRunnerServer(cfg: RunnerConfig) {
           if (!aiLimiter.allow(state.client)) return send(state, { type: "error", message: "모델 호출이 너무 잦습니다. 잠시 뒤 다시 시도하세요", reqId: msg.reqId });
           try {
             return send(state, { type: "worklog_entry", entry: await summarizeEntry(msg.id), reqId: msg.reqId });
+          } catch (e) {
+            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+          }
+        }
+        case "cross_review": {
+          if (!isSafeId(msg.id)) return;
+          try {
+            const reviewer = msg.reviewer === "codex" || msg.reviewer === "claude" ? msg.reviewer : "auto";
+            return send(state, { type: "worklog_entry", entry: await startReview(msg.id, reviewer, msg.mode === "challenge" ? "challenge" : "review"), reqId: msg.reqId });
           } catch (e) {
             return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
           }

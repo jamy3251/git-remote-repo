@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
-import type { Policy, WorkLogEntry } from "@/lib/runner/protocol";
+import type { Policy } from "@/lib/runner/protocol";
 import { useRunner, type RunnerApi } from "@/lib/runner/use-runner";
 import { RunnerSettingsBar } from "@/components/runner-settings-bar";
 import { Overview } from "@/components/control/overview";
@@ -9,7 +9,7 @@ import { RemotePanel } from "@/components/control/remote-panel";
 import { NewTaskForm, type TaskDraft } from "@/components/control/new-task-form";
 import { SessionCard } from "@/components/control/session-card";
 import { Feed } from "@/components/control/feed";
-import { WorkLogView } from "@/components/control/worklog-view";
+import { WorkLogView, type DraftRequest } from "@/components/control/worklog-view";
 import { TerminalScreen } from "@/components/control/terminal-screen";
 import { EventLog } from "@/components/control/event-log";
 import { needsAttention, policyLabel, policyOptions } from "@/components/control/labels";
@@ -39,9 +39,10 @@ export function ControlView() {
   const [draft, setDraft] = useState<TaskDraft | null>(null);
   const termSession = termId ? runner.sessions.find((s) => s.id === termId) : undefined;
 
-  const reuse = (e: WorkLogEntry) => {
-    setDraft({ cwd: e.cwd, prompt: e.prompt ?? e.goal ?? "", goal: e.goal ?? undefined, nonce: Date.now() });
+  const reuse = (d: DraftRequest) => {
+    setDraft({ ...d, nonce: Date.now() });
     setTab("new");
+    if (desktop) window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const terminal = termSession ? <TerminalScreen session={termSession} runner={runner} onClose={() => setTermId(null)} /> : null;
@@ -67,7 +68,7 @@ export function ControlView() {
           )}
           {tab === "log" && (
             <div className="h-full overflow-y-auto px-3 py-3">
-              <WorkLogView runner={runner} onReuse={reuse} />
+              <WorkLogView runner={runner} onDraft={reuse} />
             </div>
           )}
         </MobileShell>
@@ -107,7 +108,7 @@ export function ControlView() {
             </div>
             <Feed runner={runner} onOpenTerminal={setTermId} className="min-h-0 flex-1" />
           </div>
-          <WorkLogView runner={runner} onReuse={reuse} className="max-h-[70vh] overflow-y-auto" />
+          <WorkLogView runner={runner} onDraft={reuse} className="max-h-[70vh] overflow-y-auto" />
         </div>
       </div>
       {terminal}

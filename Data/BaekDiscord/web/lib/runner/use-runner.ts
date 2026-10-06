@@ -9,6 +9,8 @@ import type {
   Policy,
   PresetInfo,
   RefinedPrompt,
+  ReviewMode,
+  ReviewerId,
   ServerMessage,
   SessionInfo,
   SupervisorConfig,
@@ -67,6 +69,8 @@ export interface RunnerApi {
   worklog: WorkLogEntry[];
   /** Ask the prompt model to summarize one finished session. */
   summarizeWork: (id: string) => Promise<WorkLogEntry>;
+  /** Have a different AI review a finished session (read-only). */
+  crossReview: (id: string, reviewer?: ReviewerId | "auto", mode?: ReviewMode) => Promise<WorkLogEntry>;
   /** Attach to a session's output stream; the runner replays history first. */
   subscribe: (id: string, listener: OutputListener) => () => void;
 }
@@ -310,6 +314,15 @@ export function useRunner(): RunnerApi {
     [request],
   );
 
+  const crossReview = useCallback(
+    async (id: string, reviewer: ReviewerId | "auto" = "auto", mode: ReviewMode = "review") => {
+      const m = await request({ type: "cross_review", id, reviewer, mode }, 30_000);
+      if (m.type !== "worklog_entry") throw new Error("unexpected reply");
+      return m.entry;
+    },
+    [request],
+  );
+
   return useMemo<RunnerApi>(
     () => ({
       settings,
@@ -345,8 +358,9 @@ export function useRunner(): RunnerApi {
       refine,
       worklog,
       summarizeWork,
+      crossReview,
       subscribe,
     }),
-    [settings, updateSettings, status, info, presets, sessions, events, supervisor, tunnel, chat, chatBusy, workspaces, lastError, connect, disconnect, send, subscribe, listFolder, refine, worklog, summarizeWork],
+    [settings, updateSettings, status, info, presets, sessions, events, supervisor, tunnel, chat, chatBusy, workspaces, lastError, connect, disconnect, send, subscribe, listFolder, refine, worklog, summarizeWork, crossReview],
   );
 }

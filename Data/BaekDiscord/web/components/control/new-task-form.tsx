@@ -11,6 +11,8 @@ export interface TaskDraft {
   cwd: string;
   prompt: string;
   goal?: string;
+  /** Preset of the session this draft came from; one-shot variants are preferred. */
+  preset?: string;
   nonce: number;
 }
 
@@ -36,6 +38,7 @@ export function NewTaskForm({ runner, draft, onStarted, collapsible = true }: Pr
   const [refined, setRefined] = useState<RefinedPrompt | null>(null);
   const [refining, setRefining] = useState(false);
   const [refineError, setRefineError] = useState<string | null>(null);
+  const [verify, setVerify] = useState(false);
 
   // Apply a draft handed over from the work log.
   const [appliedNonce, setAppliedNonce] = useState<number | null>(null);
@@ -44,12 +47,14 @@ export function NewTaskForm({ runner, draft, onStarted, collapsible = true }: Pr
     setCwd(draft.cwd);
     setPrompt(draft.prompt);
     setGoal(draft.goal ?? "");
-    setPresetId("claude-print");
+    setPresetId(draft.preset?.startsWith("codex") ? "codex-exec" : "claude-print");
     setRefined(null);
     setOpen(true);
   }
 
-  const preset = useMemo(() => presets.find((p) => p.id === presetId) ?? presets[0], [presets, presetId]);
+  const choices = useMemo(() => presets.filter((p) => !p.internal), [presets]);
+  const preset = useMemo(() => choices.find((p) => p.id === presetId) ?? choices[0], [choices, presetId]);
+  const canVerify = !!preset && /^(claude|codex)/.test(preset.id);
   const canStart = status === "open" && !!preset?.available && (!preset.acceptsPrompt || prompt.trim().length > 0) && (preset.id !== "custom" || command.trim().length > 0);
   const canRefine = status === "open" && prompt.trim().length > 0 && !refining && !!preset?.acceptsPrompt;
 
@@ -85,6 +90,7 @@ export function NewTaskForm({ runner, draft, onStarted, collapsible = true }: Pr
       command: preset.id === "custom" ? command.trim() : undefined,
       policy,
       tags: ["control"],
+      crossReview: verify && canVerify ? "auto" : undefined,
     });
     setPrompt("");
     setGoal("");
@@ -117,7 +123,7 @@ export function NewTaskForm({ runner, draft, onStarted, collapsible = true }: Pr
                 setRefineError(null);
               }}
             >
-              {presets.map((p) => (
+              {choices.map((p) => (
                 <option key={p.id} value={p.id} disabled={!p.available}>
                   {p.label}
                   {p.available ? "" : " (미설치)"}
@@ -219,6 +225,16 @@ export function NewTaskForm({ runner, draft, onStarted, collapsible = true }: Pr
               </div>
             )}
           </div>
+
+          {canVerify && (
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 accent-accent" checked={verify} onChange={(e) => setVerify(e.target.checked)} />
+              <span>
+                끝나면 다른 AI로 교차검증
+                <span className="block text-xs text-muted">{preset?.id.startsWith("codex") ? "Claude" : "Codex"}가 읽기 전용으로 결과를 검토하고 통과/수정 필요를 알려줍니다. 토큰이 추가로 듭니다.</span>
+              </span>
+            </label>
+          )}
 
           <button className="btn btn-primary min-h-12 w-full justify-center text-base sm:w-auto sm:justify-self-start sm:px-8" disabled={!canStart} onClick={start}>
             시작
