@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { ChatAction, ChatTurn, CreateSessionRequest, LiveFolder, Policy, ReviewMode, ReviewerId, WorkLogEntry } from "../protocol.js";
+import type { ChatAction, ChatTurn, CreateSessionRequest, LiveFolder, Policy, Product, ReviewMode, ReviewerId, WorkLogEntry } from "../protocol.js";
 import type { SessionManager } from "../sessions.js";
 import type { Supervisor } from "./supervisor.js";
 import type { Brain, BrainMessage } from "./brain.js";
@@ -17,6 +17,8 @@ export interface ChatOptions {
   worklog?: (limit: number) => WorkLogEntry[];
   /** Folders with a running session or recent Claude Code activity. */
   liveFolders?: () => LiveFolder[];
+  /** The product portfolio (project folders with activity and attention flags). */
+  products?: () => Promise<Product[]>;
   /** Start a cross-verification of a finished session by a different AI. */
   crossReview?: (id: string, reviewer: ReviewerId | "auto", mode: ReviewMode) => Promise<WorkLogEntry>;
 }
@@ -41,6 +43,7 @@ const SYSTEM = `당신은 개발자의 PC에서 돌아가는 CLI 에이전트 �
 - list_presets {} — 사용 가능한 프리셋.
 - live_folders {} — 지금 세션이 돌거나 최근 30분 안에 Claude Code가 작업한 폴더. "하던 거", "아까 그 프로젝트"를 찾을 때 먼저 보세요.
 - list_worklog {"limit":10} — 끝난 작업 내역(이름, 폴더, 결과 요약, 변경량, 교차검증 결과). "뭐 했지", "결과 어때"에 답할 때.
+- list_products {"filter":"all|attention|active|dormant"} — 사용자가 만든 프로덕트(프로젝트 폴더) 목록: 단계, 상태(활발·정체·방치), 마지막 활동, 손볼 것(미커밋·미푸시·배포 다운·실패), 배포 주소, 메모. "뭐 방치됐어", "손볼 거", "어디까지 했지"에.
 - cross_review {"id":"<작업 내역 id>","reviewer":"auto|codex|claude","mode":"review|challenge"} — 끝난 작업을 다른 AI가 읽기 전용으로 검토. auto는 작업한 AI와 다른 쪽. "검증해줘", "다른 AI로 확인"에 쓰세요. 결과는 몇 분 뒤 작업 내역에 붙습니다.
 
 create_session의 prompt 쓰는 법 (사용자의 짧은 지시를 그대로 넘기지 말고 지시서로 바꾸세요):
@@ -220,6 +223,18 @@ export class ControlChat {
             const rv = r ? `\n  교차검증(${r.reviewer}): ${r.status === "running" ? "진행 중" : (r.verdict ?? r.status)} ${r.findings.map((f) => `[${f.severity}] ${f.issue}`).join(" / ").slice(0, 300)}` : "";
             return `${e.id} ${e.name} [${e.status}${e.exitCode !== null ? ` ${e.exitCode}` : ""}] ${e.cwd} ${new Date(e.endedAt).toLocaleString("ko-KR")}\n  ${e.summary.slice(0, 240)}${rv}`;
           })
+          .join("\n");
+      }
+      case "list_products": {
+        if (!this.opts.products) return "프로덕트 목록을 쓸 수 없습니다";
+        const filter = typeof args.filter === "string" ? args.filter : "all";
+        const all = (await this.opts.products()).filter((p) => !p.meta.hidden);
+        const list = all.filter((p) => (filter === "attention" ? p.flags.length > 0 : filter === "active" ? p.health === "active" : filter === "dormant" ? p.health === "dormant" : true));
+        if (!list.length) return "해당하는 프로덕트 없음";
+        const ago = (t: number | null) => (t ? `${Math.max(0, Math.round((Date.now() - t) / 86_400_000))}일 전` : "기록 없음");
+        return list
+          .slice(0, 40)
+          .map((p) => `${p.name} [${p.meta.stage ?? "단계 미정"} · ${p.health}] ${p.path} · 마지막 활동 ${ago(p.lastActiveAt)}${p.deployUrl ? ` · ${p.deployUrl}` : ""}${p.flags.length ? ` · 손볼 것: ${p.flags.map((f) => f.text).join(", ")}` : ""}${p.meta.note ? ` · 메모: ${p.meta.note.slice(0, 80)}` : ""}`)
           .join("\n");
       }
       case "cross_review": {

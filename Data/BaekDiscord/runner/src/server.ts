@@ -16,6 +16,7 @@ import { claudeActivity } from "./cliactivity.js";
 import { WorkLog, gitDelta } from "./worklog.js";
 import { buildReviewPrompt, collectDiff, fixPrompt, parseReview, pickReviewer } from "./crossreview.js";
 import { binaryAvailable } from "./presets.js";
+import { ProductStore } from "./products.js";
 import { heuristicSummary, refinePrompt, summarizeWork } from "./prompts.js";
 import { proxyHttp, proxyUpgrade } from "./proxy.js";
 import { gitChangesSync, gitSummary } from "./workspace.js";
@@ -112,6 +113,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
     cwdRoot: cfg.cwdRoot,
     worklog: (limit) => worklog.list(limit),
     crossReview: (id, reviewer, mode) => startReview(id, reviewer, mode, "chat"),
+    products: async () => (await products.list()).products,
     liveFolders: () => listFolder(cfg.cwdRoot, null, folderContext()).live,
   });
   const tunnel = new TunnelManager({ port: cfg.port, token: cfg.token, dashboardPath: cfg.dashboardPath });
@@ -131,6 +133,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
   });
   const worklog = new WorkLog(path.join(process.cwd(), ".data", "worklog.jsonl"));
   const summarizing = new Set<string>();
+  const products = new ProductStore(cfg.cwdRoot, path.join(process.cwd(), ".data", "products.json"), { worklog: () => worklog.list(500), brain });
 
   /** Have a different AI review a finished session, read-only. Returns the updated log entry. */
   async function startReview(entryId: string, requested?: ReviewerId | "auto", mode: ReviewMode = "review", actor: "human" | "chat" | "system" = "human"): Promise<WorkLogEntry> {
@@ -314,6 +317,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
       if (route === "/events" && req.method === "GET") return json(200, { events: supervisor.recentEvents(Number(url.searchParams.get("limit")) || 200) });
       if (route === "/supervisor" && req.method === "GET") return json(200, { config: supervisor.config() });
       if (route === "/tunnel" && req.method === "GET") return json(200, { status: tunnel.status() });
+      if (route === "/products" && req.method === "GET") return json(200, await products.list(url.searchParams.get("refresh") === "1"));
       if (route === "/worklog" && req.method === "GET") return json(200, { entries: worklog.list(Number(url.searchParams.get("limit")) || 50) });
       if (route === "/refine" && req.method === "POST") {
         const body = (await readJson(req, 64_000)) as { text?: string; cwd?: string };
@@ -556,6 +560,28 @@ export function createRunnerServer(cfg: RunnerConfig) {
           if (!aiLimiter.allow(state.client)) return send(state, { type: "error", message: "모델 호출이 너무 잦습니다. 잠시 뒤 다시 시도하세요", reqId: msg.reqId });
           try {
             return send(state, { type: "worklog_entry", entry: await summarizeEntry(msg.id), reqId: msg.reqId });
+          } catch (e) {
+            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+          }
+        }
+        case "products": {
+          try {
+            const r = await products.list(msg.refresh === true);
+            return send(state, { type: "products", ...r, reqId: msg.reqId });
+          } catch (e) {
+            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+          }
+        }
+        case "product_update":
+        case "product_ping":
+        case "product_insight": {
+          const target = typeof msg.path === "string" ? msg.path.slice(0, 1024) : "";
+          if (msg.type !== "product_update" && !aiLimiter.allow(state.client)) return send(state, { type: "error", message: "요청이 너무 잦습니다. 잠시 뒤 다시 시도하세요", reqId: msg.reqId });
+          try {
+            const product =
+              msg.type === "product_update" ? await products.update(target, msg.patch ?? {}) : msg.type === "product_ping" ? await products.ping(target) : await products.insight(target);
+            broadcast({ type: "product", product });
+            return send(state, { type: "product", product, reqId: msg.reqId });
           } catch (e) {
             return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
           }

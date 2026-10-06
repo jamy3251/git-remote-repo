@@ -75,3 +75,30 @@ export function claudeActivity(projectsDir = path.join(os.homedir(), ".claude", 
   cache = { at: now, dir: projectsDir, value };
   return value;
 }
+
+/** Every Claude Code conversation (one transcript each) with its working folder and last write time. */
+export function claudeTranscripts(projectsDir = path.join(os.homedir(), ".claude", "projects")): Array<{ cwd: string; at: number }> {
+  const out: Array<{ cwd: string; at: number }> = [];
+  let dirs: fs.Dirent[] = [];
+  try {
+    dirs = fs.readdirSync(projectsDir, { withFileTypes: true }).filter((d) => d.isDirectory());
+  } catch {
+    return out;
+  }
+  for (const d of dirs) {
+    const dir = path.join(projectsDir, d.name);
+    const files: Array<{ file: string; at: number }> = [];
+    try {
+      for (const f of fs.readdirSync(dir)) if (f.endsWith(".jsonl")) files.push({ file: path.join(dir, f), at: fs.statSync(path.join(dir, f)).mtimeMs });
+    } catch {
+      continue;
+    }
+    // All transcripts in one project folder share its working directory; read it once.
+    files.sort((a, b) => b.at - a.at);
+    let cwd: string | null = null;
+    for (const f of files) if ((cwd = firstCwd(f.file))) break;
+    if (!cwd) continue;
+    for (const f of files) out.push({ cwd: path.resolve(cwd), at: f.at });
+  }
+  return out;
+}

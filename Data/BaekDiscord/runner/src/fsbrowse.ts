@@ -27,7 +27,7 @@ const MARKERS: Array<[marker: string, names: string[]]> = [
   ["java", ["build.gradle", "build.gradle.kts", "pom.xml"]],
 ];
 
-const SKIP = new Set(["node_modules", "$RECYCLE.BIN", "System Volume Information", "__pycache__"]);
+export const SKIP = new Set(["node_modules", "$RECYCLE.BIN", "System Volume Information", "__pycache__"]);
 const MAX_ENTRIES = 300;
 
 function inside(root: string, target: string): boolean {
@@ -35,7 +35,7 @@ function inside(root: string, target: string): boolean {
   return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
 }
 
-function markersOf(dir: string): string[] {
+export function markersOf(dir: string): string[] {
   const found: string[] = [];
   for (const [marker, names] of MARKERS) {
     if (names.some((n) => fs.existsSync(path.join(dir, n)))) found.push(marker);

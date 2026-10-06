@@ -186,7 +186,11 @@ export type ClientMessage =
   | { type: "refine"; text: string; cwd?: string; reqId?: string }
   | { type: "worklog"; limit?: number; reqId?: string }
   | { type: "worklog_summarize"; id: string; reqId?: string }
-  | { type: "cross_review"; id: string; reviewer?: ReviewerId | "auto"; mode?: ReviewMode; reqId?: string };
+  | { type: "cross_review"; id: string; reviewer?: ReviewerId | "auto"; mode?: ReviewMode; reqId?: string }
+  | { type: "products"; refresh?: boolean; reqId?: string }
+  | { type: "product_update"; path: string; patch: ProductMetaPatch; reqId?: string }
+  | { type: "product_insight"; path: string; reqId?: string }
+  | { type: "product_ping"; path: string; reqId?: string };
 
 export type ServerMessage =
   | { type: "welcome"; runner: { version: string; platform: string; cwdRoot: string } }
@@ -210,6 +214,8 @@ export type ServerMessage =
   | { type: "refine"; result: RefinedPrompt; reqId?: string }
   | { type: "worklog"; entries: WorkLogEntry[]; reqId?: string }
   | { type: "worklog_entry"; entry: WorkLogEntry; reqId?: string }
+  | { type: "products"; products: Product[]; weeks: number[]; scannedAt: number; reqId?: string }
+  | { type: "product"; product: Product; reqId?: string }
   | { type: "error"; message: string; reqId?: string };
 
 export interface CompileRequest {
@@ -342,4 +348,58 @@ export interface CrossReview {
   endedAt: number | null;
   /** Ready-made instruction for the original AI to fix the findings (set when verdict is fail). */
   fixPrompt?: string;
+}
+
+export type ProductStage = "idea" | "building" | "testing" | "live" | "maintain" | "archived";
+export type ProductHealth = "active" | "slowing" | "dormant";
+
+/** What the user curates about a product (kept in runner/.data/products.json). */
+export interface ProductMeta {
+  stage: ProductStage | null;
+  note: string;
+  hidden: boolean;
+  pinned: boolean;
+  deployUrl: string | null;
+  insight: ProductInsight | null;
+  ping: { at: number; ok: boolean; status: number | null; ms: number | null; error: string | null } | null;
+}
+export type ProductMetaPatch = Partial<Pick<ProductMeta, "stage" | "note" | "hidden" | "pinned" | "deployUrl">>;
+
+/** The prompt model's read of a product: where it stands and what to do next. */
+export interface ProductInsight {
+  at: number;
+  status: string;
+  next: string[];
+  risks: string[];
+  source: "brain" | "heuristic";
+}
+
+/** One project folder under the runner root, with its activity and what needs attention. */
+export interface Product {
+  path: string;
+  name: string;
+  /** First folder under the root (App, Games, ...). */
+  category: string;
+  markers: string[];
+  description: string;
+  /** Deploy URL: the user's, or one found in package.json / README. */
+  deployUrl: string | null;
+  git: {
+    ownRepo: boolean;
+    branch: string;
+    lastCommitAt: number | null;
+    lastCommit: string;
+    dirty: number;
+    /** Unpushed commits (own repo with an upstream only). */
+    ahead: number;
+  } | null;
+  claudeAt: number | null;
+  /** Commits + Claude conversations per week, oldest first, aligned with the listing's `weeks`. */
+  activity: number[];
+  lastActiveAt: number | null;
+  health: ProductHealth;
+  /** Things that need a look: "미커밋 변경 12개, 3일째" etc. */
+  flags: Array<{ kind: "dirty" | "unpushed" | "down" | "failed" | "review"; text: string }>;
+  work: { count: number; lastAt: number | null; lastOutcome: string | null; lastReview: string | null };
+  meta: ProductMeta;
 }

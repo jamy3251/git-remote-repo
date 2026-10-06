@@ -8,6 +8,8 @@ import type {
   FsListing,
   Policy,
   PresetInfo,
+  Product,
+  ProductMetaPatch,
   RefinedPrompt,
   ReviewMode,
   ReviewerId,
@@ -69,6 +71,12 @@ export interface RunnerApi {
   worklog: WorkLogEntry[];
   /** Ask the prompt model to summarize one finished session. */
   summarizeWork: (id: string) => Promise<WorkLogEntry>;
+  /** Product portfolio (project folders); null until first loaded. */
+  products: { list: Product[]; weeks: number[]; scannedAt: number } | null;
+  loadProducts: (refresh?: boolean) => Promise<void>;
+  updateProduct: (path: string, patch: ProductMetaPatch) => Promise<Product>;
+  pingProduct: (path: string) => Promise<Product>;
+  productInsight: (path: string) => Promise<Product>;
   /** Have a different AI review a finished session (read-only). */
   crossReview: (id: string, reviewer?: ReviewerId | "auto", mode?: ReviewMode) => Promise<WorkLogEntry>;
   /** Attach to a session's output stream; the runner replays history first. */
@@ -96,6 +104,7 @@ export function useRunner(): RunnerApi {
   const connectRef = useRef<() => void>(() => {});
   const pending = useRef(new Map<string, { resolve: (m: ServerMessage) => void; reject: (e: Error) => void }>());
   const [worklog, setWorklog] = useState<WorkLogEntry[]>([]);
+  const [products, setProducts] = useState<RunnerApi["products"]>(null);
 
   const send = useCallback((msg: ClientMessage) => {
     const ws = wsRef.current;
@@ -157,9 +166,15 @@ export function useRunner(): RunnerApi {
         pending.current.delete(msg.reqId);
         if (msg.type === "error") p.reject(new Error(msg.message));
         else p.resolve(msg);
-        if (msg.type !== "worklog_entry") return;
+        if (msg.type !== "worklog_entry" && msg.type !== "product" && msg.type !== "products") return;
       }
       switch (msg.type) {
+        case "products":
+          setProducts({ list: msg.products, weeks: msg.weeks, scannedAt: msg.scannedAt });
+          break;
+        case "product":
+          setProducts((prev) => (prev ? { ...prev, list: prev.list.map((p) => (p.path === msg.product.path ? msg.product : p)) } : prev));
+          break;
         case "worklog":
           setWorklog(msg.entries);
           break;
@@ -314,6 +329,24 @@ export function useRunner(): RunnerApi {
     [request],
   );
 
+  const loadProducts = useCallback(
+    async (refresh = false) => {
+      await request({ type: "products", refresh }, 60_000);
+    },
+    [request],
+  );
+  const productCall = useCallback(
+    async (msg: ClientMessage, timeoutMs: number) => {
+      const m = await request(msg, timeoutMs);
+      if (m.type !== "product") throw new Error("unexpected reply");
+      return m.product;
+    },
+    [request],
+  );
+  const updateProduct = useCallback((path: string, patch: ProductMetaPatch) => productCall({ type: "product_update", path, patch }, 15_000), [productCall]);
+  const pingProduct = useCallback((path: string) => productCall({ type: "product_ping", path }, 20_000), [productCall]);
+  const productInsight = useCallback((path: string) => productCall({ type: "product_insight", path }, 150_000), [productCall]);
+
   const crossReview = useCallback(
     async (id: string, reviewer: ReviewerId | "auto" = "auto", mode: ReviewMode = "review") => {
       const m = await request({ type: "cross_review", id, reviewer, mode }, 30_000);
@@ -359,8 +392,13 @@ export function useRunner(): RunnerApi {
       worklog,
       summarizeWork,
       crossReview,
+      products,
+      loadProducts,
+      updateProduct,
+      pingProduct,
+      productInsight,
       subscribe,
     }),
-    [settings, updateSettings, status, info, presets, sessions, events, supervisor, tunnel, chat, chatBusy, workspaces, lastError, connect, disconnect, send, subscribe, listFolder, refine, worklog, summarizeWork, crossReview],
+    [settings, updateSettings, status, info, presets, sessions, events, supervisor, tunnel, chat, chatBusy, workspaces, lastError, connect, disconnect, send, subscribe, listFolder, refine, worklog, summarizeWork, crossReview, products, loadProducts, updateProduct, pingProduct, productInsight],
   );
 }

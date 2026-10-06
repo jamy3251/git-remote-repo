@@ -12,10 +12,11 @@ import { Feed } from "@/components/control/feed";
 import { WorkLogView, type DraftRequest } from "@/components/control/worklog-view";
 import { TerminalScreen } from "@/components/control/terminal-screen";
 import { EventLog } from "@/components/control/event-log";
+import { ProductsView, type ProductDraft } from "@/components/products/products-view";
 import { needsAttention, policyLabel, policyOptions } from "@/components/control/labels";
 
 type Filter = "all" | "running" | "attention";
-type Tab = "chat" | "sessions" | "new" | "log";
+type Tab = "chat" | "sessions" | "new" | "products" | "log";
 
 const DESKTOP = "(min-width: 1024px)";
 
@@ -34,11 +35,19 @@ function useIsDesktop(): boolean {
 export function ControlView() {
   const runner = useRunner();
   const desktop = useIsDesktop();
-  const [tab, setTab] = useState<Tab>("chat");
+  const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(window.location.search).get("cwd") ? "new" : "chat"));
   const [termId, setTermId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<TaskDraft | null>(null);
+  // `/control?cwd=...` (from the products page) opens the new-task form on that folder.
+  const [draft, setDraft] = useState<TaskDraft | null>(() => {
+    const cwd = new URLSearchParams(window.location.search).get("cwd");
+    return cwd ? { cwd, prompt: "", nonce: Date.now() } : null;
+  });
   const termSession = termId ? runner.sessions.find((s) => s.id === termId) : undefined;
 
+  const fromProduct = (d: ProductDraft) => {
+    setDraft({ ...d, nonce: Date.now() });
+    setTab("new");
+  };
   const reuse = (d: DraftRequest) => {
     setDraft({ ...d, nonce: Date.now() });
     setTab("new");
@@ -64,6 +73,11 @@ export function ControlView() {
           {tab === "new" && (
             <div className="h-full overflow-y-auto px-3 py-3">
               <NewTaskForm runner={runner} draft={draft} collapsible={false} onStarted={() => setTab("sessions")} />
+            </div>
+          )}
+          {tab === "products" && (
+            <div className="h-full overflow-y-auto px-3 py-3">
+              <ProductsView runner={runner} onDraft={fromProduct} />
             </div>
           )}
           {tab === "log" && (
@@ -131,9 +145,10 @@ function MobileShell({ runner, tab, setTab, children }: { runner: RunnerApi; tab
     { id: "chat", label: "대화" },
     { id: "sessions", label: "세션", badge: attention || running || undefined, warn: attention > 0 },
     { id: "new", label: "새 작업" },
+    { id: "products", label: "제품" },
     { id: "log", label: "내역" },
   ];
-  const titles: Record<Tab, string> = { chat: "관제", sessions: "세션", new: "새 작업", log: "작업 내역" };
+  const titles: Record<Tab, string> = { chat: "관제", sessions: "세션", new: "새 작업", products: "프로덕트", log: "작업 내역" };
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-background" style={{ paddingTop: "env(safe-area-inset-top)" }}>
@@ -151,10 +166,10 @@ function MobileShell({ runner, tab, setTab, children }: { runner: RunnerApi; tab
         )}
       </header>
       <div className="min-h-0 flex-1">{children}</div>
-      <nav className="grid grid-cols-4 border-t border-border bg-surface" style={{ paddingBottom: "env(safe-area-inset-bottom)" }} aria-label="관제 메뉴">
+      <nav className="grid grid-cols-5 border-t border-border bg-surface" style={{ paddingBottom: "env(safe-area-inset-bottom)" }} aria-label="관제 메뉴">
         {tabs.map((t) => (
           <button key={t.id} className={`relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-[13px] ${tab === t.id ? "text-foreground" : "text-muted"}`} onClick={() => setTab(t.id)} aria-current={tab === t.id ? "page" : undefined}>
-            {tab === t.id && <span className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-accent" />}
+            {tab === t.id && <span className="absolute inset-x-4 top-0 h-0.5 rounded-full bg-accent" />}
             <span className="font-medium">{t.label}</span>
             {t.badge ? <span className={`absolute right-[22%] top-2 min-w-4 rounded-full px-1 text-center text-[10px] leading-4 ${t.warn ? "bg-warn text-black" : "bg-surface-2 text-muted"}`}>{t.badge}</span> : null}
           </button>
