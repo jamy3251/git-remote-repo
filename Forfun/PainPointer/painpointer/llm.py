@@ -3,7 +3,11 @@
 - 모든 호출은 temperature=0(지원 모델), JSON 스키마 출력(output_config.format), 재시도 N회(지수 백오프).
 - 호출마다 llm_calls에 요청·응답·응답 model·토큰·소요시간을 기록한다(리포트 재렌더·감사용).
 - 일일 호출 상한(DailyLimitExceeded): 오늘 llm_calls 행 수 ≥ 상한이면 호출 전에 거부.
-- 일일 달러 예산(PP_DAILY_BUDGET_USD): 오늘 기록 토큰 × 가격표 + 이번 호출 최대치가 예산을 넘으면 거부.
+- 달러 예산은 범위별로 센다(report ⊃ promotion, radar ⊃ chat, diag). 범위는 LLM(scope=)이 정하고, 없으면 단계 이름으로
+  정한다(chat → chat, radar_* → radar, diag_* → diag, 나머지 → report). 시도마다 호출 직전에 예약한다:
+  BEGIN IMMEDIATE 안에서 (기록된 지출 + 유효 예약 + 이번 최대 비용) ≤ 상한(자기 범위와 상위 범위 모두)일 때만 예약하고,
+  끝나면 llm_calls 행 기록과 예약 삭제를 한 트랜잭션으로 한다. 그래서 여러 프로세스가 동시에 불러도 상한을 넘지 않는다.
+  기록이 잠금으로 실패한 호출은 jsonl 로그(record_error + 토큰)에서 복구해 지출에 더한다.
   가격표(config.PRICES)에 없는 모델은 거부한다. 재시도는 이 래퍼만 한다(SDK max_retries=0) → 모든 시도가 기록·집계된다.
 - 잘림(max_tokens)·거절(refusal)은 temperature 0에서 다시 보내도 같으므로 재시도하지 않는다.
 - 사고(thinking)가 기본으로 켜지는 모델은 끈다: 짧은 JSON 출력에 사고 토큰이 붙으면 비용이 늘고 max_tokens에 잘린다.
@@ -15,7 +19,7 @@ import json
 import random
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import anthropic
@@ -101,14 +105,86 @@ def supports_temperature(model: str) -> bool:
     return not _NO_TEMPERATURE.search(model or "")
 
 
+# ---- 예산 범위 ----
+SCOPES = ("report", "promotion", "radar", "chat", "diag")
+_PARENT = {"promotion": "report", "chat": "radar"}
+
+
+def scope_of_stage(stage: str) -> str:
+    if stage == "chat" or stage.startswith("chat_"):
+        return "chat"
+    if stage.startswith("radar_"):
+        return "radar"
+    if stage.startswith("diag_"):
+        return "diag"
+    return "report"
+
+
+def scope_chain(scope: str) -> list[str]:
+    """자기 범위 → 상위 범위. 예: chat → [chat, radar]."""
+    out = [scope]
+    while out[-1] in _PARENT:
+        out.append(_PARENT[out[-1]])
+    return out
+
+
+def scope_members(scope: str) -> list[str]:
+    """이 범위의 지출로 셀 범위들(자기 + 하위). 예: report → [report, promotion]."""
+    return [s for s in SCOPES if scope in scope_chain(s)]
+
+
+def window_start(scope: str, now: datetime | None = None) -> str:
+    """예산 창 시작(UTC ISO). diag는 이번 주 월요일, 나머지는 오늘."""
+    now = now or datetime.now(timezone.utc)
+    day = now.date()
+    if scope_chain(scope)[-1] == "diag":
+        day = day - timedelta(days=day.weekday())
+    return day.isoformat()
+
+
+def _unrecorded_cost(members: list[str], since: str) -> float:
+    """llm_calls 기록에 실패한 호출(jsonl의 record_error)의 비용. 로그 파일은 로컬 날짜별이라 창보다 하루 넓게 읽는다."""
+    since_day = datetime.fromisoformat(since).date() - timedelta(days=1)
+    total = 0.0
+    d = Path(config.LOG_DIR)
+    if not d.exists():
+        return 0.0
+    for f in d.glob("*.jsonl"):
+        try:
+            if datetime.strptime(f.stem, "%Y-%m-%d").date() < since_day:
+                continue
+            with open(f, encoding="utf-8") as fh:
+                for line in fh:
+                    if '"record_error"' not in line or '"llm_call"' not in line:
+                        continue
+                    try:
+                        rec = json.loads(line)
+                    except ValueError:
+                        continue
+                    if rec.get("event") != "llm_call" or rec.get("ts", "") < since:
+                        continue
+                    if rec.get("scope", "report") not in members:
+                        continue
+                    total += cost_usd(rec.get("model", ""), rec.get("in_tok") or 0, rec.get("out_tok") or 0)
+        except (OSError, ValueError):
+            continue
+    return total
+
+
 class LLM:
     def __init__(self, db_path: str | Path | None = None, *, client=None,
-                 daily_limit: int | None = None, budget_usd: float | None = None, sleep=time.sleep):
+                 daily_limit: int | None = None, budget_usd: float | None = None, sleep=time.sleep,
+                 scope: str | None = None):
+        """budget_usd는 report 범위 상한(기본 PP_DAILY_BUDGET_USD). scope를 주면 모든 호출이 그 범위로 청구된다
+        (예: 승격 큐는 LLM(scope="promotion") — 단계 이름이 classify여도 승격 몫으로 센다)."""
+        if scope is not None and scope not in SCOPES:
+            raise ValueError(f"알 수 없는 예산 범위: {scope}")
         self.db_path = Path(db_path or config.DB_PATH)
         self._client = client
         self.daily_limit = config.DAILY_LLM_LIMIT if daily_limit is None else daily_limit
         self.budget_usd = config.DAILY_BUDGET_USD if budget_usd is None else budget_usd
         self._sleep = sleep
+        self.scope = scope
 
     @property
     def client(self):
@@ -133,23 +209,95 @@ class LLM:
                 f"일일 LLM 호출 한도 도달: 오늘 {used}회 + 필요 {need}회 > 상한 {self.daily_limit}회"
             )
 
-    def spent_today(self) -> float:
-        day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    # ---- 예산(범위별) ----
+    def limit_of(self, scope: str) -> float:
+        return {"report": self.budget_usd, "promotion": config.BUDGET_PROMOTION_USD,
+                "radar": config.RADAR_BUDGET_USD, "chat": config.BUDGET_CHAT_USD,
+                "diag": config.DIAG_BUDGET_USD}[scope]
+
+    def _scope_for(self, stage: str) -> str:
+        return self.scope or scope_of_stage(stage)
+
+    @staticmethod
+    def _spent(conn, scope: str) -> float:
+        members = scope_members(scope)
+        since = window_start(scope)
+        rows = conn.execute(
+            "SELECT model, COALESCE(SUM(input_tokens),0), COALESCE(SUM(output_tokens),0) FROM llm_calls"
+            " WHERE ts >= ? AND scope IN (%s) GROUP BY model" % ",".join("?" * len(members)),
+            (since, *members)).fetchall()
+        return sum(cost_usd(r[0], r[1], r[2]) for r in rows) + _unrecorded_cost(members, since)
+
+    @staticmethod
+    def _reserved(conn, scope: str, now_iso: str) -> tuple[float, int]:
+        members = scope_members(scope)
+        r = conn.execute("SELECT COALESCE(SUM(est_usd),0), COUNT(*) FROM budget_reservations"
+                         " WHERE expires_at > ? AND scope IN (%s)" % ",".join("?" * len(members)),
+                         (now_iso, *members)).fetchone()
+        return float(r[0]), int(r[1])
+
+    def spent_today(self, scope: str = "report") -> float:
+        """기록된 지출(예약 제외). report는 승격 몫 포함."""
         conn = db.open_read(self.db_path)
         try:
-            rows = conn.execute("SELECT model, COALESCE(SUM(input_tokens),0), COALESCE(SUM(output_tokens),0)"
-                                " FROM llm_calls WHERE ts >= ? GROUP BY model", (day,)).fetchall()
+            return self._spent(conn, scope)
         finally:
             conn.close()
-        return sum(cost_usd(r[0], r[1], r[2]) for r in rows)
 
-    def check_budget(self, est_usd: float) -> None:
-        spent = self.spent_today()
-        if spent + est_usd > self.budget_usd:
-            raise DailyLimitExceeded(
-                f"일일 LLM 예산 초과: 오늘 ${spent:.2f} + 예상 ${est_usd:.2f} > 예산 ${self.budget_usd:.2f}"
-                " (PP_DAILY_BUDGET_USD)"
-            )
+    def _admit(self, conn, scope: str, est_usd: float, *, with_reserved: bool) -> None:
+        now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        for s in scope_chain(scope):
+            spent = self._spent(conn, s)
+            held, _ = self._reserved(conn, s, now_iso) if with_reserved else (0.0, 0)
+            if spent + held + est_usd > self.limit_of(s):
+                raise DailyLimitExceeded(
+                    f"LLM 예산 초과({s}): 지출 ${spent:.2f} + 진행 중 ${held:.2f} + 예상 ${est_usd:.2f}"
+                    f" > 상한 ${self.limit_of(s):.2f}")
+        if scope == "chat":
+            n = conn.execute("SELECT COUNT(*) FROM llm_calls WHERE scope='chat' AND ts >= ?",
+                             (window_start("chat"),)).fetchone()[0]
+            held_n = self._reserved(conn, "chat", now_iso)[1] if with_reserved else 0
+            if n + held_n + 1 > config.CHAT_CALL_LIMIT:
+                raise DailyLimitExceeded(f"대화 호출 한도 도달: 오늘 {n}회 + 진행 중 {held_n}회 ≥ {config.CHAT_CALL_LIMIT}회")
+
+    def check_budget(self, est_usd: float, scope: str | None = None) -> None:
+        """일괄 작업 전 사전 견적(예약 없음). 실제 호출은 call()이 시도마다 예약한다."""
+        conn = db.open_read(self.db_path)
+        try:
+            self._admit(conn, scope or self.scope or "report", est_usd, with_reserved=True)
+        finally:
+            conn.close()
+
+    def reserve(self, scope: str, est_usd: float) -> int:
+        """원자적 예약. 상한을 넘으면 DailyLimitExceeded. 반환: 예약 id(완료 시 _record가 지운다)."""
+        last: Exception | None = None
+        for attempt in range(1, self._RECORD_RETRIES + 1):
+            conn = db.open_write(self.db_path)
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                try:
+                    now = datetime.now(timezone.utc)
+                    conn.execute("DELETE FROM budget_reservations WHERE expires_at <= ?",
+                                 (now.isoformat(timespec="seconds"),))
+                    self._admit(conn, scope, est_usd, with_reserved=True)
+                    cur = conn.execute(
+                        "INSERT INTO budget_reservations(scope, est_usd, created_at, expires_at) VALUES (?,?,?,?)",
+                        (scope, est_usd, now.isoformat(timespec="seconds"),
+                         (now + timedelta(seconds=config.RESERVATION_TTL_S)).isoformat(timespec="seconds")))
+                    conn.commit()
+                    return int(cur.lastrowid)
+                except Exception:
+                    conn.rollback()
+                    raise
+            except Exception as e:  # noqa: BLE001
+                if not db.is_locked_error(e):
+                    raise
+                last = e
+            finally:
+                conn.close()
+            if attempt < self._RECORD_RETRIES:
+                self._sleep(min(2.0, 0.1 * (2 ** (attempt - 1))) + random.random() * 0.1)
+        raise LLMError(f"예산 예약 실패(DB 잠금): {last}")
 
     # ---- 호출 ----
     def call(self, stage: str, model: str, system: str, user: str, *, schema: dict,
@@ -159,8 +307,8 @@ class LLM:
         if not model:
             raise LLMError("모델 ID 미설정(PP_MODEL_*)")
         pin, pout = price_of(model)
-        self.check_daily_limit(1)
-        self.check_budget((estimate_tokens(system + user) * pin + max_tokens * pout) / 1_000_000)
+        scope = self._scope_for(stage)
+        est = (estimate_tokens(system + user) * pin + max_tokens * pout) / 1_000_000
         req = {
             "model": model, "max_tokens": max_tokens, "system": system,
             "messages": [{"role": "user", "content": user}],
@@ -171,6 +319,9 @@ class LLM:
         req.update(thinking_params(model))
         last_err: Exception | None = None
         for attempt in range(1, retries + 1):
+            self.check_daily_limit(1)
+            rid = self.reserve(scope, est)   # 재시도도 시도마다 예약 → 재시도가 상한을 넘지 못한다
+            rec = {"scope": scope, "reservation_id": rid}
             t0 = time.perf_counter()
             resp = None
             try:
@@ -188,7 +339,7 @@ class LLM:
                 usage = getattr(resp, "usage", None)
                 self._record(stage, model, prompt_hash, req, text, getattr(resp, "model", None),
                              "ok", None, int((time.perf_counter() - t0) * 1000), job_id,
-                             getattr(usage, "input_tokens", None), getattr(usage, "output_tokens", None))
+                             getattr(usage, "input_tokens", None), getattr(usage, "output_tokens", None), **rec)
                 return data
             except (json.JSONDecodeError, LLMOutputError) as e:
                 # 응답을 받았으면 과금됐으므로 토큰도 기록해 예산에 반영한다
@@ -196,17 +347,17 @@ class LLM:
                 usage = getattr(resp, "usage", None)
                 self._record(stage, model, prompt_hash, req, None, getattr(resp, "model", None), "failed",
                              f"{type(e).__name__}: {e}", int((time.perf_counter() - t0) * 1000), job_id,
-                             getattr(usage, "input_tokens", None), getattr(usage, "output_tokens", None))
+                             getattr(usage, "input_tokens", None), getattr(usage, "output_tokens", None), **rec)
                 if isinstance(e, LLMFinalError):
                     raise LLMError(f"{stage}: {e} — 재시도 안 함") from e
             except _RETRYABLE as e:
                 last_err = e
                 self._record(stage, model, prompt_hash, req, None, None, "failed", f"{type(e).__name__}: {e}",
-                             int((time.perf_counter() - t0) * 1000), job_id)
+                             int((time.perf_counter() - t0) * 1000), job_id, **rec)
             except anthropic.APIStatusError as e:
                 # 400/401/403/404 등은 재시도해도 같다
                 self._record(stage, model, prompt_hash, req, None, None, "failed", f"{type(e).__name__}: {e}",
-                             int((time.perf_counter() - t0) * 1000), job_id)
+                             int((time.perf_counter() - t0) * 1000), job_id, **rec)
                 raise LLMError(f"{stage}: {type(e).__name__}: {getattr(e, 'message', e)}") from e
             if attempt < retries:
                 self._sleep(min(8.0, 0.5 * (2 ** (attempt - 1))) + random.random() * 0.2)
@@ -215,12 +366,14 @@ class LLM:
     _RECORD_RETRIES = 5   # 수집 배치가 쓰기 잠금을 연속 점유하면 busy_timeout(5s)이 굶을 수 있다 → 지터 백오프 재시도
 
     def _record(self, stage, model, prompt_hash, req, response, response_model, status, error,
-                elapsed_ms, job_id, in_tok=None, out_tok=None) -> None:
-        """llm_calls 감사 행 기록. 일일 상한 계산·status 표시용이며 판정 캐시가 아니므로,
-        잠금 재시도 후에도 실패하면 리포트를 죽이지 않고 jsonl 로그에만 남긴다."""
+                elapsed_ms, job_id, in_tok=None, out_tok=None, *, scope: str = "report",
+                reservation_id: int | None = None) -> None:
+        """llm_calls 감사 행 기록 + 예약 해제(한 트랜잭션 = 예약을 실제 비용으로 교체).
+        잠금 재시도 후에도 실패하면 리포트를 죽이지 않고 jsonl 로그(토큰 포함)에 남기고, 예산 합산이 그 로그를 읽는다.
+        이때 예약은 만료(RESERVATION_TTL_S)까지 남아 보수적으로 이중 계산된다."""
         row = (job_id, stage, model, response_model, prompt_hash,
                json.dumps(req, ensure_ascii=False), response, status, error, elapsed_ms,
-               in_tok, out_tok, datetime.now(timezone.utc).isoformat(timespec="seconds"))
+               in_tok, out_tok, datetime.now(timezone.utc).isoformat(timespec="seconds"), scope)
         record_error = None
         for attempt in range(1, self._RECORD_RETRIES + 1):
             conn = db.open_write(self.db_path)
@@ -228,9 +381,12 @@ class LLM:
                 with conn:
                     conn.execute(
                         "INSERT INTO llm_calls(job_id, stage, model, response_model, prompt_hash, request, response,"
-                        " status, error, elapsed_ms, input_tokens, output_tokens, ts) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        " status, error, elapsed_ms, input_tokens, output_tokens, ts, scope)"
+                        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         row,
                     )
+                    if reservation_id is not None:
+                        conn.execute("DELETE FROM budget_reservations WHERE id = ?", (reservation_id,))
                 record_error = None
                 break
             except Exception as e:  # noqa: BLE001
@@ -242,8 +398,8 @@ class LLM:
             if attempt < self._RECORD_RETRIES:
                 self._sleep(min(2.0, 0.1 * (2 ** (attempt - 1))) + random.random() * 0.1)
         log_event("llm_call", job_id=job_id, stage=stage, model=model, status=status,
-                  elapsed_ms=elapsed_ms, error=error,
-                  **({"record_error": record_error} if record_error else {}))
+                  elapsed_ms=elapsed_ms, error=error, scope=scope,
+                  **({"record_error": record_error, "in_tok": in_tok, "out_tok": out_tok} if record_error else {}))
 
 
 def list_models(client=None) -> list[dict]:

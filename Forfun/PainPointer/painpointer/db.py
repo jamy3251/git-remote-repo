@@ -12,7 +12,7 @@ from pathlib import Path
 from dccrawler.storage import Store, connect, get_version, set_version
 
 COMPONENT = "painpointer"
-SCHEMA_VERSION = 2   # v2: 임베딩 테이블 PK에 model 포함(모델 교체 중 두 모델 행 공존)
+SCHEMA_VERSION = 3   # v2: 임베딩 테이블 PK에 model 포함 / v3: llm_calls.scope(예산 범위) + budget_reservations
 
 _DDL = [
     """CREATE TABLE IF NOT EXISTS judgments (
@@ -44,9 +44,18 @@ _DDL = [
         elapsed_ms INTEGER,
         input_tokens INTEGER,
         output_tokens INTEGER,
-        ts TEXT NOT NULL
+        ts TEXT NOT NULL,
+        scope TEXT NOT NULL DEFAULT 'report'
     )""",
     "CREATE INDEX IF NOT EXISTS idx_llm_calls_ts ON llm_calls(ts)",
+    # 호출 직전 예산 예약. (지출 + 유효 예약 + 이번 견적) ≤ 상한일 때만 넣는다. 완료 시 llm_calls 행과 맞바꾼다.
+    """CREATE TABLE IF NOT EXISTS budget_reservations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        scope TEXT NOT NULL,
+        est_usd REAL NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+    )""",
     """CREATE TABLE IF NOT EXISTS reports (
         id TEXT PRIMARY KEY,
         query_hash TEXT NOT NULL,
@@ -158,6 +167,12 @@ _PK_MIGRATIONS = {
 }
 
 
+def _add_missing_columns(conn: sqlite3.Connection) -> None:
+    have = {r[1] for r in conn.execute("PRAGMA table_info(llm_calls)")}
+    if "scope" not in have:
+        conn.execute("ALTER TABLE llm_calls ADD COLUMN scope TEXT NOT NULL DEFAULT 'report'")
+
+
 def _pk_cols(conn: sqlite3.Connection, table: str) -> list[str]:
     rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
     return [r[1] for r in sorted((r for r in rows if r[5]), key=lambda r: r[5])]
@@ -193,6 +208,7 @@ def init_db(db_path: str | Path) -> Path:
         cur = get_version(conn, COMPONENT)
         for stmt in _DDL:
             conn.execute(stmt)
+        _add_missing_columns(conn)
         _migrate_embedding_pk(conn)
         if cur != SCHEMA_VERSION:
             set_version(conn, SCHEMA_VERSION, COMPONENT)

@@ -31,6 +31,14 @@ DAILY_LLM_LIMIT = int(os.getenv("PP_DAILY_LLM_LIMIT", "5000"))
 LLM_CONCURRENCY = int(os.getenv("PP_LLM_CONCURRENCY", "8"))
 # 비용 가드(2026-09-29). 일일 호출 상한과 별개로 달러 예산을 건다. 5000회 상한만으로는 최악 하루 ~$40.
 DAILY_BUDGET_USD = float(os.getenv("PP_DAILY_BUDGET_USD", "3"))
+# 예산 범위(레이더 설계 Q1·E2·O2). 리포트 $3 중 승격 큐는 $2까지(사용자 요청 몫 $1 예약),
+# 레이더 일 $3 중 대화는 $1·30회까지, 대조 실행은 주 $3. 상위 범위 상한도 함께 지킨다.
+BUDGET_PROMOTION_USD = float(os.getenv("PP_BUDGET_PROMOTION", "2"))
+RADAR_BUDGET_USD = float(os.getenv("PP_RADAR_BUDGET_USD", "3"))
+BUDGET_CHAT_USD = float(os.getenv("PP_BUDGET_CHAT", "1"))
+CHAT_CALL_LIMIT = int(os.getenv("PP_CHAT_CALL_LIMIT", "30"))
+DIAG_BUDGET_USD = float(os.getenv("PP_DIAG_BUDGET_USD", "3"))
+RESERVATION_TTL_S = int(os.getenv("PP_RESERVATION_TTL_S", "600"))   # 끝나지 못한 예약(프로세스 사망)은 10분 뒤 만료
 LLM_TIMEOUT_S = float(os.getenv("PP_LLM_TIMEOUT_S", "120"))
 # 모델별 ($/1M 입력, $/1M 출력). 표에 없는 모델은 호출을 거부한다(비싼 모델 오설정 방지). 캐시 2026-09-25.
 PRICES: dict[str, tuple[float, float]] = {
