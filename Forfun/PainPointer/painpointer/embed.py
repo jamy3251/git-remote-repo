@@ -3,11 +3,14 @@
 - post_embeddings: 수집 배치가 새 글마다 계산해 저장. 군집화는 이 테이블만 조회.
 - attempt_embeddings: 한이음 공개 프로젝트·수상작을 CLI로 사전 계산.
 - pain 문장 임베딩은 리포트 생성 시 1회 계산(Embedder.encode). 테스트는 가짜 Embedder 주입.
-- 두 테이블 모두 (키, model) 단위로 저장하고 읽을 때 모델로 거른다. 모델 교체는 reembed로 새 모델 행을
+- extract_embeddings: 불편 추출 문장(pain_extracts) 벡터 캐시. 수집 배치가 추출 직후 계산하고, 의미 검색은
+  캐시를 읽고 빠진 것만 인코딩한다(D11).
+- 세 테이블 모두 (키, model) 단위로 저장하고 읽을 때 모델로 거른다. 모델 교체는 reembed로 새 모델 행을
   다 채운 뒤 옛 모델 행을 지우고 PP_EMBED_MODEL을 바꾼다(교체 중에도 옛 모델로 리포트가 돈다).
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sqlite3
@@ -225,18 +228,115 @@ def similar_attempts(conn: sqlite3.Connection, pain_vec: np.ndarray, *, threshol
             "threshold": threshold, "high": high, "n_pool": len(rows)}
 
 
+# ---- 불편 추출 문장(의미 검색 풀) ----
+
+# 글별 최신 성공 추출 중 불편이 있는 것. 의미 검색과 캐시 채우기가 같은 기준을 쓴다.
+LATEST_EXTRACTS_SQL = (
+    "SELECT x.post_key, x.prompt_hash, x.pain FROM pain_extracts x JOIN posts p ON p.post_key = x.post_key "
+    "WHERE x.id IN (SELECT MAX(id) FROM pain_extracts WHERE status='ok' GROUP BY post_key) "
+    "AND x.pain != '' AND x.intensity >= 1")
+
+
+def _sha(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def load_extract_embeddings(conn: sqlite3.Connection, rows: list, model: str) -> dict[int, np.ndarray]:
+    """rows[(post_key, prompt_hash, pain)] 중 캐시가 있고 문장이 같은 것 → {행 번호: 벡터}."""
+    want: dict[tuple[str, str], list[int]] = {}
+    for i, r in enumerate(rows):
+        want.setdefault((r[0], r[1]), []).append(i)
+    keys = sorted({k for k, _ in want})
+    out: dict[int, np.ndarray] = {}
+    for i in range(0, len(keys), 500):
+        chunk = keys[i:i + 500]
+        for c in conn.execute(
+                "SELECT post_key, prompt_hash, text_sha, vector FROM extract_embeddings WHERE model = ? AND post_key IN (%s)"
+                % ",".join("?" * len(chunk)), [model, *chunk]):
+            for j in want.get((c[0], c[1]), []):
+                if c[2] == _sha(rows[j][2]):
+                    out[j] = _unblob(c[3])
+    return out
+
+
+def save_extract_embeddings(conn: sqlite3.Connection, rows: list, vecs: np.ndarray, model: str) -> None:
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    with conn:
+        conn.executemany(
+            "INSERT OR REPLACE INTO extract_embeddings(post_key, prompt_hash, model, text_sha, vector, computed_at)"
+            " VALUES (?,?,?,?,?,?)",
+            [(r[0], r[1], model, _sha(r[2]), _blob(v), now) for r, v in zip(rows, vecs)])
+
+
+def extract_matrix(conn: sqlite3.Connection, rows: list, embedder: Embedder, *,
+                   db_path: str | Path | None = None) -> tuple[np.ndarray, int]:
+    """rows 문장의 벡터 행렬. 캐시를 읽고 빠진 것만 encode한다. db_path가 있으면 새로 계산한 것을 캐시에 넣는다
+    (잠겨 있으면 넣지 않고 넘어간다). 반환 (행렬, 새로 인코딩한 수)."""
+    model = embedder.model_name
+    try:
+        cached = load_extract_embeddings(conn, rows, model)
+    except sqlite3.OperationalError:     # extract_embeddings가 없는 옛 DB
+        cached = {}
+    miss = [i for i in range(len(rows)) if i not in cached]
+    fresh = embedder.encode([rows[i][2] for i in miss]) if miss else None
+    dims = {v.shape[0] for v in cached.values()} | ({fresh.shape[1]} if fresh is not None else set())
+    if len(dims) > 1:
+        raise EmbeddingMismatch(f"재임베딩 필요: extract_embeddings의 {model} 벡터 차원이 섞여 있습니다({sorted(dims)}). "
+                                f"python -m painpointer reembed --model {model} 로 다시 계산하세요.")
+    if not rows:
+        return np.zeros((0, 0), dtype=np.float32), 0
+    M = np.zeros((len(rows), dims.pop()), dtype=np.float32)
+    for i, v in cached.items():
+        M[i] = v
+    if fresh is not None:
+        M[miss] = fresh
+        if db_path is not None:
+            try:
+                w = db.open_write(db_path)
+                try:
+                    save_extract_embeddings(w, [rows[i] for i in miss], fresh, model)
+                finally:
+                    w.close()
+            except sqlite3.OperationalError:
+                pass
+    return M, len(miss)
+
+
+def embed_missing_extracts(db_path: str | Path, embedder: Embedder, *, progress=None) -> int:
+    """수집 배치용: 의미 검색 풀(글별 최신 추출) 중 embedder 모델 캐시가 없거나 낡은 문장을 계산해 저장."""
+    conn = db.open_read(db_path)
+    try:
+        rows = [tuple(r) for r in conn.execute(LATEST_EXTRACTS_SQL)]
+        cached = load_extract_embeddings(conn, rows, embedder.model_name)
+    finally:
+        conn.close()
+    todo = [r for i, r in enumerate(rows) if i not in cached]
+    if not todo:
+        return 0
+    w = db.open_write(db_path)
+    try:
+        for i in range(0, len(todo), 256):
+            chunk = todo[i:i + 256]
+            save_extract_embeddings(w, chunk, embedder.encode([r[2] for r in chunk]), embedder.model_name)
+            if progress:
+                progress(f"추출 문장 임베딩 {min(i + 256, len(todo))}/{len(todo)}")
+    finally:
+        w.close()
+    return len(todo)
+
+
 # ---- 모델 교체 ----
 
 def reembed(db_path: str | Path, embedder: Embedder, *, projects: list[dict] | None = None,
             delete_old: bool = True, progress=None) -> dict:
-    """embedder 모델로 글·한이음 임베딩을 빠짐없이 채운 뒤(빠진 것이 없을 때만) 다른 모델 행을 지운다.
+    """embedder 모델로 글·한이음·추출 문장 임베딩을 빠짐없이 채운 뒤(빠진 것이 없을 때만) 다른 모델 행을 지운다.
 
     한이음 원문은 HanCrawler 데이터에서 다시 읽고, 데이터에 없는 기존 항목은 저장된 제목으로 계산한다.
-    추출 문장(pain_extracts)은 의미 검색 때 즉시 계산하므로 저장된 벡터가 없다.
-    반환: {model, posts, attempts, missing, deleted_posts, deleted_attempts}
+    반환: {model, posts, attempts, extracts, missing, deleted_posts, deleted_attempts, deleted_extracts}
     """
     model = embedder.model_name
     n_posts = embed_missing_posts(db_path, embedder, progress=progress)
+    n_ext = embed_missing_extracts(db_path, embedder, progress=progress)
 
     conn = db.open_read(db_path)
     try:
@@ -262,12 +362,15 @@ def reembed(db_path: str | Path, embedder: Embedder, *, projects: list[dict] | N
         missing += conn.execute(
             "SELECT COUNT(DISTINCT project_id) FROM attempt_embeddings WHERE project_id NOT IN "
             "(SELECT project_id FROM attempt_embeddings WHERE model = ?)", (model,)).fetchone()[0]
-        dp = da = 0
+        ext_rows = [tuple(r) for r in conn.execute(LATEST_EXTRACTS_SQL)]
+        missing += len(ext_rows) - len(load_extract_embeddings(conn, ext_rows, model))
+        dp = da = de = 0
         if delete_old and not missing:
             with conn:
                 dp = conn.execute("DELETE FROM post_embeddings WHERE model != ?", (model,)).rowcount
                 da = conn.execute("DELETE FROM attempt_embeddings WHERE model != ?", (model,)).rowcount
+                de = conn.execute("DELETE FROM extract_embeddings WHERE model != ?", (model,)).rowcount
     finally:
         conn.close()
-    return {"model": model, "posts": n_posts, "attempts": n_att, "missing": missing,
-            "deleted_posts": dp, "deleted_attempts": da}
+    return {"model": model, "posts": n_posts, "attempts": n_att, "extracts": n_ext, "missing": missing,
+            "deleted_posts": dp, "deleted_attempts": da, "deleted_extracts": de}

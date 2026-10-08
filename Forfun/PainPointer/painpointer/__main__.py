@@ -101,9 +101,10 @@ def cmd_reembed(a):
     from .embed import Embedder, load_hanium_projects, reembed
     db.init_db(a.db)
     projects = load_hanium_projects(a.data_dir or config.HANCRAWLER_DATA)
-    _print(f"{a.model}로 재임베딩 — 글 + 한이음 {len(projects)}건 (옛 모델 행은 다 채운 뒤 삭제)")
+    _print(f"{a.model}로 재임베딩 — 글 + 한이음 {len(projects)}건 + 불편 추출 문장 (옛 모델 행은 다 채운 뒤 삭제)")
     r = reembed(a.db, Embedder(a.model), projects=projects, delete_old=not a.keep_old, progress=_print)
-    _print(f"글 {r['posts']}건 · 한이음 {r['attempts']}건 계산, 옛 모델 행 삭제 글 {r['deleted_posts']} · 한이음 {r['deleted_attempts']}")
+    _print(f"글 {r['posts']}건 · 한이음 {r['attempts']}건 · 추출 문장 {r['extracts']}건 계산, "
+           f"옛 모델 행 삭제 글 {r['deleted_posts']} · 한이음 {r['deleted_attempts']} · 추출 문장 {r['deleted_extracts']}")
     if r["missing"]:
         _print(f"⚠ 아직 {r['missing']}건이 새 모델로 계산되지 않아 옛 모델 행을 지우지 않았습니다. 다시 실행하세요.")
     if a.model != config.EMBED_MODEL:
@@ -177,6 +178,11 @@ def cmd_status(a):
         ne = conn.execute("SELECT COUNT(*) FROM posts p LEFT JOIN post_embeddings e ON e.post_key=p.post_key AND e.model=? WHERE e.post_key IS NULL", (m,)).fetchone()[0]
         na = conn.execute("SELECT COUNT(*) FROM attempt_embeddings WHERE model=?", (m,)).fetchone()[0]
         _print(f"  임베딩 모델 {m}: 미계산 글 {ne}건 · 한이음 임베딩 {na}건")
+        try:
+            nx = conn.execute("SELECT COUNT(*) FROM extract_embeddings WHERE model=?", (m,)).fetchone()[0]
+            _print(f"  추출 문장 임베딩 캐시 {nx}건")
+        except Exception:  # noqa: BLE001
+            pass
         for r in conn.execute("SELECT model, COUNT(*) n FROM post_embeddings WHERE model != ? GROUP BY model", (m,)):
             _print(f"  다른 모델 행: {r['model']} 글 {r['n']}건 (reembed 진행 중이면 정상)")
         _print("\n[상시 수집]")
@@ -217,7 +223,7 @@ def main(argv=None):
     c = sub.add_parser("collect"); c.add_argument("--source"); c.add_argument("--no-embed", action="store_true"); c.add_argument("--no-body", action="store_true"); c.add_argument("--no-extract", action="store_true"); c.add_argument("--delay", type=float, default=1.0); c.set_defaults(func=cmd_collect)
     sub.add_parser("embed-posts").set_defaults(func=cmd_embed_posts)
     pa = sub.add_parser("precompute-attempts"); pa.add_argument("--data-dir"); pa.set_defaults(func=cmd_precompute)
-    re_ = sub.add_parser("reembed", help="임베딩 모델 교체: 새 모델로 글·한이음 벡터를 채운 뒤 옛 모델 행 삭제")
+    re_ = sub.add_parser("reembed", help="임베딩 모델 교체: 새 모델로 글·한이음·추출 문장 벡터를 채운 뒤 옛 모델 행 삭제")
     re_.add_argument("--model", required=True); re_.add_argument("--data-dir"); re_.add_argument("--keep-old", action="store_true")
     re_.set_defaults(func=cmd_reembed)
     sub.add_parser("models").set_defaults(func=cmd_models)

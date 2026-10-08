@@ -104,15 +104,16 @@ def dedup(posts: list[Post], title_threshold: float = config.TITLE_SIM_THRESHOLD
 
 
 def semantic_search(conn, pain_vec, embedder, *, sources: list[str] | None = None, since_day: str | None = None,
-                    threshold: float = config.SEMANTIC_THRESHOLD, cap: int = config.SEMANTIC_CAP) -> dict:
+                    threshold: float = config.SEMANTIC_THRESHOLD, cap: int = config.SEMANTIC_CAP,
+                    db_path=None) -> dict:
     """pain_extracts(글별 최신 추출, 불편 있음)의 문장 ↔ 페인 문장 유사도 ≥ threshold 상위 cap개 글.
 
+    문장 벡터는 extract_embeddings 캐시를 읽고 빠진 것만 인코딩한다(db_path가 있으면 캐시에 넣는다).
     반환 {"keys": [...유사도 내림차순], "threshold", "pool": 후보 추출 문장 수}. 추출 이력이 없으면 pool 0.
     """
     import numpy as np
-    sql = ("SELECT x.post_key, x.pain FROM pain_extracts x JOIN posts p ON p.post_key = x.post_key "
-           "WHERE x.id IN (SELECT MAX(id) FROM pain_extracts WHERE status='ok' GROUP BY post_key) "
-           "AND x.pain != '' AND x.intensity >= 1")
+    from .embed import LATEST_EXTRACTS_SQL, _check_dim, extract_matrix
+    sql = LATEST_EXTRACTS_SQL
     args: list = []
     if since_day:
         sql += " AND p.created_day >= ?"
@@ -121,17 +122,18 @@ def semantic_search(conn, pain_vec, embedder, *, sources: list[str] | None = Non
         sql += " AND p.source IN (%s)" % ",".join("?" * len(sources))
         args += list(sources)
     try:
-        rows = conn.execute(sql, args).fetchall()
+        rows = [tuple(r) for r in conn.execute(sql, args).fetchall()]
     except Exception:            # pain_extracts 테이블이 없는 옛 DB
         rows = []
     out = {"keys": [], "threshold": threshold, "pool": len(rows)}
     if not rows:
         return out
-    M = embedder.encode([r[1] for r in rows])
+    M, _ = extract_matrix(conn, rows, embedder, db_path=db_path)
     q = np.asarray(pain_vec, dtype=np.float32)
+    _check_dim(M.shape[1], q.shape[0], "extract_embeddings", embedder.model_name)
     q = q / (np.linalg.norm(q) or 1)
     sims = M @ q
-    order = [int(j) for j in np.argsort(-sims) if sims[int(j)] >= threshold][:cap]
+    order = [int(j) for j in np.argsort(-sims, kind="stable") if sims[int(j)] >= threshold][:cap]
     out["keys"] = [rows[j][0] for j in order]
     return out
 

@@ -174,7 +174,8 @@ def generate_report(req: GenerateRequest, *, db_path: str | Path | None = None, 
         with Timer() as t:
             if config.SEMANTIC_SEARCH and pain_vec is not None:
                 sem = semantic_search(conn, pain_vec, embedder, sources=q.sources or None, since_day=since,
-                                      threshold=config.SEMANTIC_THRESHOLD, cap=config.SEMANTIC_CAP)
+                                      threshold=config.SEMANTIC_THRESHOLD, cap=config.SEMANTIC_CAP,
+                                      db_path=db_path)
                 if not sem["pool"]:
                     sem = None          # 추출 이력 없음 → 키워드만(리포트 상세에 '사용 안 함'으로 표시)
             sr = search_corpus(store, q.terms, sources=q.sources or None, since_day=since, semantic=sem)

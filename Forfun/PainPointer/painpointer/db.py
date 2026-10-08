@@ -12,7 +12,8 @@ from pathlib import Path
 from dccrawler.storage import Store, connect, get_version, set_version
 
 COMPONENT = "painpointer"
-SCHEMA_VERSION = 3   # v2: 임베딩 테이블 PK에 model 포함 / v3: llm_calls.scope(예산 범위) + budget_reservations
+SCHEMA_VERSION = 4   # v2: 임베딩 테이블 PK에 model 포함 / v3: llm_calls.scope(예산 범위) + budget_reservations
+                     # v4: extract_embeddings(불편 추출 문장 임베딩 캐시)
 
 _DDL = [
     """CREATE TABLE IF NOT EXISTS judgments (
@@ -157,6 +158,16 @@ _DDL = [
         model TEXT NOT NULL,
         computed_at TEXT NOT NULL,
         PRIMARY KEY (post_key, model)
+    )""",
+    # 불편 추출 문장 임베딩 캐시(의미 검색). text_sha가 현재 추출 문장과 다르면(다른 LLM 모델이 다시 추출) 없는 것으로 본다.
+    """CREATE TABLE IF NOT EXISTS extract_embeddings (
+        post_key TEXT NOT NULL,
+        prompt_hash TEXT NOT NULL,
+        model TEXT NOT NULL,
+        text_sha TEXT NOT NULL,
+        vector BLOB NOT NULL,
+        computed_at TEXT NOT NULL,
+        PRIMARY KEY (post_key, prompt_hash, model)
     )""",
 ]
 

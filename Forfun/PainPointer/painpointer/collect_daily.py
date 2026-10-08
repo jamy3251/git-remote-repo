@@ -28,7 +28,7 @@ from dccrawler.sources import EmptyResponseError, ParserDriftError, get_source
 from dccrawler.storage import Store
 
 from . import config, db
-from .embed import Embedder, embed_missing_posts
+from .embed import Embedder, embed_missing_extracts, embed_missing_posts
 from .log import log_event
 
 SUSPECT_MIN_RATE = 3.0
@@ -201,6 +201,12 @@ class Collector:
                     log_event("embed_failed", error=str(e))
             if self.llm is not None:
                 self.extract_pains(watch, progress=progress)
+            if self.embedder is not None:      # 추출 직후 문장 임베딩 캐시(의미 검색이 매번 다시 계산하지 않게)
+                try:
+                    n = embed_missing_extracts(self.db_path, self.embedder, progress=progress)
+                    log_event("embed_extracts", n=n)
+                except Exception as e:  # noqa: BLE001
+                    log_event("embed_extracts_failed", error=str(e))
             try:
                 self.refresh_candidates(progress=progress)
             except Exception as e:  # noqa: BLE001
