@@ -29,8 +29,10 @@ def _print(s: str = "") -> None:
 
 def cmd_init(a):
     from . import db
+    from .radar.radar_db import init_radar_db
     p = db.init_db(a.db)
     _print(f"DB 준비됨: {p}")
+    _print(f"레이더 DB 준비됨: {init_radar_db()}")
 
 
 def cmd_serve(a):

@@ -21,6 +21,7 @@ TEMPLATES_DIR = ROOT / "templates"
 PROMPTS_DIR = ROOT / "prompts"
 DATA_DIR = Path(os.getenv("PP_DATA_DIR", ROOT / "data"))
 DB_PATH = Path(os.getenv("PP_DB", DATA_DIR / "painpointer.db"))
+RADAR_DB_PATH = Path(os.getenv("PP_RADAR_DB", DATA_DIR / "radar.db"))   # 레이더 전용(eng review D8)
 LOG_DIR = Path(os.getenv("PP_LOG_DIR", DATA_DIR / "logs"))
 LOCK_PATH = DATA_DIR / "collect.lock"
 HANCRAWLER_DATA = Path(os.getenv("PP_HANCRAWLER_DATA", ROOT.parent.parent / "Data" / "HanCrawler" / "data"))
