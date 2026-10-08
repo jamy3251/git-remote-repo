@@ -26,4 +26,22 @@
 **Priority:** P3
 **Depends on:** T8 렌더러 완성, 준비팀 확보 단계 진입
 
+## Radar
+
+### 휴대폰 실제 접속(LAN + 접속 토큰 + CSRF)
+
+**What:** 기회 레이더(/radar·/cards·대화)를 휴대폰에서 쓰도록 서버를 LAN에 바인드하고 접속 토큰(최초 1회 입력, 쿠키)과 변경 요청 CSRF 보호를 넣는다.
+
+**Why:** 밖이나 다른 방에서 카드를 보고 착수 기록을 남길 수 있다.
+
+**Pros:** 화면은 화면 명세 6-1(767px 이하 단일 열)로 이미 좁은 창에 대응하므로 인증만 붙이면 된다.
+
+**Cons:** 대화가 LLM 예산을 쓰므로 보안 검토가 필요하다. human ~1일 / CC ~1h.
+
+**Context:** /plan-design-review D17(2026-10-08)에서 PC 우선으로 결정하고 미룸. 현재 서버는 127.0.0.1 전용. BaekDiscord DevHub의 ngrok 터널·QR 방식도 참고 가능.
+
+**Effort:** M
+**Priority:** P3
+**Depends on:** 작업 공간(eng review T14) 완성
+
 ## Completed
