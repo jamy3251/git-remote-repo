@@ -154,3 +154,32 @@ def test_old_llm_calls_table_gets_scope_column(tmp_path):
     conn = sqlite3.connect(p)
     assert conn.execute("SELECT scope FROM llm_calls").fetchall() == [("report",)]
     conn.close()
+
+
+# ---- 외부 문서 단계 요청 축약 기록(T3, eng review D12) ----
+DOC_BODY = "이 초록은 저장되면 안 되는 외부 원문 문장입니다. Federated learning on edge devices."
+
+
+def test_external_doc_stage_stores_hash_not_text(tmp_db, fake_client):
+    import hashlib
+    from painpointer.llm import redact_docs
+    llm = LLM(tmp_db, client=fake_client, sleep=lambda *_: None)
+    user = f'<doc id="oa:W1" url="https://openalex.org/W1">{DOC_BODY}</doc>\n<doc id="g:2">둘째 기사</doc>'
+    llm.call("radar_extract", MODEL, "s", user, schema=SCHEMA, prompt_hash="h", max_tokens=10)
+    assert DOC_BODY in fake_client.calls[-1]["messages"][0]["content"]   # 모델에는 원문을 보낸다
+    conn = sqlite3.connect(tmp_db)
+    stored = conn.execute("SELECT request FROM llm_calls").fetchone()[0]
+    conn.close()
+    assert DOC_BODY not in stored and "둘째 기사" not in stored
+    h = hashlib.sha256(DOC_BODY.encode("utf-8")).hexdigest()
+    assert f"sha256:{h} len:{len(DOC_BODY)} url:https://openalex.org/W1" in stored
+    assert "oa:W1" in stored                                           # 증거 id는 남는다
+    assert redact_docs("문서 없음") == "문서 없음"
+
+
+def test_community_stage_keeps_full_request(tmp_db, fake_client):
+    llm = LLM(tmp_db, client=fake_client, sleep=lambda *_: None)
+    llm.call("coach", MODEL, "s", f"<doc id='p1'>{DOC_BODY}</doc>", schema=SCHEMA, prompt_hash="h", max_tokens=10)
+    conn = sqlite3.connect(tmp_db)
+    assert DOC_BODY in conn.execute("SELECT request FROM llm_calls").fetchone()[0]
+    conn.close()

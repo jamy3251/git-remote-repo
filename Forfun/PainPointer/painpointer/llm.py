@@ -9,6 +9,8 @@
   끝나면 llm_calls 행 기록과 예약 삭제를 한 트랜잭션으로 한다. 그래서 여러 프로세스가 동시에 불러도 상한을 넘지 않는다.
   기록이 잠금으로 실패한 호출은 jsonl 로그(record_error + 토큰)에서 복구해 지출에 더한다.
   가격표(config.PRICES)에 없는 모델은 거부한다. 재시도는 이 래퍼만 한다(SDK max_retries=0) → 모든 시도가 기록·집계된다.
+- 외부 원문(논문 초록·기사·특허 등 `<doc>` 블록)을 보내는 단계(radar_*)는 llm_calls.request에 원문 대신
+  "sha256:… len:N url:…"만 남긴다(설계 Constraints: 외부 원문은 처리 후 폐기). 보내는 요청은 그대로다.
 - 잘림(max_tokens)·거절(refusal)은 temperature 0에서 다시 보내도 같으므로 재시도하지 않는다.
 - 사고(thinking)가 기본으로 켜지는 모델은 끈다: 짧은 JSON 출력에 사고 토큰이 붙으면 비용이 늘고 max_tokens에 잘린다.
 - 테스트는 `client=`로 가짜 클라이언트를 주입한다(같은 인터페이스: .messages.create(...)).
@@ -103,6 +105,38 @@ _RETRYABLE = (
 
 def supports_temperature(model: str) -> bool:
     return not _NO_TEMPERATURE.search(model or "")
+
+
+# ---- 외부 원문 축약 기록 ----
+_DOC_RE = re.compile(r"<doc\b([^>]*)>(.*?)</doc>", re.S)
+_URL_ATTR = re.compile(r"""\burl\s*=\s*["']([^"']*)["']""")
+
+
+def redacts_docs(stage: str) -> bool:
+    """레이더 연결층(필요·능력·한계 추출, 간선 판정, 사건 범주 확인)은 외부 원문을 보낸다."""
+    return stage.startswith("radar_")
+
+
+def redact_docs(text: str) -> str:
+    """`<doc …>본문</doc>`의 본문을 "sha256:<hex> len:<글자 수> url:<url>"로 바꾼다. 속성(id·url)은 남긴다."""
+    import hashlib
+
+    def sub(m: re.Match) -> str:
+        attrs, body = m.group(1), m.group(2)
+        url = _URL_ATTR.search(attrs)
+        digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+        return f"<doc{attrs}>sha256:{digest} len:{len(body)}" + (f" url:{url.group(1)}" if url else "") + "</doc>"
+    return _DOC_RE.sub(sub, text)
+
+
+def _logged_request(req: dict, redact: bool) -> str:
+    if not redact:
+        return json.dumps(req, ensure_ascii=False)
+    r = dict(req)
+    r["system"] = redact_docs(req.get("system", ""))
+    r["messages"] = [{**m, "content": redact_docs(m["content"]) if isinstance(m.get("content"), str) else m.get("content")}
+                     for m in req.get("messages", [])]
+    return json.dumps(r, ensure_ascii=False)
 
 
 # ---- 예산 범위 ----
@@ -321,7 +355,7 @@ class LLM:
         for attempt in range(1, retries + 1):
             self.check_daily_limit(1)
             rid = self.reserve(scope, est)   # 재시도도 시도마다 예약 → 재시도가 상한을 넘지 못한다
-            rec = {"scope": scope, "reservation_id": rid}
+            rec = {"scope": scope, "reservation_id": rid, "redact": redacts_docs(stage)}
             t0 = time.perf_counter()
             resp = None
             try:
@@ -367,12 +401,12 @@ class LLM:
 
     def _record(self, stage, model, prompt_hash, req, response, response_model, status, error,
                 elapsed_ms, job_id, in_tok=None, out_tok=None, *, scope: str = "report",
-                reservation_id: int | None = None) -> None:
+                reservation_id: int | None = None, redact: bool = False) -> None:
         """llm_calls 감사 행 기록 + 예약 해제(한 트랜잭션 = 예약을 실제 비용으로 교체).
         잠금 재시도 후에도 실패하면 리포트를 죽이지 않고 jsonl 로그(토큰 포함)에 남기고, 예산 합산이 그 로그를 읽는다.
         이때 예약은 만료(RESERVATION_TTL_S)까지 남아 보수적으로 이중 계산된다."""
         row = (job_id, stage, model, response_model, prompt_hash,
-               json.dumps(req, ensure_ascii=False), response, status, error, elapsed_ms,
+               _logged_request(req, redact), response, status, error, elapsed_ms,
                in_tok, out_tok, datetime.now(timezone.utc).isoformat(timespec="seconds"), scope)
         record_error = None
         for attempt in range(1, self._RECORD_RETRIES + 1):
