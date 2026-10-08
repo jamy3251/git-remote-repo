@@ -49,7 +49,7 @@ DEFINITIONS = {
     "digital_twin": {"phrase": "digital twin", "years": 2, "top_k": 30},
     "emerging": {"l2": {"top_pct": None, "min_works": None}, "l4_list_field": "emerging"},
 }
-TOPIC_SELECT = "id,display_name,description,subfield,field"
+TOPIC_SELECT = "id,display_name,description,subfield,field,keywords"
 
 
 def _now() -> str:
@@ -58,7 +58,9 @@ def _now() -> str:
 
 def _topic(t: dict) -> dict:
     return {"id": short_id(t["id"]), "name": t.get("display_name") or "", "description": t.get("description") or "",
-            "subfield": short_id((t.get("subfield") or {}).get("id")), "field": short_id((t.get("field") or {}).get("id"))}
+            "subfield": short_id((t.get("subfield") or {}).get("id")), "field": short_id((t.get("field") or {}).get("id")),
+            # OpenAlex가 준 순서 그대로(일반 용어가 앞). score순은 'abstract argumentation' 같은 전문 용어가 앞이라 HN 0건
+            "keywords": [k.get("display_name") for k in t.get("keywords") or [] if isinstance(k, dict) and k.get("display_name")]}
 
 
 @dataclass
@@ -260,10 +262,11 @@ def save_fields(conn, fs: FieldSet, final: dict[str, set[str]], embedder, today:
         for fid, ids in final.items():
             for t in ids:
                 tp = fs.topics[t]
-                conn.execute("INSERT INTO topics(id, name, description, field_id, updated_at) VALUES (?,?,?,?,?)"
+                conn.execute("INSERT INTO topics(id, name, description, field_id, updated_at, keywords_json) VALUES (?,?,?,?,?,?)"
                              " ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description,"
-                             " field_id=excluded.field_id, updated_at=excluded.updated_at",
-                             (t, tp["name"], tp["description"], fid, now))
+                             " field_id=excluded.field_id, updated_at=excluded.updated_at, keywords_json=excluded.keywords_json",
+                             (t, tp["name"], tp["description"], fid, now,
+                              json.dumps(tp.get("keywords") or [], ensure_ascii=False)))
         if fs.counts:
             pts = []
             (_, _), (_, _), end = windows_12m(today)
@@ -360,9 +363,24 @@ ARXIV_DENOM = {"ai": "cat:cs.AI OR cat:cs.LG OR cat:cs.CV OR cat:cs.CL", "securi
 TOPIC_SOURCES = ("openalex", "semantic_scholar", "arxiv", "gdelt", "hackernews")
 
 
+def public_terms(name: str, keywords: list[str], n: int = 2) -> list[str]:
+    """대중 원천(HN·GDELT·S2) 검색어. 토픽 이름은 학술 이름이라('Semantic Web and Ontologies') HN에서 0건이 나온다 —
+    OpenAlex 키워드 중 두 단어 이상인 것을 점수순으로 n개 쓴다('semantic web' 189건, 2026-10-09 실측).
+    한 단어 약어('RDF')는 HN 검색이 부분 일치로 부풀려(6,408건) 쓰지 않는다. 키워드가 없으면 토픽 이름."""
+    picked = []
+    for k in keywords or []:
+        k = " ".join(str(k).split())
+        if len(k.split()) >= 2 and "(" not in k and k.lower() not in {p.lower() for p in picked}:
+            picked.append(k)
+        if len(picked) >= n:
+            break
+    return picked or [name]
+
+
 def topic_queries(conn, field_id: str, sources: tuple[str, ...] = TOPIC_SOURCES, limit: int | None = None) -> list[tuple[str, dict]]:
-    """분야 토픽마다 토픽 원천 질의. 검색어는 토픽 이름(학술 이름이라 대중 원천에선 적게 잡힌다 — link.py에서 보정)."""
-    topics = [dict(r) for r in conn.execute("SELECT id, name FROM topics WHERE field_id=? ORDER BY id", (field_id,))]
+    """분야 토픽마다 토픽 원천 질의. 학계 원천(OpenAlex·arXiv)은 토픽 이름, 대중 원천은 public_terms."""
+    topics = [dict(r) for r in conn.execute("SELECT id, name, keywords_json FROM topics WHERE field_id=? ORDER BY id",
+                                            (field_id,))]
     if limit:
         topics = topics[:limit]
     ids = [r[0] for r in conn.execute("SELECT id FROM topics WHERE field_id=? ORDER BY id", (field_id,))]
@@ -371,11 +389,13 @@ def topic_queries(conn, field_id: str, sources: tuple[str, ...] = TOPIC_SOURCES,
     out = []
     for t in topics:
         name = t["name"]
+        terms = public_terms(name, json.loads(t["keywords_json"] or "[]"))
+        gdelt = " OR ".join(f'"{x}"' for x in terms)
         q = {"openalex": {"topic_id": t["id"], "field_filter": field_filter, "venues": venues, "top": 20},
-             "semantic_scholar": {"topic_id": t["id"], "terms": name},
+             "semantic_scholar": {"topic_id": t["id"], "terms": terms[0]},
              "arxiv": {"topic_id": t["id"], "search": f'all:"{name}"', "denom_search": ARXIV_DENOM[field_id]},
-             "gdelt": {"topic_id": t["id"], "query": f'"{name}"'},
-             "hackernews": {"topic_id": t["id"], "query": name, "top": 5}}
+             "gdelt": {"topic_id": t["id"], "query": f"({gdelt})" if len(terms) > 1 else gdelt},
+             "hackernews": {"topic_id": t["id"], "query": terms[0], "top": 5}}
         out += [(s, q[s]) for s in sources if s in q]
     return out
 

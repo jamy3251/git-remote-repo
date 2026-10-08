@@ -16,6 +16,7 @@
   python -m painpointer radar-fields build|show|venues   # 레이더 분야 6개 정의 · 분야별 명망지
   python -m painpointer radar-fields community --source dcinside --board <갤러리> --field security
   python -m painpointer radar-collect --field ai [--source openalex] [--limit 10]
+  python -m painpointer radar-link --report <리포트 id> --field ai [--limit 10] [--no-gap]   # 연결층(LLM, 레이더 예산)
 """
 from __future__ import annotations
 
@@ -246,6 +247,80 @@ def cmd_radar_fields(a):
         conn.close()
 
 
+def cmd_radar_link(a):
+    """리포트 1건 ↔ 분야 논문: 필요·능력·한계 추출 → 토픽·사건 매핑 → 간선 → 왜-지금 → 빈자리. LLM은 레이더 예산."""
+    import json as _json
+    from datetime import date as _date
+    from . import db as _db
+    from .embed import Embedder
+    from .llm import LLM
+    from .radar import link, radar_db, sources
+    radar_db.init_radar_db()
+    emb, llm, oa = Embedder(), LLM(a.db), sources.get("openalex_topics")
+    pp = _db.open_read(a.db)
+    try:
+        doc, months = link.report_doc(pp, a.report)
+    finally:
+        pp.close()
+    _print(f"필요 추출: {link.extract('need', [doc], llm, progress=_print)}")
+    conn = radar_db.open_read()
+    try:
+        works = [r[0] for r in conn.execute(
+            "SELECT s.id FROM signal_items s JOIN topics t ON t.id = json_extract(s.metrics_json, '$.topic_id')"
+            " WHERE s.source='openalex' AND s.kind='work' AND s.injection_flag=0 AND t.field_id=?"
+            " ORDER BY s.published_at DESC LIMIT ?", (a.field, a.limit))]
+    finally:
+        conn.close()
+    docs = link.openalex_docs(oa, works)
+    _print(f"{a.field} 논문 {len(works)}건 중 초록 있는 {len(docs)}건")
+    for kind in ("capability", "limit"):
+        _print(f"{kind} 추출: {link.extract(kind, docs, llm, progress=_print)}")
+    conn = radar_db.open_read()
+    try:
+        needs = link.extracts(conn, "need", refs=[doc.ref])
+        caps = link.extracts(conn, "capability", refs=[d.ref for d in docs])
+        topics = link.topic_matrix(conn, emb)
+        native = {c["item_ref"]: link.native_topic(conn, c["item_ref"]) for c in caps}
+    finally:
+        conn.close()
+    for ref in sorted({c["item_ref"] for c in caps}):
+        if native[ref]:                              # OpenAlex 논문은 원천 주 토픽을 쓴다(매핑 LLM 없음)
+            continue
+        text = " / ".join(f"{c['text']} ({c['search_en']})" for c in caps if c["item_ref"] == ref)
+        _print(f"  토픽 {ref}: {link.map_topics(2, ref, text, embedder=emb, llm=llm, topics=topics)}")
+    for n in needs:
+        _print(f"필요 #{n['id']} {n['text']}")
+        hits = link.map_incidents(n["id"], n["text"], embedder=emb, llm=llm)
+        _print(f"  사건 범주: {hits or '없음'}")
+    _print(f"간선: {link.build_edges([n['id'] for n in needs], embedder=emb, llm=llm, progress=_print)}")
+    conn = radar_db.open_read()
+    try:
+        _print(f"  공식 사건 축: {_json.dumps(link.incident_axis(conn, [n['id'] for n in needs], _date.today()), ensure_ascii=False)[:300]}")
+        edges = [dict(r) for r in conn.execute(
+            "SELECT e.id, e.need_id, e.capability_id, n.text AS need, c.text AS cap FROM need_capability_edges e"
+            " JOIN radar_extracts n ON n.id = e.need_id JOIN radar_extracts c ON c.id = e.capability_id"
+            f" WHERE e.judgment='yes' AND e.need_id IN ({','.join('?' * len(needs)) or 'NULL'})",
+            [n["id"] for n in needs])]
+    finally:
+        conn.close()
+    supply = None if a.no_gap else link.default_supply(db_path=a.db, embedder=emb, oa_source=oa)
+    for e in edges:
+        _print(f"간선 #{e['id']}: {e['need']} ← {e['cap']}")
+        w = link.why_now_for_edge(e["id"], pain_months=months, embedder=emb, llm=llm)
+        _print(f"  왜-지금 {w.strength}: " + ", ".join(f"{k}={v['status']}" for k, v in w.conditions.items())
+               + f" · 관심·준비도 {w.readiness}")
+        if supply:
+            conn = radar_db.open_read()
+            try:
+                need = dict(conn.execute("SELECT * FROM radar_extracts WHERE id=?", (e["need_id"],)).fetchone())
+                cap = dict(conn.execute("SELECT * FROM radar_extracts WHERE id=?", (e["capability_id"],)).fetchone())
+            finally:
+                conn.close()
+            g = link.gap_search(need, cap, sources=supply, embedder=emb)
+            _print(f"  빈자리 {g.status} {g.gap_count if g.gap_count is not None else ''} "
+                   + ", ".join(f"{k}:{v['status']}/{v['n_similar']}" for k, v in g.sources.items()))
+
+
 def cmd_radar_sources(a):
     from .radar import radar_db, sources
     radar_db.init_radar_db()
@@ -340,6 +415,10 @@ def main(argv=None):
     rf.add_argument("action", choices=["build", "show", "venues", "community"]); rf.add_argument("--no-l2", action="store_true")
     rf.add_argument("--source"); rf.add_argument("--board"); rf.add_argument("--field")
     rf.set_defaults(func=cmd_radar_fields)
+    rl = sub.add_parser("radar-link", help="연결층: 리포트 ↔ 분야 논문 추출·매핑·간선·왜-지금·빈자리(LLM)")
+    rl.add_argument("--report", required=True); rl.add_argument("--field", required=True)
+    rl.add_argument("--limit", type=int, default=10); rl.add_argument("--no-gap", action="store_true")
+    rl.set_defaults(func=cmd_radar_link)
     a = p.parse_args(argv)
     a.db = Path(a.db)
     a.func(a)

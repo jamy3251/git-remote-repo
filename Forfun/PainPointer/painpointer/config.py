@@ -47,6 +47,26 @@ EMERGING_TOP_PCT = float(os.getenv("PP_EMERGING_TOP_PCT", "0.10"))      # IT 신
 EMERGING_MIN_WORKS = int(os.getenv("PP_EMERGING_MIN_WORKS", "200"))     # 최근 12개월 논문 이 수 미만 토픽은 증가율 후보 제외
 EMERGING_MATCH_MIN = float(os.getenv("PP_EMERGING_MATCH_MIN", "0.5"))   # L4 신기술 목록 항목 ↔ 토픽 이름 cosine
 DIGITAL_TWIN_MIN_SHARE = float(os.getenv("PP_DIGITAL_TWIN_MIN_SHARE", "0.05"))  # 토픽 논문 중 'digital twin' 언급 비율
+# 레이더 연결층(T9). cosine 임계는 후보 거르기용 초기값이고 최종 판정은 LLM('AI 판정')이 한다 — 손라벨로 재보정(T13)
+MODEL_RADAR = os.getenv("PP_MODEL_RADAR", "").strip()                   # 비우면 MODEL_CLASSIFY(Haiku)
+RADAR_EXTRACT_BATCH = int(os.getenv("PP_RADAR_EXTRACT_BATCH", "5"))      # 한 호출에 묶는 문서 수
+TOPIC_LINK_TOP = 5                                                         # 토픽 매핑: 최근접 상위 5 → LLM 확인
+TOPIC_LINK_MIN = float(os.getenv("PP_TOPIC_LINK_MIN", "0.35"))
+INCIDENT_LINK_TOP = 3                                                      # 사건 범주 매핑: 상위 3 → LLM 확인
+INCIDENT_LINK_MIN = float(os.getenv("PP_INCIDENT_LINK_MIN", "0.3"))
+INCIDENT_WINDOW_MONTHS = 6                                                 # 공식 사건 축: 최근 6개월 vs 직전 6개월 점유율
+EDGE_TOP_K = int(os.getenv("PP_EDGE_TOP_K", "5"))                         # 필요 하나당 능력 후보 수
+EDGE_CAND_MIN = float(os.getenv("PP_EDGE_CAND_MIN", "0.3"))
+LIMIT_MATCH_MIN = float(os.getenv("PP_LIMIT_MATCH_MIN", "0.35"))          # 한계 ↔ 간선·벤치마크·해결 주장 후보
+WHYNOW_MIN_MONTHS = int(os.getenv("PP_WHYNOW_MIN_MONTHS", "6"))           # (a) 페인 지속: 리포트 등장 월
+WHYNOW_MIN_CLAIMS = 2                                                      # (c2) 최근 12개월 해결 주장 논문 수
+SUPPLY_SOURCES = ("hanium", "openalex", "kipris", "googleplay", "ntis")   # 빈자리 고정 검색 규약(D15) — 5곳 전부
+SUPPLY_TOP = 20                                                            # 원천·질의별 상위 20건
+# 원천별 보정 임계(초기값, ko-sroberta 실측 1건 2026-10-09). 영어 원천은 ko-sroberta에서 주변 논문도 0.6~0.8이라 높게,
+# 한국어 원천도 0.5~0.6엔 다른 과제('VM 자원 모니터링')가 섞여 0.6. BGE-M3 교체·손라벨(T13) 때 다시 정한다
+SUPPLY_SIM_MIN = {"hanium": 0.6, "openalex": 0.8, "kipris": 0.6, "googleplay": 0.6, "ntis": 0.6}
+SUPPLY_DUP_MIN = 0.9                                                       # 원천 간 중복: 임베딩 cosine
+SUPPLY_TTL_DAYS = 30                                                       # 같은 질의 검색 재사용 기간
 LLM_TIMEOUT_S = float(os.getenv("PP_LLM_TIMEOUT_S", "120"))
 # 모델별 ($/1M 입력, $/1M 출력). 표에 없는 모델은 호출을 거부한다(비싼 모델 오설정 방지). 캐시 2026-09-25.
 PRICES: dict[str, tuple[float, float]] = {

@@ -145,4 +145,18 @@ python -m painpointer radar-collect --field ai --limit 10   # 분야 토픽마�
 - 논문 수는 **학술지·학회 논문만** 센다. 저장소 항목 대량 분류로 'Diverse Interdisciplinary Research Studies' 같은 토픽이 10배씩 튀었다(2026-10-09).
 - 중심 벡터는 현재 임베딩 모델(PP_EMBED_MODEL)로 만든다. 모델을 바꾸면 `radar-fields build`를 다시 실행해야 분야 배정이 동작한다(모델 불일치 시 '재계산 필요' 오류).
 - 분야 배정 임계(PP_FIELD_ASSIGN_MIN=0.35)와 L4 대체 정의 임계는 초기값이다. 손라벨로 재보정은 T13.
-- 토픽 원천의 검색어는 토픽 학술 이름이라 HN·GDELT에서 거의 안 잡힌다. 대중 원천 검색어 보정은 T9.
+- 대중 원천(HN·GDELT·S2) 검색어는 토픽 학술 이름 대신 OpenAlex 키워드 중 두 단어 이상인 것(OpenAlex 순서, 일반 용어가 앞)을 쓴다(T9). 학술 이름으론 0~1건이던 IT 신기술 토픽이 8개 중 6개 잡힌다. 한 단어 약어('RDF')는 HN 부분 일치로 수천 건이 나와 쓰지 않는다.
+
+### 9-2. 연결층 (2026-10-09, T9)
+
+```bash
+python -m painpointer radar-link --report <리포트 id> --field emerging --limit 10 [--no-gap]
+```
+
+- 순서: 리포트 → 필요 추출 · 분야 논문(초록 재조회) → 능력·한계 추출 → 토픽 매핑(OpenAlex 논문은 원천 주 토픽, 나머지는 임베딩 상위 5 → LLM 확인) → 사건 범주 매핑(CWE 이름, 상위 3 → LLM 확인) → 간선(필요당 능력 상위 5 → LLM 판정) → 간선마다 왜-지금 · 빈자리.
+- LLM 단계는 전부 `radar_*` — 레이더 예산($3/일)으로 청구되고 llm_calls에는 외부 원문 대신 해시만 남는다. 같은 문서·쌍·프롬프트는 다시 부르지 않는다(추출 0개 문서도 표지 행으로 기록).
+- 모델은 PP_MODEL_RADAR(비우면 PP_MODEL_CLASSIFY). 프롬프트: prompts/need·capability·limit·edge·confirm.txt. 실모델 정밀도 관문(손라벨 30건)은 T13 — 그 전에는 배치로 돌리지 말고 수동 실행만.
+- 왜-지금(D14): (a) 리포트 등장 월 ≥ 6, (b) 간선에 대응하는 한계 문장 ≥ 1, (c) 그 한계의 날짜 있는 개선 — 대응 벤치마크 SOTA가 12개월 개선 또는 최근 12개월 해결 주장 논문 ≥ 2. 토픽 인기는 '관심·준비도'로만 표시.
+- 빈자리(D15): 한이음·OpenAlex·KIPRIS·구글플레이·NTIS 5곳 전부 성공해야 측정. **KIPRIS(PP_KIPRIS_KEY)·NTIS(PP_NTIS_KEY) 키가 없으면 모든 카드의 빈자리·참신성이 '미측정'**이다(규약대로, 누락이 점수를 올리지 못하게). 두 원천의 응답 형식은 키 발급 후 확인해야 한다.
+- 한이음 원천은 `precompute-attempts`로 만든 현재 임베딩 모델 벡터를 쓴다. 원천별 유사 임계(config.SUPPLY_SIM_MIN)는 ko-sroberta 실측 1건으로 잡은 초기값 — 영어 원천은 무관한 논문도 0.6~0.8이 나와 0.8.
+- 사건 범주 이름은 painpointer/radar/data/cwe_names.json(MITRE CWE-1000 뷰, 2026-10-09). 뷰 밖 옛 범주(CWE-264 등 10개)는 매핑 후보에서 빠진다.

@@ -18,8 +18,10 @@ from dccrawler.storage import connect, get_version, set_version
 from .. import config
 
 COMPONENT = "radar"
-SCHEMA_VERSION = 3   # v2: signal_items.injection_flag(guard: 플래그 원천은 카드 근거에서 제외)
+SCHEMA_VERSION = 4   # v2: signal_items.injection_flag(guard: 플래그 원천은 카드 근거에서 제외)
                      # v3: radar_fields.definition_json + radar_field_history(분야 정의 이력) + community_fields
+                     # v4: topics.keywords_json·radar_extracts.search_en + link_judgments(한계 대응·개선 판정)
+                     #     + supply_searches·supply_hits(빈자리 고정 검색 규약 D15)
 
 AXES = ("pain", "incident", "academic", "public", "authority", "maturity", "gap", "novelty")
 REASON_CODES = ("waiting", "source_failed", "eval_failed", "untestable", "budget_stopped")
@@ -60,7 +62,8 @@ _DDL = [
         name TEXT NOT NULL,
         description TEXT NOT NULL DEFAULT '',
         field_id TEXT REFERENCES radar_fields(id),
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        keywords_json TEXT NOT NULL DEFAULT '[]'  -- OpenAlex 키워드(점수순). 대중 원천 검색어(link.public_terms)
     )""",
 
     # ---- 신호층(측정) ----
@@ -121,6 +124,7 @@ _DDL = [
         model TEXT NOT NULL,
         prompt_hash TEXT NOT NULL,
         created_at TEXT NOT NULL,
+        search_en TEXT NOT NULL DEFAULT '',       -- 영어 검색 구(OpenAlex 등 영어 원천 질의)
         CHECK (length(quote) <= 120)
     )""",
     "CREATE INDEX IF NOT EXISTS idx_extracts_item ON radar_extracts(item_ref, kind)",
@@ -161,6 +165,46 @@ _DDL = [
         prompt_hash TEXT NOT NULL,
         created_at TEXT NOT NULL,
         UNIQUE (need_id, capability_id, model, prompt_hash)
+    )""",
+
+    # 한계 문장 판정(왜-지금 D14): edge_limit = 간선 ↔ 그 필요를 막는 한계, limit_benchmark = 한계 ↔ 대응 벤치마크(L5),
+    # limit_resolution = 한계 ↔ 그 한계를 해결했다고 주장하는 논문 능력 문장. a_ref·b_ref는 'edge:<id>'·'extract:<id>'·signal id
+    """CREATE TABLE IF NOT EXISTS link_judgments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind TEXT NOT NULL CHECK (kind IN ('edge_limit', 'limit_benchmark', 'limit_resolution')),
+        a_ref TEXT NOT NULL,
+        b_ref TEXT NOT NULL,
+        score REAL NOT NULL,
+        judgment TEXT NOT NULL CHECK (judgment IN ('yes', 'no')),
+        evidence TEXT,
+        model TEXT NOT NULL,
+        prompt_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (kind, a_ref, b_ref, model, prompt_hash)
+    )""",
+    # 빈자리 고정 검색 규약(D15): 원천 5곳 × 질의 3종 × 상위 20. 하나라도 실패하면 status='unmeasured'
+    """CREATE TABLE IF NOT EXISTS supply_searches (
+        id TEXT PRIMARY KEY,                      -- 질의 3종 + 규약 버전 해시
+        need_id INTEGER REFERENCES radar_extracts(id),
+        capability_id INTEGER REFERENCES radar_extracts(id),
+        queries_json TEXT NOT NULL,
+        protocol_json TEXT NOT NULL,              -- 원천 목록·깊이·원천별 임계·중복 임계·임베딩 모델
+        status TEXT NOT NULL CHECK (status IN ('measured', 'unmeasured')),
+        sources_json TEXT NOT NULL,               -- {원천: {status, n_hits, n_similar, error}}
+        gap_count INTEGER,                        -- 중복 제거 후 유사 항목 총수(measured만)
+        searched_at TEXT NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS supply_hits (
+        search_id TEXT NOT NULL REFERENCES supply_searches(id),
+        source TEXT NOT NULL,
+        item_key TEXT NOT NULL,
+        title TEXT NOT NULL,
+        snippet TEXT NOT NULL DEFAULT '',         -- 제목 + 요약 앞부분(≤300자, 참신성 계산용)
+        url TEXT,
+        score REAL NOT NULL,                      -- 질의 3종과의 최대 cosine
+        similar INTEGER NOT NULL,                 -- 원천별 임계 이상
+        dup_of TEXT,                              -- 원천 간 중복이면 대표 항목 '<source>:<item_key>'
+        PRIMARY KEY (search_id, source, item_key)
     )""",
 
     # ---- 증거 저장소(추가만) ----
@@ -377,6 +421,10 @@ def _add_missing_columns(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE signal_items ADD COLUMN injection_flag INTEGER NOT NULL DEFAULT 0")
     if "definition_json" not in {r[1] for r in conn.execute("PRAGMA table_info(radar_fields)")}:
         conn.execute("ALTER TABLE radar_fields ADD COLUMN definition_json TEXT NOT NULL DEFAULT '{}'")
+    if "keywords_json" not in {r[1] for r in conn.execute("PRAGMA table_info(topics)")}:
+        conn.execute("ALTER TABLE topics ADD COLUMN keywords_json TEXT NOT NULL DEFAULT '[]'")
+    if "search_en" not in {r[1] for r in conn.execute("PRAGMA table_info(radar_extracts)")}:
+        conn.execute("ALTER TABLE radar_extracts ADD COLUMN search_en TEXT NOT NULL DEFAULT ''")
 
 
 def init_radar_db(path: str | Path | None = None) -> Path:
