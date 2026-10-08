@@ -1,6 +1,7 @@
 """소스 어댑터 레지스트리."""
 from __future__ import annotations
 
+from .appstore import AppStoreSource
 from .base import BaseSource, EmptyResponseError, ParserDriftError
 from .dcinside import DcinsideSource
 from .fmkorea import FmkoreaSource
@@ -15,12 +16,12 @@ _REGISTRY: dict[str, type[BaseSource]] = {
     cls.name: cls
     for cls in (
         DcinsideSource, TodayhumorSource, FmkoreaSource, NatepannSource,
-        GooglePlaySource, RedditSource, FourchanSource, YoutubeSource,
+        GooglePlaySource, AppStoreSource, RedditSource, FourchanSource, YoutubeSource,
     )
 }
 
 # 자격증명/키 없이도 바로 동작하는 소스(UI 표기에 사용)
-WORKING = {"dcinside", "todayhumor", "fmkorea", "natepann", "fourchan", "googleplay"}
+WORKING = {"dcinside", "todayhumor", "fmkorea", "natepann", "fourchan", "googleplay", "appstore"}
 # 키/자격증명 필요(있으면 동작)
 NEEDS_AUTH = {"reddit", "youtube"}
 
