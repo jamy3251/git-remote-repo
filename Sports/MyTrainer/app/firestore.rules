@@ -1,0 +1,210 @@
+rules_version = '2';
+
+// 데이터 구조(설계 D4·D9·D17)
+//
+// users/{uid}/...                        본인만. 지표 원본(지오펜스 이벤트·밤 자기보고·세트)
+// parties/{pid}                          파티. ownerId = 파티장, inviteCode = 가입 코드
+//   members/{uid}                        파티원. shareAttendance(동의), hidden(숨김)
+//   attendance/{uid_yyyy-mm-dd}          공개 출석. 동의했고 숨기지 않은 본인만 만든다
+//   machines/{mid}                       기구. 파티원 누구나 등록, 삭제는 등록자 또는 파티장
+//     photos/{photoId}                   기구 사진 임베딩. model_id·dim 필수(D5·D16)
+//   pending_spots/{sid}                  스포터 결과. 촬영자가 만들고 리프터만 확정(D4)
+// invites/{code}                         8자리 초대 코드 → 파티 id. 코드를 아는 사람만 한 건 읽는다
+//
+// 좌표는 서버로 가지 않는다. 공개 출석에는 입장·퇴장 시각과 수동·위조 표시만 있다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function me() {
+      return request.auth.uid;
+    }
+
+    // 바꾼 필드가 keys 안에만 있는지.
+    function onlyChanges(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    match /users/{uid} {
+      allow read, write: if signedIn() && me() == uid;
+
+      match /{sub=**} {
+        allow read, write: if signedIn() && me() == uid;
+      }
+    }
+
+    // 목록 조회는 막는다(코드를 모아 볼 수 없게). 코드를 알면 그 한 건만 읽는다.
+    match /invites/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['partyId', 'ownerId'])
+        && request.resource.data.ownerId == me()
+        && getAfter(/databases/$(database)/documents/parties/$(request.resource.data.partyId)).data.ownerId == me()
+        && getAfter(/databases/$(database)/documents/parties/$(request.resource.data.partyId)).data.inviteCode == code;
+      // 같은 값으로 다시 쓰는 것(앱이 초대 문서를 확인할 때)만 허용.
+      allow update: if signedIn() && resource.data.ownerId == me()
+        && request.resource.data == resource.data;
+      allow delete: if signedIn() && resource.data.ownerId == me();
+    }
+
+    match /parties/{pid} {
+      function party() {
+        return get(/databases/$(database)/documents/parties/$(pid)).data;
+      }
+
+      // 파티와 파티장 멤버 문서를 한 배치로 만들 때 get() 은 아직 파티를 못 본다.
+      function partyAfter() {
+        return getAfter(/databases/$(database)/documents/parties/$(pid)).data;
+      }
+
+      function memberDoc(uid) {
+        return /databases/$(database)/documents/parties/$(pid)/members/$(uid);
+      }
+
+      function isMember() {
+        return signedIn() && exists(memberDoc(me()));
+      }
+
+      function isOwner() {
+        return signedIn() && party().ownerId == me();
+      }
+
+      // 파티를 만들 때는 파티장이 자기 자신이어야 한다. 파티장 본인의 멤버 문서는
+      // 같은 배치로 만든다(아래 members create 의 파티장 분기).
+      allow create: if signedIn()
+        && request.resource.data.ownerId == me()
+        && request.resource.data.inviteCode is string
+        && request.resource.data.inviteCode.size() >= 6;
+      allow read: if isMember();
+      // 이름·헬스장 중심점·가입 코드는 파티장만 바꾼다. 파티장 이전은 하지 않는다.
+      allow update: if isOwner() && request.resource.data.ownerId == resource.data.ownerId;
+      allow delete: if isOwner();
+
+      match /members/{uid} {
+        function validMember() {
+          let d = request.resource.data;
+          return d.keys().hasOnly(['displayName', 'joinedAt', 'shareAttendance', 'hidden', 'inviteCode'])
+            && d.displayName is string && d.displayName.size() <= 30
+            && d.shareAttendance is bool
+            && d.hidden is bool;
+        }
+
+        allow read: if isMember();
+        // 가입은 본인만, 가입 코드를 알아야 한다. 파티장은 코드 없이 들어간다.
+        allow create: if signedIn() && me() == uid && validMember()
+          && (partyAfter().ownerId == me()
+              || request.resource.data.inviteCode == party().inviteCode);
+        // 이름·출석 공유 동의·숨김만 본인이 바꾼다.
+        allow update: if signedIn() && me() == uid && validMember()
+          && onlyChanges(['displayName', 'shareAttendance', 'hidden']);
+        // 탈퇴는 본인, 내보내기는 파티장. 파티장은 스스로 나가지 않는다(파티 삭제로 대신).
+        allow delete: if signedIn()
+          && ((me() == uid && party().ownerId != me()) || (isOwner() && uid != me()));
+      }
+
+      match /attendance/{docId} {
+        // 동의했고 숨기지 않은 파티원만 공개 출석을 쓸 수 있다(D17).
+        function canShare() {
+          let m = get(memberDoc(me())).data;
+          return isMember() && m.shareAttendance == true && m.hidden == false;
+        }
+
+        function validAttendance() {
+          let d = request.resource.data;
+          return d.keys().hasOnly(['uid', 'day', 'enteredAt', 'exitedAt', 'manual', 'mock'])
+            && d.uid == me()
+            && d.day is string && d.day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+            && docId == me() + '_' + d.day
+            && d.enteredAt is int
+            && (!('exitedAt' in d) || d.exitedAt == null || d.exitedAt is int)
+            && d.manual is bool
+            && d.mock is bool;
+        }
+
+        allow read: if isMember();
+        allow create, update: if canShare() && validAttendance();
+        // 숨기기·탈퇴 때 본인 공개 출석을 지운다. 이미 나간 뒤에도 자기 것은 지울 수 있다.
+        // 파티장은 내보낸 파티원의 공개 출석을 지운다.
+        allow delete: if signedIn() && (resource.data.uid == me() || isOwner());
+      }
+
+      match /machines/{mid} {
+        function validMachine() {
+          let d = request.resource.data;
+          return d.keys().hasOnly(['name', 'kind', 'exerciseIds', 'groupId', 'createdBy', 'createdAt'])
+            && d.name is string && d.name.size() > 0 && d.name.size() <= 40
+            && d.exerciseIds is list && d.exerciseIds.size() > 0
+            && d.createdBy is string;
+        }
+
+        allow read: if isMember();
+        allow create: if isMember() && validMachine() && request.resource.data.createdBy == me();
+        // 이름·종목·그룹(중복 병합)은 등록자 또는 파티장. 등록자는 바뀌지 않는다.
+        // 탈퇴자가 등록한 기구는 그대로 남고 파티장이 관리한다.
+        allow update: if isMember() && validMachine()
+          && (resource.data.createdBy == me() || isOwner())
+          && request.resource.data.createdBy == resource.data.createdBy;
+        allow delete: if isMember() && (resource.data.createdBy == me() || isOwner());
+
+        match /photos/{photoId} {
+          function machine() {
+            return get(/databases/$(database)/documents/parties/$(pid)/machines/$(mid)).data;
+          }
+
+          function validPhoto() {
+            let d = request.resource.data;
+            // 사진·썸네일은 올리지 않는다. 이름과 임베딩만 공유(설계 D1).
+            return d.keys().hasOnly(['modelId', 'dim', 'vector', 'createdBy', 'createdAt'])
+              && d.modelId is string && d.modelId.size() > 0
+              && d.dim is int && d.dim > 0
+              && d.vector is list && d.vector.size() == d.dim
+              && d.createdBy == me();
+          }
+
+          allow read: if isMember();
+          // "기존 기구에 사진 추가"는 파티원 누구나. 사진은 고치지 않고 지우고 다시 찍는다.
+          allow create: if isMember() && exists(/databases/$(database)/documents/parties/$(pid)/machines/$(mid))
+            && validPhoto();
+          allow update: if false;
+          allow delete: if isMember()
+            && (resource.data.createdBy == me() || machine().createdBy == me() || isOwner());
+        }
+      }
+
+      match /pending_spots/{sid} {
+        function validSpot() {
+          let d = request.resource.data;
+          return d.keys().hasOnly(['spotterId', 'lifterId', 'exerciseId', 'variant', 'weightKg',
+                                   'reps', 'status', 'createdAt'])
+            && d.exerciseId is string
+            && d.reps is int && d.reps >= 0 && d.reps <= 100
+            && d.createdAt is timestamp;
+        }
+
+        allow read: if signedIn()
+          && (resource.data.spotterId == me() || resource.data.lifterId == me());
+        // 촬영자가 만든다. 리프터도 파티원이어야 한다. createdAt 은 서버 시각
+        // (serverTimestamp)이어야 하고, 만료는 그 24시간 뒤라 따로 저장하지 않는다.
+        allow create: if isMember() && validSpot()
+          && request.resource.data.spotterId == me()
+          && request.resource.data.lifterId != me()
+          && exists(memberDoc(request.resource.data.lifterId))
+          && request.resource.data.status == 'pending'
+          && request.resource.data.createdAt == request.time;
+        // 리프터만, 만료 전에, 대기 중인 것을 확정·거절한다. 확정할 때 횟수를 고칠 수 있다.
+        allow update: if signedIn() && validSpot()
+          && resource.data.lifterId == me()
+          && resource.data.status == 'pending'
+          && request.time < resource.data.createdAt + duration.value(24, 'h')
+          && request.resource.data.status in ['confirmed', 'rejected']
+          && onlyChanges(['status', 'reps']);
+        allow delete: if signedIn()
+          && (resource.data.spotterId == me() || resource.data.lifterId == me());
+      }
+    }
+  }
+}
