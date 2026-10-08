@@ -151,6 +151,7 @@ def _openalex(injected=False):
             return httpx.Response(200, json=works)
         if path == "/works":
             f = p["filter"]
+            assert f.endswith(",primary_location.source.type:journal|conference")   # 학술지·학회만 센다
             cur = "2025-10-01" in f
             if "primary_location.source.id" in f:
                 n = 30 if cur else 10
@@ -307,7 +308,7 @@ def test_magazine_rss_partial_feed_failure_and_self_accumulated_series(run, tmp_
 # ---- L4 ----
 def test_official_lists_snapshot_rows_and_required_fields(run, tmp_path):
     r = run(make("official_lists"))
-    assert r["status"] == "ok" and r["n_items"] == 10 + 10 + 10 + 25 + 8 + 4
+    assert r["status"] == "ok" and r["n_items"] == 10 + 10 + 10 + 25 + 8 + 4 + 10
     top = rows("SELECT * FROM signal_items WHERE id='list:owasp_llm_top10:2025:1'")[0]
     m = json.loads(top["metrics_json"])
     assert top["title"] == "LLM01:2025 Prompt Injection" and m["current"] and m["field"] == "security"

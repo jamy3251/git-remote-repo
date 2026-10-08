@@ -40,6 +40,13 @@ BUDGET_CHAT_USD = float(os.getenv("PP_BUDGET_CHAT", "1"))
 CHAT_CALL_LIMIT = int(os.getenv("PP_CHAT_CALL_LIMIT", "30"))
 DIAG_BUDGET_USD = float(os.getenv("PP_DIAG_BUDGET_USD", "3"))
 RESERVATION_TTL_S = int(os.getenv("PP_RESERVATION_TTL_S", "600"))   # 끝나지 못한 예약(프로세스 사망)은 10분 뒤 만료
+
+# 레이더 분야(T8). 임계는 초기값 — 첫 실행 손라벨로 재보정(설계: 분야 배정 정밀도 0.8)
+FIELD_ASSIGN_MIN = float(os.getenv("PP_FIELD_ASSIGN_MIN", "0.35"))      # 중심 벡터 cosine 미만이면 '분야 미정'
+EMERGING_TOP_PCT = float(os.getenv("PP_EMERGING_TOP_PCT", "0.10"))      # IT 신기술 = L2 점유율 증가율 상위 10%
+EMERGING_MIN_WORKS = int(os.getenv("PP_EMERGING_MIN_WORKS", "200"))     # 최근 12개월 논문 이 수 미만 토픽은 증가율 후보 제외
+EMERGING_MATCH_MIN = float(os.getenv("PP_EMERGING_MATCH_MIN", "0.5"))   # L4 신기술 목록 항목 ↔ 토픽 이름 cosine
+DIGITAL_TWIN_MIN_SHARE = float(os.getenv("PP_DIGITAL_TWIN_MIN_SHARE", "0.05"))  # 토픽 논문 중 'digital twin' 언급 비율
 LLM_TIMEOUT_S = float(os.getenv("PP_LLM_TIMEOUT_S", "120"))
 # 모델별 ($/1M 입력, $/1M 출력). 표에 없는 모델은 호출을 거부한다(비싼 모델 오설정 방지). 캐시 2026-09-25.
 PRICES: dict[str, tuple[float, float]] = {

@@ -131,3 +131,18 @@ python -m painpointer radar-collect --source openalex --query '{"topic_id": "T10
   - **HN**: 1년 범위 nbHits는 추정치가 크게 틀리고, 2026년 일부 달은 0~1점 스토리가 달 200만 건 넘게 색인됨 → 점수 2 이상만, 달별 합으로 센다.
   - **Epoch**: 점수 척도는 zip 안 benchmark_metadata.csv(scale·score_ceiling)를 따른다. 메타데이터 없는 벤치마크(속도 배수 등)는 건너뜀.
   - **공적 목록**: `painpointer/radar/lists/*.json` 손 스냅샷(출처 URL·판·확인일 필수). 새 판이 나오면 파일을 추가하면 확인일이 늦은 판이 현행 판.
+
+### 9-1. 레이더 분야 (2026-10-09, T8)
+
+```bash
+python -m painpointer radar-fields build     # OpenAlex에서 6분야 토픽 정의 + 중심 벡터 + IT 신기술(L2 상위 10%)
+python -m painpointer radar-fields venues    # 분야별 명망지(2yr 인용 상위 25%)
+python -m painpointer radar-fields community --source dcinside --board <갤러리> --field security   # D6 분야 커뮤니티
+python -m painpointer radar-collect --field ai --limit 10   # 분야 토픽마다 토픽 원천
+```
+
+- 정의 규칙은 painpointer/radar/fields.py 상단. 다시 만들면 바뀐 분야의 이전 소속이 radar_field_history에 남는다(월 1회 갱신 권장).
+- 논문 수는 **학술지·학회 논문만** 센다. 저장소 항목 대량 분류로 'Diverse Interdisciplinary Research Studies' 같은 토픽이 10배씩 튀었다(2026-10-09).
+- 중심 벡터는 현재 임베딩 모델(PP_EMBED_MODEL)로 만든다. 모델을 바꾸면 `radar-fields build`를 다시 실행해야 분야 배정이 동작한다(모델 불일치 시 '재계산 필요' 오류).
+- 분야 배정 임계(PP_FIELD_ASSIGN_MIN=0.35)와 L4 대체 정의 임계는 초기값이다. 손라벨로 재보정은 T13.
+- 토픽 원천의 검색어는 토픽 학술 이름이라 HN·GDELT에서 거의 안 잡힌다. 대중 원천 검색어 보정은 T9.

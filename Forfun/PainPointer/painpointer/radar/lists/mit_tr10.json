@@ -1,0 +1,50 @@
+{
+ "list_id": "mit_tr10",
+ "name": "MIT Technology Review 10 Breakthrough Technologies",
+ "edition": "2026",
+ "field": "emerging",
+ "url": "https://www.technologyreview.com/2026/01/12/1130697/10-breakthrough-technologies-2026/",
+ "checked_at": "2026-10-09",
+ "entries": [
+  {
+   "rank": 1,
+   "title": "Sodium-ion batteries"
+  },
+  {
+   "rank": 2,
+   "title": "Generative coding"
+  },
+  {
+   "rank": 3,
+   "title": "Next-gen nuclear"
+  },
+  {
+   "rank": 4,
+   "title": "AI companions"
+  },
+  {
+   "rank": 5,
+   "title": "Embryo scoring"
+  },
+  {
+   "rank": 6,
+   "title": "Gene resurrection"
+  },
+  {
+   "rank": 7,
+   "title": "Mechanistic interpretability"
+  },
+  {
+   "rank": 8,
+   "title": "Commercial space stations"
+  },
+  {
+   "rank": 9,
+   "title": "Base-edited baby"
+  },
+  {
+   "rank": 10,
+   "title": "Hyperscale AI data centers"
+  }
+ ]
+}

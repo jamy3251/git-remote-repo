@@ -13,6 +13,9 @@
   python -m painpointer status
   python -m painpointer radar-collect [--source cisa_kev] [--layer 1] [--query '{"topic_id": "T10028"}'] [--since 2026-01-01]
   python -m painpointer radar-sources            # 레이더 원천 등급·키·최신 시점
+  python -m painpointer radar-fields build|show|venues   # 레이더 분야 6개 정의 · 분야별 명망지
+  python -m painpointer radar-fields community --source dcinside --board <갤러리> --field security
+  python -m painpointer radar-collect --field ai [--source openalex] [--limit 10]
 """
 from __future__ import annotations
 
@@ -171,6 +174,26 @@ def cmd_radar_collect(a):
     """레이더 신호 원천 실행. 피드 원천은 질의 없이, 토픽 원천은 --query JSON(토픽 목록은 T8 분야 정의에서)."""
     import json as _json
     from .radar import sources
+    if a.field:                                  # 분야 토픽마다 토픽 원천(T8 분야 정의 필요)
+        from .radar import fields, radar_db
+        radar_db.init_radar_db()
+        conn = radar_db.open_read()
+        try:
+            qs = fields.topic_queries(conn, a.field, tuple(a.source or fields.TOPIC_SOURCES), limit=a.limit)
+        finally:
+            conn.close()
+        if not qs:
+            raise SystemExit(f"{a.field} 분야 토픽 없음 — 먼저 python -m painpointer radar-fields build")
+        objs: dict = {}
+        bad = 0
+        for name, q in qs:
+            src = objs.setdefault(name, sources.get(name))      # 원천 객체 재사용(요청 간격·분모 캐시)
+            r = sources.run_source(src, q, db_path=a.db, progress=_print)
+            bad += r["status"] == "failed"
+            if r["status"] != "ok":
+                _print(f"[{name}/{r['label']}] {r['status']}: {r['error']}")
+        _print(f"{a.field}: 질의 {len(qs)}개, 실패 {bad}개")
+        return
     names = a.source or [n for n, c in sources.all_sources().items()
                          if not c.needs_query and (not a.layer or c.layer in a.layer)]
     query = _json.loads(a.query) if a.query else {}
@@ -187,6 +210,40 @@ def cmd_radar_collect(a):
             bad += r["status"] == "failed"
             _print(f"[{name}/{r['label']}] {r['status']}: {r['error']}")
     _print(f"원천 {len(names)}개 실행, 실패 {bad}개")
+
+
+def cmd_radar_fields(a):
+    from .embed import Embedder
+    from .radar import fields, radar_db, sources
+    radar_db.init_radar_db()
+    if a.action == "build":
+        fields.build_fields(sources.get("openalex_topics"), Embedder(), use_l2=not a.no_l2, progress=_print)
+    elif a.action == "venues":
+        conn = radar_db.open_read()
+        try:
+            qs = [fields.venue_query(conn, f) for f in fields.FIELD_ORDER]
+        finally:
+            conn.close()
+        for q in filter(None, qs):
+            r = sources.run_source(sources.get("openalex_venues"), q, db_path=a.db)
+            _print(f"[{q['radar_field_id']}] {r['status']} {r['error'] or ''}")
+    elif a.action == "community":
+        if not (a.source and a.board and a.field):
+            raise SystemExit("radar-fields community --source dcinside --board <갤러리> --field security")
+        conn = radar_db.open_write()
+        with conn:
+            conn.execute("INSERT OR REPLACE INTO community_fields VALUES (?,?,?)", (a.source, a.board, a.field))
+        conn.close()
+        _print(f"{a.source}/{a.board} → {a.field}")
+    conn = radar_db.open_read()
+    try:
+        for r in conn.execute("SELECT f.id, f.name, f.definition_source, f.updated_at, COUNT(t.id) n FROM radar_fields f"
+                              " LEFT JOIN topics t ON t.field_id = f.id GROUP BY f.id ORDER BY f.id"):
+            _print(f"  {r['id']:<13} {r['name']:<8} 토픽 {r['n']:>4}  {r['updated_at'][:10]}  {r['definition_source']}")
+        for r in conn.execute("SELECT * FROM community_fields"):
+            _print(f"  커뮤니티 {r['source']}/{r['board']} → {r['field_id']}")
+    finally:
+        conn.close()
 
 
 def cmd_radar_sources(a):
@@ -276,8 +333,13 @@ def main(argv=None):
     rc = sub.add_parser("radar-collect", help="레이더 신호 원천 수집(기본: 질의가 필요 없는 피드 원천 전부)")
     rc.add_argument("--source", action="append", help="원천 이름(여러 번)"); rc.add_argument("--layer", type=int, action="append")
     rc.add_argument("--query", help="토픽 원천 질의 JSON"); rc.add_argument("--since", help="NVD 백필 시작일 YYYY-MM-DD")
+    rc.add_argument("--field", help="레이더 분야 id: 그 분야 토픽마다 토픽 원천 실행"); rc.add_argument("--limit", type=int)
     rc.set_defaults(func=cmd_radar_collect)
     sub.add_parser("radar-sources", help="레이더 원천 목록·키·최신 시점").set_defaults(func=cmd_radar_sources)
+    rf = sub.add_parser("radar-fields", help="레이더 분야 6개 정의(OpenAlex 토픽)·명망지·분야 커뮤니티")
+    rf.add_argument("action", choices=["build", "show", "venues", "community"]); rf.add_argument("--no-l2", action="store_true")
+    rf.add_argument("--source"); rf.add_argument("--board"); rf.add_argument("--field")
+    rf.set_defaults(func=cmd_radar_fields)
     a = p.parse_args(argv)
     a.db = Path(a.db)
     a.func(a)

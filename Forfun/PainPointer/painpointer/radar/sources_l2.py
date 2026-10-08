@@ -1,6 +1,7 @@
 """L2 학계 열기 — OpenAlex(논문 수·명망지·토픽 목록) · Semantic Scholar(인용 속도) · arXiv(프리프린트 수).
 
 지표(분모 total): topic 논문 수 / 레이더 분야 전체 논문 수, 최근 12개월 vs 직전 12개월(이번 달 제외).
+논문 수는 학술지·학회 논문만(PEER_VENUES) — 저장소 항목의 대량 분류가 증가율을 부풀린다.
 토픽 배정은 primary_topic 기준(한 논문이 여러 토픽에 이중 계상되지 않게). 분야 분모 필터는 질의가 준다
 (fields.py가 레이더 분야별로 정한다). KCI는 키 발급 후 응답 형식을 확인해 붙인다.
 """
@@ -19,6 +20,9 @@ S2_BULK = "https://api.semanticscholar.org/graph/v1/paper/search/bulk"
 ARXIV = "https://export.arxiv.org/api/query"
 DEFAULT_FIELD_FILTER = "primary_topic.field.id:17"      # Computer Science
 REPOSITORY_TYPES = {"repository", "ebook platform", "metadata"}
+# 논문 수는 학술지·학회 논문만 센다. 2026년 저장소(Zenodo 등) 항목이 일부 토픽에 대량 분류돼 점유율이 몇 배씩
+# 튄다(2026-10-09 실측: 'Diverse Interdisciplinary Research Studies' 전체 108→1747, 학술지·학회 33→26).
+PEER_VENUES = "primary_location.source.type:journal|conference"
 
 
 def short_id(oa_id: str | None) -> str:
@@ -49,25 +53,29 @@ class _OpenAlex(SignalSource):
         return data
 
     def count(self, flt: str) -> int:
-        return int(self.oa("works", {"filter": flt, "per_page": 1, "select": "id"})["meta"]["count"])
+        """학술지·학회 논문 수(PEER_VENUES)."""
+        return int(self.oa("works", {"filter": f"{flt},{PEER_VENUES}", "per_page": 1, "select": "id"})["meta"]["count"])
 
 
 @register
 class OpenAlexWorks(_OpenAlex):
-    """질의 {topic_id, field_filter?, venues?, top?}: 토픽 논문 수·분야 대비 점유율·명망지 점유율 + 인용 상위 논문."""
+    """질의 {topic_id, field_filter?, venues?, top?}: 토픽 논문 수·분야 대비 점유율·명망지 점유율 + 인용 상위 논문.
+
+    field_filter: 분야 분모 필터 문자열 또는 목록(레이더 분야 토픽이 100개를 넘으면 OR 필터를 나눠 합산)."""
     name = "openalex"
     needs_query = True
 
     def fetch(self, query: dict) -> FetchResult:
         tid = short_id(query["topic_id"])
         field_filter = query.get("field_filter") or DEFAULT_FIELD_FILTER
+        field_filters = field_filter if isinstance(field_filter, list) else [field_filter]
         (c0, c1), (p0, p1), end = windows_12m(self.today)
         win = {end: (c0, c1), shift_month(end, -12): (p0, p1)}
         series = []
         for period, (a, b) in win.items():
             dates = f"from_publication_date:{a},to_publication_date:{b}"
             n_topic = self.count(f"primary_topic.id:{tid},{dates}")
-            n_field = self.count(f"{field_filter},{dates}")
+            n_field = sum(self.count(f"{ff},{dates}") for ff in field_filters)
             if n_field:
                 series.append(SeriesPoint(tid, 2, "works_12m", period, n_topic, n_field, "total"))
             venues = [short_id(v) for v in query.get("venues") or []][:100]

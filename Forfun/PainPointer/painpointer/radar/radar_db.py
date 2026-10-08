@@ -18,7 +18,8 @@ from dccrawler.storage import connect, get_version, set_version
 from .. import config
 
 COMPONENT = "radar"
-SCHEMA_VERSION = 2   # v2: signal_items.injection_flag(guard: 플래그 원천은 카드 근거에서 제외)
+SCHEMA_VERSION = 3   # v2: signal_items.injection_flag(guard: 플래그 원천은 카드 근거에서 제외)
+                     # v3: radar_fields.definition_json + radar_field_history(분야 정의 이력) + community_fields
 
 AXES = ("pain", "incident", "academic", "public", "authority", "maturity", "gap", "novelty")
 REASON_CODES = ("waiting", "source_failed", "eval_failed", "untestable", "budget_stopped")
@@ -35,7 +36,24 @@ _DDL = [
         centroid BLOB,                            -- 분야 topic 임베딩 평균(분야 배정 공통 규칙)
         centroid_model TEXT,
         definition_source TEXT,                   -- IT 신기술 정의 출처(L4 목록 또는 L2 상위 10%)
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        definition_json TEXT NOT NULL DEFAULT '{}' -- 규칙(subfield·키워드·임계)과 근거 수치
+    )""",
+    # 분야 정의가 바뀔 때마다 이전 정의와 소속 토픽을 남긴다(설계: 정의는 수정 이력을 남긴다)
+    """CREATE TABLE IF NOT EXISTS radar_field_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        field_id TEXT NOT NULL,
+        definition_json TEXT NOT NULL,
+        topic_ids_json TEXT NOT NULL,
+        definition_source TEXT,
+        changed_at TEXT NOT NULL
+    )""",
+    # 분야 커뮤니티(묶음 분야 배정 D6): 이 보드 글이 과반이면 그 분야
+    """CREATE TABLE IF NOT EXISTS community_fields (
+        source TEXT NOT NULL,
+        board TEXT NOT NULL,
+        field_id TEXT NOT NULL REFERENCES radar_fields(id),
+        PRIMARY KEY (source, board)
     )""",
     """CREATE TABLE IF NOT EXISTS topics (
         id TEXT PRIMARY KEY,                      -- OpenAlex topic id
@@ -357,6 +375,8 @@ def _add_missing_columns(conn: sqlite3.Connection) -> None:
     have = {r[1] for r in conn.execute("PRAGMA table_info(signal_items)")}
     if "injection_flag" not in have:
         conn.execute("ALTER TABLE signal_items ADD COLUMN injection_flag INTEGER NOT NULL DEFAULT 0")
+    if "definition_json" not in {r[1] for r in conn.execute("PRAGMA table_info(radar_fields)")}:
+        conn.execute("ALTER TABLE radar_fields ADD COLUMN definition_json TEXT NOT NULL DEFAULT '{}'")
 
 
 def init_radar_db(path: str | Path | None = None) -> Path:
