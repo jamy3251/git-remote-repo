@@ -169,6 +169,7 @@ def generate_report(req: GenerateRequest, *, db_path: str | Path | None = None, 
     try:
         conn = store.conn
         pain_vec = embedder.encode([q.pain])[0] if embedder is not None else None
+        emb_model = embedder.model_name if embedder is not None else config.EMBED_MODEL
         sem = None
         with Timer() as t:
             if config.SEMANTIC_SEARCH and pain_vec is not None:
@@ -203,7 +204,7 @@ def generate_report(req: GenerateRequest, *, db_path: str | Path | None = None, 
         say(f"관련 {metrics.n_relevant}건 / 페인 신호 {metrics.n_pain}건" + (" — 근거 부족" if metrics.insufficient else ""))
 
         rel_posts = [posts_by_key[j.post_id] for j in judgments if j.status == "ok" and j.relevant and j.post_id in posts_by_key]
-        emb = load_post_embeddings(conn, [p.key for p in rel_posts]) if rel_posts else {}
+        emb = load_post_embeddings(conn, [p.key for p in rel_posts], emb_model) if rel_posts else {}
         if rel_posts and len(emb) < len(rel_posts):
             degraded.append(f"임베딩 미계산 글 {len(rel_posts) - len(emb)}건 → '기타' 군집으로(수집 배치의 임베딩 단계 필요)")
         clusters, reps = cluster_posts(rel_posts, emb, config.CLUSTER_PARAMS, months_set) if rel_posts else ([], {})
@@ -224,7 +225,7 @@ def generate_report(req: GenerateRequest, *, db_path: str | Path | None = None, 
             if embedder is None:
                 degraded.append("유사 시도 미계산 — 임베더 없음")
             else:
-                attempts = similar_attempts(conn, pain_vec)
+                attempts = similar_attempts(conn, pain_vec, model=emb_model)
                 if attempts is None:
                     degraded.append("유사 시도 미계산 — 사전 계산 배치 필요(attempt_embeddings 비어 있음)")
 

@@ -12,6 +12,7 @@ import { Feed } from "@/components/control/feed";
 import { WorkLogView, type DraftRequest } from "@/components/control/worklog-view";
 import { TerminalScreen } from "@/components/control/terminal-screen";
 import { EventLog } from "@/components/control/event-log";
+import { AppPanel } from "@/components/control/app-panel";
 import { ProductsView, type ProductDraft } from "@/components/products/products-view";
 import { needsAttention, policyLabel, policyOptions } from "@/components/control/labels";
 
@@ -64,6 +65,7 @@ export function ControlView() {
           {tab === "sessions" && (
             <div className="h-full space-y-3 overflow-y-auto px-3 py-3">
               <SessionsSection runner={runner} />
+              <AppPanel />
               <SupervisorBar runner={runner} />
               <RemotePanel tunnel={runner.tunnel} runner={runner} defaultOpen={false} />
               <RunnerSettingsBar settings={runner.settings} status={runner.status} onSave={runner.updateSettings} onConnect={runner.connect} error={runner.lastError} />

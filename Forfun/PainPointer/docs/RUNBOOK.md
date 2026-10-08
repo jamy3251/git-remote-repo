@@ -32,6 +32,7 @@ python -m painpointer status
 - 불편 추출: 워치 보드의 최근 `PP_DISCOVER_DAYS`일 글 중 현재 discover 프롬프트·모델로 미추출인 글을 최신순 하루 `PP_COLLECT_EXTRACT_MAX`(300, ≈$0.15)건. 리포트 의미 검색 풀과 페인 지도 캐시를 매일 채운다. 키 없음·달러 예산 초과면 건너뛰고 배치는 성공(로그 `extract_skipped`/`extract_failed`). 끄기: `PP_COLLECT_EXTRACT=0`. 프롬프트를 바꾸면 창 안 글이 전부 미추출이 되어 며칠에 걸쳐 다시 채워진다.
 - 임베딩 모델(ko-sroberta)은 로컬 캐시만 사용(`HF_HUB_OFFLINE=1`). 최초 다운로드는 `PP_HF_ONLINE=1 python -m painpointer embed-posts`.
 - 한이음 유사 시도: `python -m painpointer precompute-attempts` (HanCrawler `data/public_projects.json`, `award_projects.json`).
+- 임베딩 모델 교체: `PP_HF_ONLINE=1 python -m painpointer reembed --model BAAI/bge-m3` → 글·한이음 벡터를 새 모델로 다 채운 뒤에만 옛 모델 행을 지운다(교체 중에도 리포트는 옛 모델로 동작). 끝나면 `.env`에 `PP_EMBED_MODEL=BAAI/bge-m3`. 빠진 행이 있으면 옛 행을 남기고 경고하므로 다시 실행.
 
 ### Windows 작업 스케줄러
 매일 05:40 (FConline-AutoUpdate 05:30 이후):
@@ -77,6 +78,7 @@ python -m painpointer discover --board dcinside:modu --board dcinside:changup --
 | `suspect` | 최근 7일 중앙값 > 0인데 0건 | 사이트 직접 확인. 2일 연속이면 웹훅 |
 | 리포트 "유사 시도 미계산" | attempt_embeddings 비어 있음 | `precompute-attempts` |
 | "임베딩 미계산 글 N건 → 기타 군집" | 수집 후 임베딩 단계 실패 | `embed-posts` |
+| "재임베딩 필요: … 차원" | 같은 모델 이름에 다른 차원 벡터가 저장됨 | `reembed --model <현재 모델>` |
 | 서버 재시작 후 잡 running | 중단된 스레드 | 서버 시작 시 자동 failed 처리(recover) |
 | 로그 `llm_call`에 `record_error: ... locked` | 수집 배치가 쓰기 잠금을 연속 점유해 `llm_calls` 감사 행 기록이 5회 재시도 후 실패 | 판정·리포트는 정상 진행. 일일 상한 카운트만 그 건수만큼 적게 잡힘. 반복되면 배치 시간대와 리포트 생성 시간대를 분리 |
 | migrate 실패 | 중간 예외 | 자동 백업(`*.bak-타임스탬프`)에서 복원됨. 로그 확인 후 재실행 |

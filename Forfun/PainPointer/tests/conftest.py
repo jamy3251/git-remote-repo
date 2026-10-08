@@ -37,6 +37,7 @@ def _cfg(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "LOCK_PATH", tmp_path / "collect.lock")
     monkeypatch.setattr(config, "WEBHOOK_URL", "")
     monkeypatch.setattr(config, "CLASSIFY_BATCH", 1)
+    monkeypatch.setattr(config, "EMBED_MODEL", HashEmbedder().model_name)   # 저장된 가짜 벡터를 현재 모델로 읽게
 
 
 @pytest.fixture

@@ -12,7 +12,7 @@ from pathlib import Path
 from dccrawler.storage import Store, connect, get_version, set_version
 
 COMPONENT = "painpointer"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2   # v2: 임베딩 테이블 PK에 model 포함(모델 교체 중 두 모델 행 공존)
 
 _DDL = [
     """CREATE TABLE IF NOT EXISTS judgments (
@@ -107,7 +107,7 @@ _DDL = [
         UNIQUE (kind, ref)
     )""",
     """CREATE TABLE IF NOT EXISTS attempt_embeddings (
-        project_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
         title TEXT NOT NULL,
         year INTEGER,
         source TEXT NOT NULL,
@@ -115,7 +115,8 @@ _DDL = [
         result TEXT,
         vector BLOB NOT NULL,
         model TEXT NOT NULL,
-        computed_at TEXT NOT NULL
+        computed_at TEXT NOT NULL,
+        PRIMARY KEY (project_id, model)
     )""",
     # 페인 지도(발견 모드): 글별 불편 추출 캐시. 타깃·질의와 무관하게 글 단위로 재사용한다.
     """CREATE TABLE IF NOT EXISTS pain_extracts (
@@ -142,12 +143,44 @@ _DDL = [
         created_at TEXT NOT NULL
     )""",
     """CREATE TABLE IF NOT EXISTS post_embeddings (
-        post_key TEXT PRIMARY KEY,
+        post_key TEXT NOT NULL,
         vector BLOB NOT NULL,
         model TEXT NOT NULL,
-        computed_at TEXT NOT NULL
+        computed_at TEXT NOT NULL,
+        PRIMARY KEY (post_key, model)
     )""",
 ]
+
+# v1 → v2: 단일 키 PK였던 임베딩 테이블을 (키, model) PK로 다시 만든다. 행은 그대로 옮긴다.
+_PK_MIGRATIONS = {
+    "post_embeddings": ("post_key", "post_key, vector, model, computed_at"),
+    "attempt_embeddings": ("project_id", "project_id, title, year, source, url, result, vector, model, computed_at"),
+}
+
+
+def _pk_cols(conn: sqlite3.Connection, table: str) -> list[str]:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return [r[1] for r in sorted((r for r in rows if r[5]), key=lambda r: r[5])]
+
+
+def _migrate_embedding_pk(conn: sqlite3.Connection) -> None:
+    ddl = {t: next(d for d in _DDL if f"EXISTS {t} (" in d) for t in _PK_MIGRATIONS}
+    todo = [t for t, (key, _) in _PK_MIGRATIONS.items() if _pk_cols(conn, t) == [key]]
+    if not todo:
+        return
+    conn.commit()
+    conn.execute("BEGIN IMMEDIATE")   # 이름 바꾸기~복사~삭제를 한 트랜잭션으로(중간에 끊겨도 v1 그대로)
+    try:
+        for table in todo:
+            cols = _PK_MIGRATIONS[table][1]
+            conn.execute(f"ALTER TABLE {table} RENAME TO {table}_v1")
+            conn.execute(ddl[table])
+            conn.execute(f"INSERT INTO {table}({cols}) SELECT {cols} FROM {table}_v1")
+            conn.execute(f"DROP TABLE {table}_v1")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def init_db(db_path: str | Path) -> Path:
@@ -160,6 +193,7 @@ def init_db(db_path: str | Path) -> Path:
         cur = get_version(conn, COMPONENT)
         for stmt in _DDL:
             conn.execute(stmt)
+        _migrate_embedding_pk(conn)
         if cur != SCHEMA_VERSION:
             set_version(conn, SCHEMA_VERSION, COMPONENT)
         conn.commit()

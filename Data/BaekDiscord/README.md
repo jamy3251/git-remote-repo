@@ -73,6 +73,14 @@ npm run dev:web             # 웹:   http://localhost:3000 (러너가 7331로 �
 
 폰 화면은 하단 탭(대화 · 세션 · 새 작업 · 내역)으로 된 전체 화면 앱입니다. 세션의 **터미널**은 전체 화면으로 열리고, Esc · ⇧Tab(모드 전환) · 화살표 · 1/2/3 키 버튼, `/compact` 같은 명령 바로가기, 한글 입력창(여러 줄은 붙여넣기로 한 메시지)을 제공합니다.
 
+### 안드로이드 앱 (`android/`)
+웹 대시보드를 그대로 담은 네이티브 셸입니다(Kotlin, minSdk 26).
+- **연결**: 처음 열면 PC 대시보드의 원격 접속 QR을 찍거나 링크를 붙여 넣습니다. 연결 정보는 앱 안에만 저장되고, 러너 주소 밖의 링크는 일반 브라우저로 엽니다.
+- **백그라운드 알림**: 세션 탭의 앱 칸에서 켭니다. Firebase 없이 앱이 러너와 WebSocket 하나를 유지하면서 입력 대기·오류·작업 완료·교차검증 결과를 알림으로 띄웁니다. 답하면 입력 대기 알림은 사라집니다. 켜 둔 동안 "DevHub 알림 대기" 상태 알림이 보입니다.
+- **ngrok**: 앱은 브라우저가 아닌 User-Agent를 써서 ngrok 경고 페이지 없이 바로 열립니다.
+- **빌드**: `cd android && JAVA_HOME="C:/Program Files/Android/Android Studio/jbr" ./gradlew.bat assembleDebug` → `android/app/build/outputs/apk/debug/app-debug.apk`. `android/local.properties`에 `sdk.dir`가 필요합니다.
+- 에뮬레이터에서 PC 러너를 볼 때는 `http://10.0.2.2:7331/control#rt=<토큰>`으로 연결하고, 러너를 `RUNNER_ALLOWED_ORIGINS`에 `http://10.0.2.2:7331`을 더해 띄웁니다.
+
 ### PC 창과 폰이 같은 Claude Code를 보기 (`dclaude`)
 `runner/bin`을 PATH에 넣고 `claude` 대신 `dclaude`로 실행합니다. 인자는 그대로 넘어갑니다(`dclaude --continue`, `dclaude --resume <id>`).
 - 세션은 러너에서 돌고, 이 창은 그 세션에 붙은 화면입니다. 폰 대시보드에도 **PC 공유** 표시로 같은 화면이 보이고, 어느 쪽에서 입력해도 됩니다.
