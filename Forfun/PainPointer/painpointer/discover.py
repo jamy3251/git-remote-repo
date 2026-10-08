@@ -26,7 +26,8 @@ from dccrawler.storage import Store
 
 from . import config, db
 from .aggregate import cluster_stats, month_of
-from .classify import BODY_MAX_CHARS, _INJECTION_RE, _post_block, stratified_sample
+from .classify import BODY_MAX_CHARS, _post_block, stratified_sample
+from .guard import INJECTION_RE as _INJECTION_RE
 from .cluster import _labels
 from .llm import LLM, LLMError, estimate_tokens, load_prompt, price_of
 from .log import log_event

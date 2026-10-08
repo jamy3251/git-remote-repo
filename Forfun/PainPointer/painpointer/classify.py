@@ -25,6 +25,7 @@ from dccrawler.models import Post
 
 from . import config, db
 from .aggregate import month_of
+from .guard import INJECTION_RE
 from .llm import LLM, LLMError, estimate_tokens, load_prompt, price_of
 from .models import Judgment, QuoteCandidate
 from .textnorm import clip_quote, excerpt_context, prompt_hash, verify_quote
@@ -48,12 +49,7 @@ JUDGMENT_SCHEMA = {
     "additionalProperties": False,
 }
 
-_INJECTION_RE = re.compile(
-    r"(이전\s*지시|위의?\s*지시|시스템\s*프롬프트|프롬프트를?\s*무시|지시를?\s*무시|무시하고\s*(관련|답)|"
-    r"관련\s*있다고\s*(답|출력|판정)|relevant\s*[:=]\s*true|ignore\s+(all\s+)?(previous|prior|above)\s+instructions|"
-    r"system\s+prompt|you\s+are\s+now|as\s+an\s+ai\b|assistant\s*:)",
-    re.IGNORECASE,
-)
+_INJECTION_RE = INJECTION_RE   # 공용 모듈(guard)로 이동, 하위 호환 이름
 BODY_MAX_CHARS = 900
 OUT_TOKENS_PER_POST = 90
 

@@ -18,7 +18,7 @@ from dccrawler.storage import connect, get_version, set_version
 from .. import config
 
 COMPONENT = "radar"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2   # v2: signal_items.injection_flag(guard: 플래그 원천은 카드 근거에서 제외)
 
 AXES = ("pain", "incident", "academic", "public", "authority", "maturity", "gap", "novelty")
 REASON_CODES = ("waiting", "source_failed", "eval_failed", "untestable", "budget_stopped")
@@ -57,7 +57,8 @@ _DDL = [
         metrics_json TEXT NOT NULL DEFAULT '{}',
         origin TEXT NOT NULL DEFAULT 'batch' CHECK (origin IN ('batch', 'chat')),
         snapshot_date TEXT NOT NULL,
-        content_hash TEXT                         -- 원문은 저장하지 않는다(설계 전문 처리 규칙)
+        content_hash TEXT,                        -- 원문은 저장하지 않는다(설계 전문 처리 규칙)
+        injection_flag INTEGER NOT NULL DEFAULT 0 -- 원문에 AI를 향한 지시(guard). 카드 근거에서 제외
     )""",
     "CREATE INDEX IF NOT EXISTS idx_signal_layer_source ON signal_items(layer, source, published_at)",
     """CREATE TABLE IF NOT EXISTS topic_series (
@@ -352,6 +353,12 @@ _DDL = [
 ]
 
 
+def _add_missing_columns(conn: sqlite3.Connection) -> None:
+    have = {r[1] for r in conn.execute("PRAGMA table_info(signal_items)")}
+    if "injection_flag" not in have:
+        conn.execute("ALTER TABLE signal_items ADD COLUMN injection_flag INTEGER NOT NULL DEFAULT 0")
+
+
 def init_radar_db(path: str | Path | None = None) -> Path:
     """radar.db 테이블을 만든다. 멱등."""
     path = Path(path or config.RADAR_DB_PATH)
@@ -361,6 +368,7 @@ def init_radar_db(path: str | Path | None = None) -> Path:
         cur = get_version(conn, COMPONENT)
         for stmt in _DDL:
             conn.execute(stmt)
+        _add_missing_columns(conn)
         if cur != SCHEMA_VERSION:
             set_version(conn, SCHEMA_VERSION, COMPONENT)
         conn.commit()
