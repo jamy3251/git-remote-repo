@@ -1,0 +1,50 @@
+{
+ "list_id": "owasp_api_top10",
+ "name": "OWASP API Security Top 10",
+ "edition": "2023",
+ "field": "security",
+ "url": "https://api-security.owasp.org/editions/2023/en/0x11-t10",
+ "checked_at": "2026-10-09",
+ "entries": [
+  {
+   "rank": 1,
+   "title": "API1:2023 Broken Object Level Authorization"
+  },
+  {
+   "rank": 2,
+   "title": "API2:2023 Broken Authentication"
+  },
+  {
+   "rank": 3,
+   "title": "API3:2023 Broken Object Property Level Authorization"
+  },
+  {
+   "rank": 4,
+   "title": "API4:2023 Unrestricted Resource Consumption"
+  },
+  {
+   "rank": 5,
+   "title": "API5:2023 Broken Function Level Authorization"
+  },
+  {
+   "rank": 6,
+   "title": "API6:2023 Unrestricted Access to Sensitive Business Flows"
+  },
+  {
+   "rank": 7,
+   "title": "API7:2023 Server Side Request Forgery"
+  },
+  {
+   "rank": 8,
+   "title": "API8:2023 Security Misconfiguration"
+  },
+  {
+   "rank": 9,
+   "title": "API9:2023 Improper Inventory Management"
+  },
+  {
+   "rank": 10,
+   "title": "API10:2023 Unsafe Consumption of APIs"
+  }
+ ]
+}

@@ -1,0 +1,42 @@
+{
+ "total": 14427,
+ "token": "PCOKWVSKJJGM4TWNJNI3EUSQJIWVNUSRKBFEYK2JFUBHFI4VBSGZELOMSIWC3DITKMJVGU2M2NJFFTKSJQWY3UWSJRGEYEYNBUJI2TBNZRJU3TMSSVRGWAIEFMKNC",
+ "data": [
+  {
+   "paperId": "000099a8f4c7604b553963915427b46ad4b6e491",
+   "title": "AI in Multidisciplinary Engineering: A Holistic Review of Technologies and Trends",
+   "citationCount": 1,
+   "publicationDate": "2025-12-26"
+  },
+  {
+   "paperId": "000599cbc4db4fb6b780ddf4dfd85ef3a9430b59",
+   "title": "Data-Driven Digital Twins for Real-Time Machine Monitoring: A Case Study on a Rotating Machine",
+   "citationCount": 12,
+   "publicationDate": "2025-01-09"
+  },
+  {
+   "paperId": "000adc4f2be334cc316de322a80d9810d2c6ac1c",
+   "title": "An adaptive high-order singular value decomposition for spatial and temporal monitoring data imputation for tunnel digital twin",
+   "citationCount": 12,
+   "publicationDate": null
+  },
+  {
+   "paperId": "0013db08c70d3404c6e9e6d4d34c9cb9c3319a39",
+   "title": "Effective Underground Facilities Management in Virtual Reality by Applying a Cybersickness Reduction Technique Based on a Four-Degree-of-Freedom Motion Simulator",
+   "citationCount": 2,
+   "publicationDate": null
+  },
+  {
+   "paperId": "00229fa9a3978283955965d1617a2a1a452bf084",
+   "title": "“Twin transition” and HRM practices: empirical evidence from Italian firms",
+   "citationCount": 6,
+   "publicationDate": "2025-07-28"
+  },
+  {
+   "paperId": "00277973bad97737e39d8a2f854a63e0feadeb25",
+   "title": "Integrating AI, IoT, and Digital Twins for Resilient Post- Disrupted Recovery",
+   "citationCount": 0,
+   "publicationDate": "2025-08-07"
+  }
+ ]
+}

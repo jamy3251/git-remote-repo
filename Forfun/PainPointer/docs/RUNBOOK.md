@@ -111,3 +111,23 @@ cd D:\Projects\Forfun\PainPointer && python -m pytest -q     # 42 (골든 200건
 - 검색어 확장 200, 군집 이름 60×군집 수, 코칭 700 토큰으로 출력 상한 고정. 군집 대표 문장 3개×100자.
 - `python -m painpointer status`가 오늘 입력/출력 토큰 합계와 묶음 크기를 보여준다.
 - 더 줄이려면: 묶음 10건(품질 확인 후), Message Batches API(50% 단가, 지연 수분~수시간이라 잡 페이지 3초 폴링과 맞지 않아 미적용).
+
+## 9. 기회 레이더 신호 원천 (2026-10-09, T7)
+
+```bash
+python -m painpointer radar-sources                         # 원천별 층·등급·키·상태·최신 시점
+python -m painpointer radar-collect                         # 질의 없는 피드 원천 전부(KEV·NVD·AIID·잡지 RSS·공적 목록·Epoch)
+python -m painpointer radar-collect --source nvd --since 2026-01-01   # NVD 백필(120일씩 나눠 요청)
+python -m painpointer radar-collect --source openalex --query '{"topic_id": "T10028", "top": 20}'
+```
+
+- 저장: data/radar.db `signal_items`·`topic_series`·`source_freshness`. 실행 기록은 painpointer.db `collection_runs`(source=`radar:<이름>`), 2일 연속 실패 시 웹훅.
+- 키 없음은 실패가 아니라 `no_key`(웹훅 없음). 키 목록은 .env.example 하단.
+- 토픽 원천(openalex·semantic_scholar·arxiv·gdelt·hackernews·naver_*)의 질의는 T8 분야 정의가 만든다. 지금은 `--query`로 하나씩만.
+- 실측 주의:
+  - **AIID**: 공개 API가 허가 도메인만 받음(403 Invalid origin) → 주간 스냅샷 incidents.csv를 받아 `PP_AIID_SNAPSHOT`에.
+  - **GDELT**: 5초에 1회 제한, 자주 429. 요청 간격 6초 + 재시도.
+  - **arXiv**: 2026-10-09에 500·503이 계속 나서 실응답 미확인(형식은 Atom 문서 기준). 실패로 기록되고 다음 실행에 다시 시도.
+  - **HN**: 1년 범위 nbHits는 추정치가 크게 틀리고, 2026년 일부 달은 0~1점 스토리가 달 200만 건 넘게 색인됨 → 점수 2 이상만, 달별 합으로 센다.
+  - **Epoch**: 점수 척도는 zip 안 benchmark_metadata.csv(scale·score_ceiling)를 따른다. 메타데이터 없는 벤치마크(속도 배수 등)는 건너뜀.
+  - **공적 목록**: `painpointer/radar/lists/*.json` 손 스냅샷(출처 URL·판·확인일 필수). 새 판이 나오면 파일을 추가하면 확인일이 늦은 판이 현행 판.

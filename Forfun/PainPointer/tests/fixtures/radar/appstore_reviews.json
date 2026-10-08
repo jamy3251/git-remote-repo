@@ -1,0 +1,218 @@
+{
+ "feed": {
+  "author": {
+   "name": {
+    "label": "iTunes Store"
+   },
+   "uri": {
+    "label": "http://www.apple.com/itunes/"
+   }
+  },
+  "entry": [
+   {
+    "author": {
+     "uri": {
+      "label": "https://itunes.apple.com/kr/reviews/id1104312063"
+     },
+     "name": {
+      "label": "스구루상"
+     },
+     "label": ""
+    },
+    "updated": {
+     "label": "2026-10-07T09:33:13-07:00"
+    },
+    "im:rating": {
+     "label": "5"
+    },
+    "im:version": {
+     "label": "26.8.3"
+    },
+    "id": {
+     "label": "14638812538"
+    },
+    "title": {
+     "label": "제발 카카오 숏폼 없애는 버튼좀 만들어주세요 제발.....저에게 재앙이 되었습니다"
+    },
+    "content": {
+     "label": "(1점남기면 안볼것같아서 5점남깁니다...\n\n엄청나게 깁니다. 스크롤 조심하세요.)\n\n\n안녕하세요, 저는 카카오톡을 오래 전부터 오픈채팅, 팀채팅, 그룹채팅방 등 여러 기능들을 활발히 이용하며 불과 몇년 전 까지만 해도 카카오톡을 사랑하던 유저입니다.\n\n최근 생긴 여러 업데이트 문제로 카카오톡이 욕을 먹고 있는 것은 매우 잘 알 고 있습니다. \n\n사용하는 ",
+     "attributes": {
+      "type": "text"
+     }
+    },
+    "link": {
+     "attributes": {
+      "rel": "related",
+      "href": "https://itunes.apple.com/kr/review?id=362057947&type=Purple%20Software"
+     }
+    },
+    "im:voteSum": {
+     "label": "0"
+    },
+    "im:contentType": {
+     "attributes": {
+      "term": "Application",
+      "label": "앱"
+     }
+    },
+    "im:voteCount": {
+     "label": "0"
+    }
+   },
+   {
+    "author": {
+     "uri": {
+      "label": "https://itunes.apple.com/kr/reviews/id627703654"
+     },
+     "name": {
+      "label": "잔다비비"
+     },
+     "label": ""
+    },
+    "updated": {
+     "label": "2026-10-07T04:14:29-07:00"
+    },
+    "im:rating": {
+     "label": "1"
+    },
+    "im:version": {
+     "label": "26.8.3"
+    },
+    "id": {
+     "label": "14637777076"
+    },
+    "title": {
+     "label": "업데이트 하기가 겁난다"
+    },
+    "content": {
+     "label": "이번엔 또 무슨 뻘짓을 해놨을까?\n은근히 기대되면서 업데이트를 안하게된다. \n시간이 지날수록 쓰레기가 돼가네. \n남들이 쓰니 어쩔 수 없이 쓴다만 진짜 짜증나는 메신저다.",
+     "attributes": {
+      "type": "text"
+     }
+    },
+    "link": {
+     "attributes": {
+      "rel": "related",
+      "href": "https://itunes.apple.com/kr/review?id=362057947&type=Purple%20Software"
+     }
+    },
+    "im:voteSum": {
+     "label": "0"
+    },
+    "im:contentType": {
+     "attributes": {
+      "term": "Application",
+      "label": "앱"
+     }
+    },
+    "im:voteCount": {
+     "label": "0"
+    }
+   },
+   {
+    "author": {
+     "uri": {
+      "label": "https://itunes.apple.com/kr/reviews/id1947331634"
+     },
+     "name": {
+      "label": "미ㅐ우ㅏ"
+     },
+     "label": ""
+    },
+    "updated": {
+     "label": "2026-10-07T03:47:47-07:00"
+    },
+    "im:rating": {
+     "label": "5"
+    },
+    "im:version": {
+     "label": "26.8.3"
+    },
+    "id": {
+     "label": "14637704357"
+    },
+    "title": {
+     "label": "ㄷㄷ"
+    },
+    "content": {
+     "label": "괜찮네?",
+     "attributes": {
+      "type": "text"
+     }
+    },
+    "link": {
+     "attributes": {
+      "rel": "related",
+      "href": "https://itunes.apple.com/kr/review?id=362057947&type=Purple%20Software"
+     }
+    },
+    "im:voteSum": {
+     "label": "0"
+    },
+    "im:contentType": {
+     "attributes": {
+      "term": "Application",
+      "label": "앱"
+     }
+    },
+    "im:voteCount": {
+     "label": "0"
+    }
+   }
+  ],
+  "updated": {
+   "label": "2026-10-08T14:09:59-07:00"
+  },
+  "rights": {
+   "label": "Copyright 2008 Apple Inc."
+  },
+  "title": {
+   "label": "iTunes Store:사용자 후기"
+  },
+  "icon": {
+   "label": "http://phobos.apple.com/favicon.ico"
+  },
+  "link": [
+   {
+    "attributes": {
+     "rel": "alternate",
+     "type": "text/html",
+     "href": "https://apps.apple.com/WebObjects/MZStore.woa/wa/viewGrouping?cc=kr&id=29141"
+    }
+   },
+   {
+    "attributes": {
+     "rel": "self",
+     "href": "https://itunes.apple.com/kr/rss/customerreviews/page=1/id=362057947/sortby=mostrecent/json"
+    }
+   },
+   {
+    "attributes": {
+     "rel": "first",
+     "href": "https://itunes.apple.com/kr/rss/customerreviews/page=1/id=362057947/sortby=mostrecent/xml?urlDesc=/customerreviews/page=1/id=362057947/sortby=mostrecent/json"
+    }
+   },
+   {
+    "attributes": {
+     "rel": "last",
+     "href": "https://itunes.apple.com/kr/rss/customerreviews/page=10/id=362057947/sortby=mostrecent/xml?urlDesc=/customerreviews/page=1/id=362057947/sortby=mostrecent/json"
+    }
+   },
+   {
+    "attributes": {
+     "rel": "previous",
+     "href": "https://itunes.apple.com/kr/rss/customerreviews/page=1/id=362057947/sortby=mostrecent/xml?urlDesc=/customerreviews/page=1/id=362057947/sortby=mostrecent/json"
+    }
+   },
+   {
+    "attributes": {
+     "rel": "next",
+     "href": "https://itunes.apple.com/kr/rss/customerreviews/page=2/id=362057947/sortby=mostrecent/xml?urlDesc=/customerreviews/page=1/id=362057947/sortby=mostrecent/json"
+    }
+   }
+  ],
+  "id": {
+   "label": "https://itunes.apple.com/kr/rss/customerreviews/page=1/id=362057947/sortby=mostrecent/json"
+  }
+ }
+}

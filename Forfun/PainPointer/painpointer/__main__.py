@@ -3,7 +3,7 @@
   python -m painpointer init                      # DB 생성/마이그레이션
   python -m painpointer serve                     # 127.0.0.1:8765
   python -m painpointer watch add dcinside <갤러리ID> [--label ...]
-  python -m painpointer watch add googleplay <패키지ID>
+  python -m painpointer watch add googleplay <패키지ID>   (앱스토어: watch add appstore <앱 숫자 ID>)
   python -m painpointer watch list | rm <source> <board>
   python -m painpointer collect [--source dcinside|dcinside:board] [--no-embed] [--no-body] [--no-extract]
   python -m painpointer embed-posts               # 임베딩 미계산 글 배치
@@ -11,6 +11,8 @@
   python -m painpointer models                    # /v1/models 목록(스냅샷 ID 확인)
   python -m painpointer report --pain "..." --target "..." [--term ...] [--source ...] [--out r.html] [--no-expand]
   python -m painpointer status
+  python -m painpointer radar-collect [--source cisa_kev] [--layer 1] [--query '{"topic_id": "T10028"}'] [--since 2026-01-01]
+  python -m painpointer radar-sources            # 레이더 원천 등급·키·최신 시점
 """
 from __future__ import annotations
 
@@ -165,6 +167,43 @@ def cmd_discover(a):
     _print(f"페인 지도 {pm.id} → {out}  (가설 후보 — 근거 수치는 report로 검증)")
 
 
+def cmd_radar_collect(a):
+    """레이더 신호 원천 실행. 피드 원천은 질의 없이, 토픽 원천은 --query JSON(토픽 목록은 T8 분야 정의에서)."""
+    import json as _json
+    from .radar import sources
+    names = a.source or [n for n, c in sources.all_sources().items()
+                         if not c.needs_query and (not a.layer or c.layer in a.layer)]
+    query = _json.loads(a.query) if a.query else {}
+    if a.since:
+        query["since"] = a.since
+    bad = 0
+    for name in names:
+        src = sources.get(name)
+        if src.needs_query and not query:
+            _print(f"[{name}] 건너뜀 — 토픽 질의가 필요한 원천(--query '{{\"topic_id\": ...}}')")
+            continue
+        r = sources.run_source(src, query, db_path=a.db, progress=_print)
+        if r["status"] != "ok":
+            bad += r["status"] == "failed"
+            _print(f"[{name}/{r['label']}] {r['status']}: {r['error']}")
+    _print(f"원천 {len(names)}개 실행, 실패 {bad}개")
+
+
+def cmd_radar_sources(a):
+    from .radar import radar_db, sources
+    radar_db.init_radar_db()
+    conn = radar_db.open_read()
+    try:
+        fresh = {r["source"]: dict(r) for r in conn.execute("SELECT * FROM source_freshness")}
+    finally:
+        conn.close()
+    for name, c in sorted(sources.all_sources().items(), key=lambda kv: (kv[1].layer, kv[0])):
+        f = fresh.get(name) or {}
+        keys = ",".join(c.key_env) + ("(선택)" if c.key_optional else "") if c.key_env else "-"
+        _print(f"  L{c.layer} {name:<18} {c.tier:<8} 키 {keys:<44} {f.get('status', '미실행'):<7} "
+               f"최신 {f.get('latest_data_at') or '-'} 확인 {(f.get('checked_at') or '-')[:16]} {(f.get('error') or '')[:60]}")
+
+
 def cmd_status(a):
     from . import db
     db.init_db(a.db)
@@ -234,6 +273,11 @@ def main(argv=None):
     d.add_argument("--target", default=""); d.add_argument("--days", type=int, default=config.DISCOVER_DAYS)
     d.add_argument("--out"); d.set_defaults(func=cmd_discover)
     sub.add_parser("status").set_defaults(func=cmd_status)
+    rc = sub.add_parser("radar-collect", help="레이더 신호 원천 수집(기본: 질의가 필요 없는 피드 원천 전부)")
+    rc.add_argument("--source", action="append", help="원천 이름(여러 번)"); rc.add_argument("--layer", type=int, action="append")
+    rc.add_argument("--query", help="토픽 원천 질의 JSON"); rc.add_argument("--since", help="NVD 백필 시작일 YYYY-MM-DD")
+    rc.set_defaults(func=cmd_radar_collect)
+    sub.add_parser("radar-sources", help="레이더 원천 목록·키·최신 시점").set_defaults(func=cmd_radar_sources)
     a = p.parse_args(argv)
     a.db = Path(a.db)
     a.func(a)

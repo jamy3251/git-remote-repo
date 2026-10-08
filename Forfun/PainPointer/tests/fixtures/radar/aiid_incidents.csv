@@ -1,0 +1,4 @@
+_id,incident_id,date,reports,title,description
+a1,1201,2026-08-14,"[1,2]",Chatbot gave wrong refund policy,x
+a2,1202,2026-09-02,[3],Deepfake voice used in bank fraud,y
+a3,1203,2026-09-20,[4],Face recognition misidentified shopper,z

@@ -1,0 +1,42 @@
+{
+ "list_id": "eu_ai_act_annex3",
+ "name": "EU AI Act Annex III 고위험 분야",
+ "edition": "Regulation (EU) 2024/1689",
+ "field": "ai",
+ "url": "https://artificialintelligenceact.eu/annex/3/",
+ "checked_at": "2026-10-09",
+ "entries": [
+  {
+   "rank": 1,
+   "title": "Biometrics"
+  },
+  {
+   "rank": 2,
+   "title": "Critical infrastructure"
+  },
+  {
+   "rank": 3,
+   "title": "Education and vocational training"
+  },
+  {
+   "rank": 4,
+   "title": "Employment, workers' management and access to self-employment"
+  },
+  {
+   "rank": 5,
+   "title": "Access to and enjoyment of essential private services and essential public services and benefits"
+  },
+  {
+   "rank": 6,
+   "title": "Law enforcement"
+  },
+  {
+   "rank": 7,
+   "title": "Migration, asylum and border control management"
+  },
+  {
+   "rank": 8,
+   "title": "Administration of justice and democratic processes"
+  }
+ ]
+}

@@ -1,0 +1,1619 @@
+{
+ "meta": {
+  "count": 132730,
+  "db_response_time_ms": 30,
+  "page": 1,
+  "per_page": 2,
+  "groups_count": null,
+  "x_query": {
+   "oql": "get works where date >= (2025-10-01) and topics is (T10028)",
+   "oqo": {
+    "get_rows": "works",
+    "filter_rows": [
+     {
+      "column_id": "from_publication_date",
+      "value": "2025-10-01"
+     },
+     {
+      "column_id": "topics.id",
+      "value": "T10028"
+     }
+    ]
+   },
+   "url": "/works?filter=from_publication_date:2025-10-01,topics.id:T10028&per_page=2"
+  },
+  "cost_usd": 0.0001
+ },
+ "results": [
+  {
+   "id": "https://openalex.org/W4362515116",
+   "title": "A Survey of Large Language Models",
+   "publication_date": "2026-05-09",
+   "cited_by_count": 1552,
+   "primary_location": {
+    "id": "doi:10.1007/s11704-026-60308-3",
+    "is_oa": true,
+    "landing_page_url": "https://doi.org/10.1007/s11704-026-60308-3",
+    "pdf_url": "https://link.springer.com/content/pdf/10.1007/s11704-026-60308-3.pdf",
+    "source": {
+     "id": "https://openalex.org/S4210231404",
+     "display_name": "Frontiers of Computer Science",
+     "issn_l": "2095-2228",
+     "issn": [
+      "2095-2228",
+      "2095-2236"
+     ],
+     "is_oa": false,
+     "is_in_doaj": false,
+     "is_core": true,
+     "listed_in": [
+      "cwts-core",
+      "norway-1"
+     ],
+     "host_organization": "https://openalex.org/P4310311889",
+     "host_organization_name": "Higher Education Press",
+     "host_organization_lineage": [
+      "https://openalex.org/P4310311889"
+     ],
+     "host_organization_lineage_names": [
+      "Higher Education Press"
+     ],
+     "type": "journal"
+    },
+    "license": "cc-by",
+    "license_id": "https://openalex.org/licenses/cc-by",
+    "version": "publishedVersion",
+    "is_accepted": true,
+    "is_published": true,
+    "raw_source_name": "Frontiers of Computer Science",
+    "raw_type": "journal-article"
+   },
+   "abstract_inverted_index": {
+    "Abstract": [
+     0
+    ],
+    "The": [
+     1
+    ],
+    "rapid": [
+     2
+    ],
+    "evolution": [
+     3
+    ],
+    "of": [
+     4,
+     147,
+     200
+    ],
+    "large": [
+     5
+    ],
+    "language": [
+     6,
+     136
+    ],
+    "models": [
+     7,
+     90
+    ],
+    "(LLMs)": [
+     8
+    ],
+    "has": [
+     9
+    ],
+    "driven": [
+     10
+    ],
+    "a": [
+     11,
+     186
+    ],
+    "transformative": [
+     12
+    ],
+    "shift": [
+     13
+    ],
+    "in": [
+     14,
+     53
+    ],
+    "artificial": [
+     15
+    ],
+    "intelligence": [
+     16
+    ],
+    "(AI),": [
+     17
+    ],
+    "reshaping": [
+     18
+    ],
+    "both": [
+     19
+    ],
+    "research": [
+     20,
+     154
+    ],
+    "paradigms": [
+     21
+    ],
+    "and": [
+     22,
+     32,
+     44,
+     74,
+     84,
+     94,
+     98,
+     109,
+     116,
+     123,
+     139,
+     144,
+     164,
+     167,
+     178,
+     188,
+     197
+    ],
+    "practical": [
+     23
+    ],
+    "applications.": [
+     24
+    ],
+    "Distinguished": [
+     25
+    ],
+    "from": [
+     26
+    ],
+    "their": [
+     27,
+     41,
+     96
+    ],
+    "predecessors": [
+     28
+    ],
+    "by": [
+     29
+    ],
+    "unprecedented": [
+     30
+    ],
+    "scale": [
+     31
+    ],
+    "advanced": [
+     33
+    ],
+    "capabilities,": [
+     34,
+     137
+    ],
+    "LLMs": [
+     35
+    ],
+    "necessitate": [
+     36
+    ],
+    "new": [
+     37
+    ],
+    "frameworks": [
+     38
+    ],
+    "for": [
+     39,
+     129,
+     191
+    ],
+    "understanding": [
+     40,
+     192
+    ],
+    "development,": [
+     42
+    ],
+    "behavior,": [
+     43
+    ],
+    "societal": [
+     45
+    ],
+    "impact.": [
+     46
+    ],
+    "This": [
+     47
+    ],
+    "survey": [
+     48,
+     182
+    ],
+    "systematically": [
+     49
+    ],
+    "reviews": [
+     50
+    ],
+    "recent": [
+     51
+    ],
+    "advancements": [
+     52
+    ],
+    "LLM": [
+     54,
+     201
+    ],
+    "techniques": [
+     55
+    ],
+    "across": [
+     56
+    ],
+    "four": [
+     57
+    ],
+    "key": [
+     58,
+     130
+    ],
+    "dimensions:": [
+     59
+    ],
+    "(1)": [
+     60
+    ],
+    "pre-training": [
+     61
+    ],
+    "methodologies,": [
+     62
+    ],
+    "which": [
+     63,
+     87,
+     141
+    ],
+    "establish": [
+     64
+    ],
+    "core": [
+     65,
+     135
+    ],
+    "model": [
+     66,
+     148
+    ],
+    "capabilities": [
+     67
+    ],
+    "through": [
+     68
+    ],
+    "large-scale": [
+     69
+    ],
+    "self-supervised": [
+     70
+    ],
+    "training,": [
+     71
+    ],
+    "architectural": [
+     72
+    ],
+    "innovations,": [
+     73
+    ],
+    "data": [
+     75
+    ],
+    "curation": [
+     76
+    ],
+    "strategies;": [
+     77
+    ],
+    "(2)": [
+     78
+    ],
+    "post-training": [
+     79
+    ],
+    "techniques,": [
+     80
+    ],
+    "including": [
+     81,
+     156
+    ],
+    "supervised": [
+     82
+    ],
+    "fine-tuning": [
+     83
+    ],
+    "reinforcement": [
+     85
+    ],
+    "learning,": [
+     86,
+     106
+    ],
+    "adapt": [
+     88
+    ],
+    "foundational": [
+     89
+    ],
+    "to": [
+     91,
+     184
+    ],
+    "downstream": [
+     92
+    ],
+    "tasks": [
+     93
+    ],
+    "enhance": [
+     95
+    ],
+    "alignment": [
+     97
+    ],
+    "safety;": [
+     99
+    ],
+    "(3)": [
+     100
+    ],
+    "utilization": [
+     101
+    ],
+    "strategies,": [
+     102
+    ],
+    "such": [
+     103,
+     133
+    ],
+    "as": [
+     104,
+     134
+    ],
+    "in-context": [
+     105
+    ],
+    "prompt": [
+     107
+    ],
+    "engineering,": [
+     108
+    ],
+    "agentic": [
+     110,
+     165
+    ],
+    "reasoning,": [
+     111,
+     138
+    ],
+    "that": [
+     112
+    ],
+    "optimize": [
+     113
+    ],
+    "real-world": [
+     114
+    ],
+    "deployment": [
+     115
+    ],
+    "enable": [
+     117
+    ],
+    "effective": [
+     118
+    ],
+    "interaction": [
+     119
+    ],
+    "with": [
+     120
+    ],
+    "external": [
+     121
+    ],
+    "environments;": [
+     122
+    ],
+    "(4)": [
+     124
+    ],
+    "evaluation": [
+     125
+    ],
+    "methods,": [
+     126
+    ],
+    "encompassing": [
+     127
+    ],
+    "benchmarks": [
+     128
+    ],
+    "ability": [
+     131
+    ],
+    "dimensions": [
+     132
+    ],
+    "safety,": [
+     140
+    ],
+    "support": [
+     142
+    ],
+    "comprehensive": [
+     143,
+     189
+    ],
+    "reliable": [
+     145
+    ],
+    "assessment": [
+     146
+    ],
+    "performance.": [
+     149
+    ],
+    "Additionally,": [
+     150
+    ],
+    "we": [
+     151
+    ],
+    "identify": [
+     152
+    ],
+    "critical": [
+     153
+    ],
+    "issues,": [
+     155
+    ],
+    "those": [
+     157
+    ],
+    "concerning": [
+     158
+    ],
+    "theoretical": [
+     159
+    ],
+    "foundations,": [
+     160
+    ],
+    "efficient": [
+     161
+    ],
+    "scaling,": [
+     162
+    ],
+    "alignment,": [
+     163
+    ],
+    "capability,": [
+     166
+    ],
+    "highlight": [
+     168
+    ],
+    "the": [
+     169,
+     193
+    ],
+    "open": [
+     170
+    ],
+    "challenges": [
+     171
+    ],
+    "they": [
+     172
+    ],
+    "present.": [
+     173
+    ],
+    "By": [
+     174
+    ],
+    "synthesizing": [
+     175
+    ],
+    "state-of-the-art": [
+     176
+    ],
+    "insights": [
+     177
+    ],
+    "emerging": [
+     179
+    ],
+    "trends,": [
+     180
+    ],
+    "this": [
+     181
+    ],
+    "aims": [
+     183
+    ],
+    "provide": [
+     185
+    ],
+    "systematic": [
+     187
+    ],
+    "framework": [
+     190
+    ],
+    "trajectory,": [
+     194
+    ],
+    "current": [
+     195
+    ],
+    "limitations,": [
+     196
+    ],
+    "future": [
+     198
+    ],
+    "directions": [
+     199
+    ],
+    "progress.": [
+     202
+    ]
+   },
+   "primary_topic": {
+    "id": "https://openalex.org/T10028",
+    "display_name": "Topic Modeling",
+    "score": 0.9487000107765198,
+    "subfield": {
+     "id": "https://openalex.org/subfields/1702",
+     "display_name": "Artificial Intelligence"
+    },
+    "field": {
+     "id": "https://openalex.org/fields/17",
+     "display_name": "Computer Science"
+    },
+    "domain": {
+     "id": "https://openalex.org/domains/3",
+     "display_name": "Physical Sciences"
+    }
+   }
+  },
+  {
+   "id": "https://openalex.org/W4293718192",
+   "title": "Abstract Functional Language Logic: A Competitive Mixture of Experts Architecture for Paradox-Free Reasoning and Adaptive Intelligence",
+   "publication_date": "2025-11-28",
+   "cited_by_count": 585,
+   "primary_location": {
+    "id": "doi:10.5281/zenodo.17754506",
+    "is_oa": true,
+    "landing_page_url": "https://doi.org/10.5281/zenodo.17754506",
+    "pdf_url": null,
+    "source": {
+     "id": "https://openalex.org/S4306400562",
+     "display_name": "Zenodo (CERN European Organization for Nuclear Research)",
+     "issn_l": null,
+     "issn": null,
+     "is_oa": true,
+     "is_in_doaj": false,
+     "is_core": false,
+     "listed_in": [],
+     "host_organization": "https://openalex.org/I67311998",
+     "host_organization_name": "European Organization for Nuclear Research",
+     "host_organization_lineage": [
+      "https://openalex.org/I67311998"
+     ],
+     "host_organization_lineage_names": [],
+     "type": "repository"
+    },
+    "license": "cc-by",
+    "license_id": "https://openalex.org/licenses/cc-by",
+    "version": null,
+    "is_accepted": false,
+    "is_published": false,
+    "raw_source_name": null,
+    "raw_type": "article-journal"
+   },
+   "abstract_inverted_index": {
+    "The": [
+     0,
+     142,
+     180,
+     263
+    ],
+    "prevailing": [
+     1
+    ],
+    "paradigm": [
+     2,
+     336
+    ],
+    "of": [
+     3,
+     51,
+     145,
+     173,
+     182,
+     298,
+     303,
+     363,
+     373,
+     383
+    ],
+    "Large": [
+     4,
+     375
+    ],
+    "Language": [
+     5,
+     58,
+     144,
+     369,
+     376,
+     382
+    ],
+    "Models": [
+     6
+    ],
+    "(LLMs)": [
+     7
+    ],
+    "relies": [
+     8
+    ],
+    "heavily": [
+     9
+    ],
+    "on": [
+     10,
+     56
+    ],
+    "probabilistic": [
+     11,
+     45
+    ],
+    "next-token": [
+     12
+    ],
+    "prediction.": [
+     13
+    ],
+    "While": [
+     14
+    ],
+    "this": [
+     15,
+     316
+    ],
+    "yields": [
+     16
+    ],
+    "impressive": [
+     17
+    ],
+    "linguistic": [
+     18,
+     32,
+     70
+    ],
+    "fluency,": [
+     19
+    ],
+    "it": [
+     20
+    ],
+    "fundamentally": [
+     21
+    ],
+    "struggles": [
+     22
+    ],
+    "with": [
+     23,
+     130,
+     347
+    ],
+    "strict": [
+     24
+    ],
+    "logical": [
+     25,
+     161,
+     199,
+     237,
+     246,
+     365
+    ],
+    "deduction,": [
+     26
+    ],
+    "often": [
+     27
+    ],
+    "succumbing": [
+     28
+    ],
+    "to": [
+     29,
+     72,
+     154,
+     209,
+     218
+    ],
+    "semantic": [
+     30,
+     223
+    ],
+    "hallucinations,": [
+     31
+    ],
+    "paradoxes,": [
+     33
+    ],
+    "and": [
+     34,
+     87,
+     111,
+     118,
+     138,
+     178,
+     222,
+     283,
+     293,
+     357
+    ],
+    "high": [
+     35
+    ],
+    "computational": [
+     36
+    ],
+    "latency.": [
+     37
+    ],
+    "This": [
+     38,
+     159,
+     243,
+     276,
+     332
+    ],
+    "paper": [
+     39,
+     333
+    ],
+    "introduces": [
+     40
+    ],
+    "a": [
+     41,
+     73,
+     94,
+     107,
+     183,
+     335
+    ],
+    "radical": [
+     42
+    ],
+    "departure": [
+     43
+    ],
+    "from": [
+     44,
+     67,
+     170
+    ],
+    "text-based": [
+     46
+    ],
+    "reasoning:": [
+     47
+    ],
+    "the": [
+     48,
+     64,
+     103,
+     171,
+     192,
+     196,
+     212,
+     215,
+     249,
+     254,
+     300,
+     313
+    ],
+    "Competitive": [
+     49
+    ],
+    "Mixture": [
+     50,
+     372
+    ],
+    "Experts": [
+     52
+    ],
+    "(CMoE)": [
+     53
+    ],
+    "framework": [
+     54
+    ],
+    "based": [
+     55
+    ],
+    "Functional": [
+     57,
+     121,
+     368
+    ],
+    "Logic": [
+     59
+    ],
+    "(FLL).": [
+     60
+    ],
+    "We": [
+     61
+    ],
+    "propose": [
+     62
+    ],
+    "offloading": [
+     63
+    ],
+    "\"thinking\"": [
+     65
+    ],
+    "process": [
+     66
+    ],
+    "massive,": [
+     68
+    ],
+    "opaque": [
+     69
+    ],
+    "transformers": [
+     71
+    ],
+    "highly": [
+     74,
+     108,
+     321,
+     358
+    ],
+    "efficient,": [
+     75
+    ],
+    "dedicated": [
+     76
+    ],
+    "cognitive": [
+     77
+    ],
+    "engine": [
+     78
+    ],
+    "built": [
+     79
+    ],
+    "entirely": [
+     80
+    ],
+    "upon": [
+     81
+    ],
+    "mathematical": [
+     82,
+     95,
+     132,
+     281,
+     308,
+     350
+    ],
+    "functional": [
+     83,
+     274
+    ],
+    "approximators": [
+     84
+    ],
+    "(linear,": [
+     85
+    ],
+    "parabolic,": [
+     86
+    ],
+    "elliptical": [
+     88
+    ],
+    "primitives).": [
+     89
+    ],
+    "By": [
+     90
+    ],
+    "treating": [
+     91
+    ],
+    "logic": [
+     92,
+     305
+    ],
+    "as": [
+     93,
+     123,
+     191,
+     319
+    ],
+    "mapping": [
+     96
+    ],
+    "rather": [
+     97
+    ],
+    "than": [
+     98
+    ],
+    "an": [
+     99,
+     354
+    ],
+    "associative": [
+     100
+    ],
+    "token": [
+     101
+    ],
+    "distribution,": [
+     102
+    ],
+    "CMoE": [
+     104,
+     213
+    ],
+    "architecture": [
+     105
+    ],
+    "establishes": [
+     106
+    ],
+    "interpretable,": [
+     109
+    ],
+    "lightweight,": [
+     110
+    ],
+    "mathematically": [
+     112
+    ],
+    "bounded": [
+     113
+    ],
+    "reasoning": [
+     114,
+     151,
+     166,
+     326
+    ],
+    "system.": [
+     115
+    ],
+    "Key": [
+     116
+    ],
+    "Contributions": [
+     117
+    ],
+    "Architectural": [
+     119
+    ],
+    "Features:": [
+     120
+    ],
+    "Approximators": [
+     122
+    ],
+    "Cognitive": [
+     124
+    ],
+    "Agents:": [
+     125
+    ],
+    "Replacing": [
+     126
+    ],
+    "computationally": [
+     127
+    ],
+    "redundant": [
+     128,
+     273
+    ],
+    "MLPs": [
+     129
+    ],
+    "parameterized": [
+     131
+    ],
+    "functions": [
+     133
+    ],
+    "that": [
+     134,
+     188,
+     232,
+     271,
+     327
+    ],
+    "require": [
+     135
+    ],
+    "minimal": [
+     136
+    ],
+    "training": [
+     137
+    ],
+    "adapt": [
+     139
+    ],
+    "in": [
+     140,
+     258,
+     338
+    ],
+    "microseconds.": [
+     141
+    ],
+    "8-Token": [
+     143
+    ],
+    "Thought": [
+     146
+    ],
+    "(LoT):": [
+     147
+    ],
+    "A": [
+     148,
+     207,
+     228,
+     267
+    ],
+    "deterministic,": [
+     149
+    ],
+    "abstract": [
+     150,
+     198
+    ],
+    "space": [
+     152
+    ],
+    "restricted": [
+     153
+    ],
+    "exactly": [
+     155
+    ],
+    "8": [
+     156
+    ],
+    "operational": [
+     157
+    ],
+    "tokens.": [
+     158
+    ],
+    "closed": [
+     160
+    ],
+    "system": [
+     162
+    ],
+    "guarantees": [
+     163
+    ],
+    "paradox-free": [
+     164
+    ],
+    "internal": [
+     165
+    ],
+    "by": [
+     167,
+     312
+    ],
+    "isolating": [
+     168
+    ],
+    "computation": [
+     169
+    ],
+    "ambiguities": [
+     172
+    ],
+    "human": [
+     174
+    ],
+    "language.": [
+     175
+    ],
+    "Decoupled": [
+     176
+    ],
+    "Cognition": [
+     177
+    ],
+    "Articulation:": [
+     179
+    ],
+    "introduction": [
+     181
+    ],
+    "\"Host": [
+     184
+    ],
+    "Interpreter": [
+     185
+    ],
+    "Model\"": [
+     186
+    ],
+    "(LMM/LLM)": [
+     187
+    ],
+    "acts": [
+     189
+    ],
+    "solely": [
+     190
+    ],
+    "articulation": [
+     193
+    ],
+    "layer,": [
+     194
+    ],
+    "translating": [
+     195
+    ],
+    "CMoE's": [
+     197
+    ],
+    "vectors": [
+     200
+    ],
+    "into": [
+     201
+    ],
+    "human-readable": [
+     202
+    ],
+    "text.": [
+     203
+    ],
+    "Continuous": [
+     204
+    ],
+    "Joint": [
+     205
+    ],
+    "Training:": [
+     206
+    ],
+    "methodology": [
+     208
+    ],
+    "continuously": [
+     210
+    ],
+    "co-evolve": [
+     211
+    ],
+    "alongside": [
+     214
+    ],
+    "Host": [
+     216,
+     314
+    ],
+    "Model": [
+     217
+    ],
+    "mitigate": [
+     219
+    ],
+    "\"interface": [
+     220
+    ],
+    "hallucinations\"": [
+     221
+    ],
+    "dissonance.": [
+     224
+    ],
+    "Recursive": [
+     225
+    ],
+    "Query": [
+     226
+    ],
+    "Fragmentation:": [
+     227
+    ],
+    "novel": [
+     229
+    ],
+    "prompt-processing": [
+     230
+    ],
+    "mechanism": [
+     231
+    ],
+    "parses": [
+     233
+    ],
+    "complex": [
+     234
+    ],
+    "queries": [
+     235
+    ],
+    "via": [
+     236
+    ],
+    "operators": [
+     238
+    ],
+    "(e.g.,": [
+     239
+    ],
+    "therefore,": [
+     240
+    ],
+    "if,": [
+     241
+    ],
+    "and).": [
+     242
+    ],
+    "processes": [
+     244
+    ],
+    "infinite": [
+     245
+    ],
+    "depth": [
+     247
+    ],
+    "within": [
+     248
+    ],
+    "call": [
+     250
+    ],
+    "stack": [
+     251
+    ],
+    "itself,": [
+     252
+    ],
+    "bypassing": [
+     253
+    ],
+    "degradation": [
+     255
+    ],
+    "typically": [
+     256
+    ],
+    "seen": [
+     257
+    ],
+    "standard": [
+     259
+    ],
+    "transformer": [
+     260
+    ],
+    "context": [
+     261
+    ],
+    "windows.": [
+     262
+    ],
+    "Shadowing": [
+     264,
+     380
+    ],
+    "Score": [
+     265
+    ],
+    "($S_{shadow}$):": [
+     266
+    ],
+    "competitive": [
+     268
+    ],
+    "suppression": [
+     269
+    ],
+    "metric": [
+     270
+    ],
+    "penalizes": [
+     272
+    ],
+    "agents.": [
+     275
+    ],
+    "prevents": [
+     277
+    ],
+    "representation": [
+     278
+    ],
+    "collapse,": [
+     279
+    ],
+    "forces": [
+     280
+    ],
+    "divergence,": [
+     282
+    ],
+    "enables": [
+     284
+    ],
+    "dynamic": [
+     285
+    ],
+    "on-the-fly": [
+     286
+    ],
+    "fine-tuning": [
+     287
+    ],
+    "during": [
+     288
+    ],
+    "live": [
+     289
+    ],
+    "dialogue.": [
+     290
+    ],
+    "Flexible": [
+     291
+    ],
+    "Intelligence": [
+     292
+    ],
+    "Bounded": [
+     294
+    ],
+    "Creativity:": [
+     295
+    ],
+    "An": [
+     296
+    ],
+    "exploration": [
+     297
+    ],
+    "how": [
+     299,
+     342
+    ],
+    "continuous": [
+     301
+    ],
+    "interpolation": [
+     302
+    ],
+    "discrete": [
+     304
+    ],
+    "generates": [
+     306
+    ],
+    "structural": [
+     307
+    ],
+    "\"noise.\"": [
+     309
+    ],
+    "When": [
+     310
+    ],
+    "articulated": [
+     311
+    ],
+    "Model,": [
+     315
+    ],
+    "noise": [
+     317
+    ],
+    "manifests": [
+     318
+    ],
+    "emergent,": [
+     320
+    ],
+    "creative,": [
+     322,
+     356
+    ],
+    "yet": [
+     323
+    ],
+    "logically": [
+     324
+    ],
+    "grounded": [
+     325
+    ],
+    "drastically": [
+     328
+    ],
+    "enhances": [
+     329
+    ],
+    "zero-shot": [
+     330
+    ],
+    "generalization.": [
+     331
+    ],
+    "outlines": [
+     334
+    ],
+    "shift": [
+     337
+    ],
+    "neuro-symbolic": [
+     339
+    ],
+    "AI,": [
+     340,
+     379
+    ],
+    "demonstrating": [
+     341
+    ],
+    "replacing": [
+     343
+    ],
+    "massive": [
+     344
+    ],
+    "neural": [
+     345
+    ],
+    "layers": [
+     346
+    ],
+    "competitively": [
+     348
+    ],
+    "suppressed": [
+     349
+    ],
+    "primitives": [
+     351
+    ],
+    "can": [
+     352
+    ],
+    "yield": [
+     353
+    ],
+    "adaptive,": [
+     355
+    ],
+    "efficient": [
+     359
+    ],
+    "artificial": [
+     360
+    ],
+    "intelligence": [
+     361
+    ],
+    "capable": [
+     362
+    ],
+    "profound": [
+     364
+    ],
+    "deduction.": [
+     366
+    ],
+    "Keywords:": [
+     367
+    ],
+    "Logic,": [
+     370
+    ],
+    "CMoE,": [
+     371
+    ],
+    "Experts,": [
+     374
+    ],
+    "Models,": [
+     377
+    ],
+    "Neuro-symbolic": [
+     378
+    ],
+    "Score,": [
+     381
+    ],
+    "Thought,": [
+     384
+    ],
+    "Knowledge": [
+     385
+    ],
+    "Distillation,": [
+     386
+    ],
+    "Logic.": [
+     387
+    ]
+   },
+   "primary_topic": {
+    "id": "https://openalex.org/T11010",
+    "display_name": "Logic, Reasoning, and Knowledge",
+    "score": 0.5268999934196472,
+    "subfield": {
+     "id": "https://openalex.org/subfields/1702",
+     "display_name": "Artificial Intelligence"
+    },
+    "field": {
+     "id": "https://openalex.org/fields/17",
+     "display_name": "Computer Science"
+    },
+    "domain": {
+     "id": "https://openalex.org/domains/3",
+     "display_name": "Physical Sciences"
+    }
+   }
+  }
+ ],
+ "group_by": []
+}

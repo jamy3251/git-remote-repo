@@ -1,0 +1,44 @@
+{
+ "meta": {
+  "count": 77,
+  "db_response_time_ms": 2,
+  "page": 1,
+  "per_page": 3,
+  "groups_count": null,
+  "x_query": {
+   "oql": "get topics where subfield is (1702)",
+   "oqo": {
+    "get_rows": "topics",
+    "filter_rows": [
+     {
+      "column_id": "subfield.id",
+      "value": "1702"
+     }
+    ]
+   },
+   "url": "/topics?filter=subfield.id:1702&per_page=3"
+  },
+  "cost_usd": 0.0001
+ },
+ "results": [
+  {
+   "id": "https://openalex.org/T10126",
+   "display_name": "Logic, programming, and type systems",
+   "description": "This cluster of papers covers a wide range of program analysis and verification techniques, including static analysis, formal verification, type inference, memory management, concurrency, garbage collection, separation logic, model checking, abstract interpretation, and programming language semantics.",
+   "works_count": 246656
+  },
+  {
+   "id": "https://openalex.org/T10181",
+   "display_name": "Natural Language Processing Techniques",
+   "description": "This cluster of papers focuses on statistical machine translation, neural machine translation, dependency parsing, word sense disambiguation, and part-of-speech tagging. It also covers topics such as corpus linguistics, syntax-based translation models, multilingual neural machine translation, and language modeling.",
+   "works_count": 224226
+  },
+  {
+   "id": "https://openalex.org/T10028",
+   "display_name": "Topic Modeling",
+   "description": "This cluster of papers covers a wide range of advancements in natural language processing, including neural network architectures, word representation models, machine translation techniques, text classification algorithms, semantic similarity measures, named entity recognition methods, pretrained language models, sequence-to-sequence learning approaches, topic modeling strategies, and information retrieval systems.",
+   "works_count": 197563
+  }
+ ],
+ "group_by": []
+}

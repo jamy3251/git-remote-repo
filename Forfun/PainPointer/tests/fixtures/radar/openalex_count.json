@@ -1,0 +1,37 @@
+{
+ "meta": {
+  "count": 130969,
+  "db_response_time_ms": 29,
+  "page": 1,
+  "per_page": 1,
+  "groups_count": null,
+  "x_query": {
+   "oql": "get works where date >= (2025-10-01)\n  and date <= (2026-09-30)\n  and topics is (T10028)",
+   "oqo": {
+    "get_rows": "works",
+    "filter_rows": [
+     {
+      "column_id": "from_publication_date",
+      "value": "2025-10-01"
+     },
+     {
+      "column_id": "to_publication_date",
+      "value": "2026-09-30"
+     },
+     {
+      "column_id": "topics.id",
+      "value": "T10028"
+     }
+    ]
+   },
+   "url": "/works?filter=from_publication_date:2025-10-01,to_publication_date:2026-09-30,topics.id:T10028&per_page=1"
+  },
+  "cost_usd": 0.0001
+ },
+ "results": [
+  {
+   "id": "https://openalex.org/W4362515116"
+  }
+ ],
+ "group_by": []
+}

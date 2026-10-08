@@ -1,0 +1,26 @@
+{
+ "list_id": "nist_ai_rmf",
+ "name": "NIST AI Risk Management Framework 핵심 기능",
+ "edition": "1.0",
+ "field": "ai",
+ "url": "https://www.nist.gov/itl/ai-risk-management-framework",
+ "checked_at": "2026-10-09",
+ "entries": [
+  {
+   "rank": 1,
+   "title": "Govern"
+  },
+  {
+   "rank": 2,
+   "title": "Map"
+  },
+  {
+   "rank": 3,
+   "title": "Measure"
+  },
+  {
+   "rank": 4,
+   "title": "Manage"
+  }
+ ]
+}

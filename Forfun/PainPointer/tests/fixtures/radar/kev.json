@@ -1,0 +1,136 @@
+{
+ "title": "CISA Catalog of Known Exploited Vulnerabilities",
+ "catalogVersion": "2026.10.08",
+ "dateReleased": "2026-10-08T20:09:18.9833Z",
+ "count": 8,
+ "vulnerabilities": [
+  {
+   "cveID": "CVE-2015-5477",
+   "vendorProject": "ISC",
+   "product": "BIND",
+   "vulnerabilityName": " ISC BIND Data Processing Errors Vulnerability",
+   "dateAdded": "2026-10-08",
+   "shortDescription": "ISC BIND contains a data processing errors vulnerability that could allow remote attackers to cause a denial of service via TKEY queries.",
+   "requiredAction": "Apply mitigations in accordance with vendor instructions, en",
+   "dueDate": "2026-10-11",
+   "knownRansomwareCampaignUse": "Unknown",
+   "forensicTriage": "No",
+   "notes": "This vulnerability could affect an open-source component, th",
+   "cwes": [
+    "CWE-19"
+   ]
+  },
+  {
+   "cveID": "CVE-2016-3081",
+   "vendorProject": "Apache",
+   "product": "Struts",
+   "vulnerabilityName": "Apache Struts Command Injection Vulnerability",
+   "dateAdded": "2026-10-08",
+   "shortDescription": "Apache Struts contains a command injection vulnerability that could allow remote attackers to execute arbitrary code via method:prefix when Dynamic Method Invocation is enabled.",
+   "requiredAction": "Apply mitigations in accordance with vendor instructions, en",
+   "dueDate": "2026-10-11",
+   "knownRansomwareCampaignUse": "Unknown",
+   "forensicTriage": "Yes",
+   "notes": "This vulnerability could affect an open-source component, th",
+   "cwes": [
+    "CWE-77"
+   ]
+  },
+  {
+   "cveID": "CVE-2023-22894",
+   "vendorProject": "Strapi",
+   "product": "Strapi",
+   "vulnerabilityName": "Strapi Cleartext Storage of Sensitive Information Vulnerability",
+   "dateAdded": "2026-10-08",
+   "shortDescription": "Strapi contains a cleartext storage of sensitive information vulnerability that could allow attackers with access to the admin panel to discover sensitive user details via the query filter. The impacted product(s) could be end-of-life (EoL) and/or end-of-service (EoS). Users are advised to discontinue use and/or transition to a supported version. This vulnerability can be chained with CVE-2023-22621 to achieve remote code execution. ",
+   "requiredAction": "Apply mitigations in accordance with vendor instructions, en",
+   "dueDate": "2026-10-11",
+   "knownRansomwareCampaignUse": "Unknown",
+   "forensicTriage": "Yes",
+   "notes": "This vulnerability could affect an open-source component, th",
+   "cwes": [
+    "CWE-312"
+   ]
+  },
+  {
+   "cveID": "CVE-2021-3199",
+   "vendorProject": "ONLYOFFICE",
+   "product": "Docs",
+   "vulnerabilityName": "ONLYOFFICE Docs Server Path Traversal Vulnerability",
+   "dateAdded": "2026-10-08",
+   "shortDescription": "ONLYOFFICE Docs contains a path traversal vulnerability that can occur when JWT is used, via a /.. sequence in an image upload parameter and could allow for remote code execution.",
+   "requiredAction": "Apply mitigations in accordance with vendor instructions, en",
+   "dueDate": "2026-10-11",
+   "knownRansomwareCampaignUse": "Unknown",
+   "forensicTriage": "Yes",
+   "notes": "This vulnerability could affect an open-source component, th",
+   "cwes": [
+    "CWE-22"
+   ]
+  },
+  {
+   "cveID": "CVE-2026-76504",
+   "vendorProject": "Cisco",
+   "product": "Catalyst SD-WAN Manager",
+   "vulnerabilityName": "Cisco Catalyst SD-WAN Manager Hex Encoding Vulnerability",
+   "dateAdded": "2026-09-30",
+   "shortDescription": "Cisco Catalyst SD-WAN Manager contains a hex encoding vulnerability that could allow an unauthenticated, remote attacker to access an affected system with privileges of the admin user due to improper handling of URI encoding in an HTTP request.",
+   "requiredAction": "Apply mitigations in accordance with vendor instructions, en",
+   "dueDate": "2026-10-03",
+   "knownRansomwareCampaignUse": "Unknown",
+   "forensicTriage": "Yes",
+   "notes": "https://sec.cloudapps.cisco.com/security/center/content/Cisc",
+   "cwes": [
+    "CWE-177"
+   ]
+  },
+  {
+   "cveID": "CVE-2026-82078",
+   "vendorProject": "PaperCut",
+   "product": "NG/MF",
+   "vulnerabilityName": "PaperCut NG/MF Unsafe Reflection Vulnerability",
+   "dateAdded": "2026-08-31",
+   "shortDescription": "PaperCut NG/MF contains an unsafe reflection vulnerability that allows an attacker to manipulate system configuration parameters and execute arbitrary Java bytecode residing on the application classpath under the security context of the PaperCut server process. This vulnerability can be chained with CVE-2026-81578.",
+   "requiredAction": "Apply mitigations in accordance with vendor instructions, en",
+   "dueDate": "2026-09-14",
+   "knownRansomwareCampaignUse": "Unknown",
+   "forensicTriage": "No",
+   "notes": "https://www.papercut.com/kb/Main/security-bulletin-27-aug-20",
+   "cwes": [
+    "CWE-470"
+   ]
+  },
+  {
+   "cveID": "CVE-2026-20316",
+   "vendorProject": "Cisco",
+   "product": "Secure Firewall Management Center (FMC)",
+   "vulnerabilityName": "Cisco Secure Firewall Management Center Use of Hard-coded Password Vulnerability",
+   "dateAdded": "2026-07-29",
+   "shortDescription": "Cisco Secure Firewall Management Center (FMC) formerly known as Firepower Management Center contains a use of hard-coded password vulnerability that could allow an unauthenticated, remote attacker to log in to an affected device using a low-privileged account to access sensitive data within the impacted systems.",
+   "requiredAction": "Apply mitigations in accordance with vendor instructions, en",
+   "dueDate": "2026-08-01",
+   "knownRansomwareCampaignUse": "Known",
+   "forensicTriage": "No",
+   "notes": "https://sec.cloudapps.cisco.com/security/center/content/Cisc",
+   "cwes": [
+    "CWE-259"
+   ]
+  },
+  {
+   "cveID": "CVE-2026-48558",
+   "vendorProject": "SimpleHelp ",
+   "product": "SimpleHelp",
+   "vulnerabilityName": "SimpleHelp Authentication Bypass Vulnerability",
+   "dateAdded": "2026-06-29",
+   "shortDescription": "SimpleHelp contains an authentication bypass vulnerability in the OIDC authentication flow. When OIDC authentication is configured, identity tokens submitted during login are accepted without verifying their cryptographic signature. In a vulnerable configuration, a remote, unauthenticated attacker can submit a forged token containing arbitrary identity claims to obtain a fully authenticated technician session. In some configurations, this may also allow bypass of multi-factor authentication.",
+   "requiredAction": "Apply mitigations in accordance with vendor instructions, en",
+   "dueDate": "2026-07-02",
+   "knownRansomwareCampaignUse": "Unknown",
+   "forensicTriage": "No",
+   "notes": "https://simple-help.com/security/simplehelp-security-update-",
+   "cwes": [
+    "CWE-347"
+   ]
+  }
+ ]
+}

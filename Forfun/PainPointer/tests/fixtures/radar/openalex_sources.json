@@ -1,0 +1,55 @@
+{
+ "meta": {
+  "count": 2,
+  "db_response_time_ms": 9,
+  "page": 1,
+  "per_page": 25,
+  "groups_count": null,
+  "x_query": {
+   "oql": "get sources where openalex id is (S199944782 or S4210191458)",
+   "oqo": {
+    "get_rows": "sources",
+    "filter_rows": [
+     {
+      "join": "or",
+      "filters": [
+       {
+        "column_id": "ids.openalex",
+        "value": "S199944782"
+       },
+       {
+        "column_id": "ids.openalex",
+        "value": "S4210191458"
+       }
+      ]
+     }
+    ]
+   },
+   "url": "/sources?filter=ids.openalex:S199944782|S4210191458"
+  },
+  "cost_usd": 0.0001
+ },
+ "results": [
+  {
+   "id": "https://openalex.org/S4210191458",
+   "display_name": "Proceedings of the AAAI Conference on Artificial Intelligence",
+   "summary_stats": {
+    "2yr_mean_citedness": 5.400585833481271,
+    "h_index": 298,
+    "i10_index": 9652
+   },
+   "type": "conference"
+  },
+  {
+   "id": "https://openalex.org/S199944782",
+   "display_name": "IEEE Transactions on Pattern Analysis and Machine Intelligence",
+   "summary_stats": {
+    "2yr_mean_citedness": 15.02468120115179,
+    "h_index": 561,
+    "i10_index": 8367
+   },
+   "type": "journal"
+  }
+ ],
+ "group_by": []
+}

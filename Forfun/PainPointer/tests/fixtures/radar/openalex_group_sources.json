@@ -1,0 +1,59 @@
+{
+ "meta": {
+  "count": 198845,
+  "db_response_time_ms": 111,
+  "page": 1,
+  "per_page": 5,
+  "groups_count": 5,
+  "x_query": {
+   "oql": "get works where date >= (2024-10-01) and topics is (T10028);\nthen group those works by source",
+   "oqo": {
+    "get_rows": "works",
+    "filter_rows": [
+     {
+      "column_id": "from_publication_date",
+      "value": "2024-10-01"
+     },
+     {
+      "column_id": "topics.id",
+      "value": "T10028"
+     }
+    ],
+    "group_by": [
+     {
+      "column_id": "primary_location.source.id"
+     }
+    ]
+   },
+   "url": "/works?filter=from_publication_date:2024-10-01,topics.id:T10028&group_by=primary_location.source.id&per_page=5"
+  },
+  "cost_usd": 0.0001
+ },
+ "group_by": [
+  {
+   "key": "https://openalex.org/S4306400194",
+   "key_display_name": "arXiv (Cornell University)",
+   "count": 47110
+  },
+  {
+   "key": "https://openalex.org/S4306400562",
+   "key_display_name": "Zenodo (CERN European Organization for Nuclear Research)",
+   "count": 34115
+  },
+  {
+   "key": "https://openalex.org/S7407053148",
+   "key_display_name": "Underline Science Inc.",
+   "count": 6814
+  },
+  {
+   "key": "https://openalex.org/S106296714",
+   "key_display_name": "Lecture notes in computer science",
+   "count": 3817
+  },
+  {
+   "key": "https://openalex.org/S4210172589",
+   "key_display_name": "SSRN Electronic Journal",
+   "count": 3369
+  }
+ ]
+}
