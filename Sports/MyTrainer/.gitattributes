@@ -1,0 +1,8 @@
+# 이 PC 는 core.autocrlf=true 라 git 이 폰트를 텍스트로 보고 줄 끝을 바꿔 깨뜨린다.
+*.ttf binary
+*.otf binary
+*.tflite binary
+*.png binary
+*.jpg binary
+*.webp binary
+*.jar binary
