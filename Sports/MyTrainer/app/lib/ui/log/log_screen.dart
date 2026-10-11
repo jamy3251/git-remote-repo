@@ -107,6 +107,7 @@ class RoutineStrip extends ConsumerWidget {
                       i.variant,
                       targetReps: i.repsMin,
                       weightKg: i.weightKg,
+                      recommended: routine.recommended,
                     ),
               ),
         ]),
@@ -423,10 +424,13 @@ class _OneRmCard extends ConsumerWidget {
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text(now == null ? '-' : '${_kg(_round(now))} kg', style: AppText.title),
             const SizedBox(width: Gap.sm),
+            // 좁은 폰(360dp)에서 두 칸 배치일 때 넘치지 않게.
             if (best != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Text('최고 ${_kg(_round(best))} kg', style: AppText.caption),
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text('최고 ${_kg(_round(best))} kg', style: AppText.caption, overflow: TextOverflow.ellipsis),
+                ),
               ),
           ]),
           Text('지금 입력한 무게·횟수 기준, 10회 이하 세트만 계산해요.', style: AppText.micro.copyWith(color: AppColors.inkFaint)),

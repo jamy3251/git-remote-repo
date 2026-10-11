@@ -5,6 +5,10 @@ import 'package:go_router/go_router.dart';
 
 import 'core/theme.dart';
 import 'state/attendance.dart';
+import 'ui/diet/body_profile_screen.dart';
+import 'ui/diet/diet_screen.dart';
+import 'ui/diet/food_search_screen.dart';
+import 'ui/diet/photo_meal_screen.dart';
 import 'ui/home/home_screen.dart';
 import 'ui/log/log_screen.dart';
 import 'ui/machines/machines_screen.dart';
@@ -38,6 +42,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/party', builder: (_, __) => const PartyScreen()),
       GoRoute(path: '/routines', builder: (_, __) => const RoutinesScreen()),
       GoRoute(path: '/routines/import', builder: (_, __) => const ImportRoutineScreen()),
+      GoRoute(path: '/diet', builder: (_, __) => const DietScreen()),
+      GoRoute(path: '/diet/profile', builder: (_, __) => const BodyProfileScreen()),
+      GoRoute(path: '/diet/search', builder: (_, __) => const FoodSearchScreen()),
+      GoRoute(path: '/diet/manual', builder: (_, __) => const ManualMealScreen()),
+      GoRoute(path: '/diet/photo', builder: (_, __) => const PhotoMealScreen()),
       GoRoute(path: '/spotter', builder: (_, __) => const SpotterScreen()),
       GoRoute(
         path: '/spots/confirm',

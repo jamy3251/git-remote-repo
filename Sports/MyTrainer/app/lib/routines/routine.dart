@@ -75,6 +75,7 @@ class Routine {
     required this.items,
     required this.createdAt,
     this.sourceUrl,
+    this.recommended = false,
   });
 
   final String id;
@@ -85,11 +86,15 @@ class Routine {
   /// 가져온 영상 링크. 영상 본문은 저장하지 않는다.
   final String? sourceUrl;
 
+  /// 추천 운동으로 만든 루틴. 무게가 기록에서 계산된 다음 무게라 지난 기록보다 우선한다.
+  final bool recommended;
+
   Map<String, dynamic> toJson() => {
         'name': name,
         'items': [for (final i in items) i.toJson()],
         'createdAt': createdAt.millisecondsSinceEpoch,
         if (sourceUrl != null) 'sourceUrl': sourceUrl,
+        if (recommended) 'recommended': true,
       };
 
   factory Routine.fromJson(String id, Map<String, dynamic> j) => Routine(
@@ -98,5 +103,6 @@ class Routine {
         items: [for (final i in j['items'] as List) RoutineItem.fromJson((i as Map).cast())],
         createdAt: DateTime.fromMillisecondsSinceEpoch((j['createdAt'] as num).toInt()),
         sourceUrl: j['sourceUrl'] as String?,
+        recommended: j['recommended'] == true,
       );
 }

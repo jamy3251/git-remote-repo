@@ -8,6 +8,7 @@ import '../data/models.dart';
 import '../data/offline_ready.dart';
 import '../data/repository.dart';
 import '../data/workout.dart';
+import '../diet/diet_state.dart';
 import '../machines/machines_state.dart';
 import '../routines/routines_state.dart';
 import '../services/geofence_service.dart';
@@ -243,6 +244,7 @@ class OfflineController extends AsyncNotifier<OfflineStatus> {
           ref.read(repositoryProvider),
           machines: ref.read(machineRepositoryProvider),
           routines: ref.read(routineRepositoryProvider),
+          diet: ref.read(dietRepositoryProvider),
         ),
         force: force,
       );
