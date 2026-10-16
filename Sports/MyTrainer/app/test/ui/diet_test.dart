@@ -23,7 +23,13 @@ import 'package:mytrainer/routines/routine_repository.dart';
 import 'package:mytrainer/routines/routines_state.dart';
 import 'package:mytrainer/services/geofence_service.dart';
 import 'package:mytrainer/state/attendance.dart';
+import 'package:mytrainer/diet/price.dart';
+import 'package:mytrainer/diet/price_state.dart';
+import 'package:mytrainer/diet/tracking.dart';
+import 'package:mytrainer/recommend/budget_planner.dart';
 import 'package:mytrainer/ui/diet/body_profile_screen.dart';
+import 'package:mytrainer/ui/diet/budget_screen.dart';
+import 'package:mytrainer/ui/diet/trend_screen.dart';
 import 'package:mytrainer/ui/diet/diet_screen.dart';
 import 'package:mytrainer/ui/diet/food_search_screen.dart';
 import 'package:mytrainer/ui/diet/photo_meal_screen.dart';
@@ -80,6 +86,8 @@ void main() {
       GoRoute(path: '/diet/search', builder: (_, __) => const FoodSearchScreen()),
       GoRoute(path: '/diet/manual', builder: (_, __) => const ManualMealScreen()),
       GoRoute(path: '/diet/photo', builder: (_, __) => const PhotoMealScreen()),
+      GoRoute(path: '/diet/trend', builder: (_, __) => const TrendScreen()),
+      GoRoute(path: '/diet/budget', builder: (_, __) => const BudgetScreen()),
     ]);
     await t.pumpWidget(ProviderScope(
       overrides: [
@@ -93,6 +101,7 @@ void main() {
         foodIndexProvider.overrideWith((_) async => FoodIndex([_chicken.toTsv(), _rice.toTsv()])),
         mealPhotoSourceProvider.overrideWithValue(_FakePhotos()),
         if (analyzer != null) foodPhotoAnalyzerProvider.overrideWithValue(analyzer),
+        priceBookProvider.overrideWith((_) async => PriceBook.empty),
       ],
       child: MaterialApp.router(routerConfig: router),
     ));
@@ -251,5 +260,66 @@ void main() {
     await t.tap(find.text('바벨 로우 0/3'));
     await t.pumpAndSettle();
     expect(find.text('62.5 kg'), findsOneWidget);
+  });
+
+  const profile = BodyProfile(
+      sex: Sex.male, birthYear: 1996, heightCm: 180, weightKg: 80, activity: Activity.moderate, goal: Goal.cut);
+
+  testWidgets('열량 추적: 지난 기록 평균, 오늘 체중 저장은 몸 정보 체중도 바꾼다', (t) async {
+    await diet.saveProfile(profile);
+    for (var d = 1; d <= 3; d++) {
+      await diet.saveMeal(MealEntry(
+        id: 'm$d',
+        at: _now.subtract(Duration(days: d)),
+        meal: MealType.lunch,
+        name: '밥',
+        amount: 100,
+        nutrients: Nutrients(kcal: 1800 + d * 100, carb: 0, protein: 0, fat: 0),
+        source: MealSource.manual,
+      ));
+    }
+    await pump(t, '/diet');
+    await t.tap(find.byTooltip('열량 추적'));
+    await t.pumpAndSettle();
+    expect(find.text('하루 평균 2000kcal'), findsOneWidget);
+    expect(find.text('식단 남긴 날 3/7일'), findsOneWidget);
+    expect(find.textContaining('체중을 4번 더 재면'), findsOneWidget);
+
+    await t.enterText(find.widgetWithText(TextField, '오늘 체중'), '79.4');
+    await t.tap(find.text('저장'));
+    await t.pumpAndSettle();
+    expect(find.text('추세 79.4kg'), findsOneWidget);
+    expect((await diet.weights(since: DateTime(2000))).single.kg, 79.4);
+    expect((await diet.profile())!.weightKg, 79.4);
+  });
+
+  testWidgets('장보기 식단: 하루 값·장보기 목록, 값을 고치면 다시 짠다', (t) async {
+    await diet.saveProfile(profile);
+    await pump(t, '/diet');
+    expect(find.text('장보기 식단'), findsOneWidget);
+    await t.tap(find.text('장보기 식단'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('하루 약 '), findsOneWidget);
+    expect(find.text('일주일 장보기'), findsOneWidget);
+    expect(find.textContaining('참고값 18개'), findsOneWidget);
+
+    final chicken = find.textContaining(RegExp(r'^닭가슴살 냉동 1kg × \d'));
+    expect(chicken, findsOneWidget);
+    await t.tap(chicken);
+    await t.pumpAndSettle();
+    await t.enterText(find.widgetWithText(TextField, '우리 동네 값'), '99000');
+    await t.tap(find.text('저장'));
+    await t.pumpAndSettle();
+    expect(prefs.getString('mytrainer.price_overrides'), contains('99000'));
+    expect(find.textContaining(RegExp(r'^닭가슴살 냉동 1kg × \d')), findsNothing);
+    expect(find.textContaining('직접 고친 값 1개'), findsOneWidget);
+  });
+
+  test('먹는 양 표시: 달걀은 개수, 쌀은 밥 무게', () {
+    final foods = pricedFoods(book: PriceBook.empty, region: null, overrides: const {});
+    PricedFood f(String id) => foods.firstWhere((x) => x.item.id == id);
+    expect(amountText(PlanItem(f('egg'), 160)), '약 3개 (160g)');
+    expect(amountText(PlanItem(f('rice'), 80)), '80g (밥 약 180g)');
+    expect(dayOf(DateTime(2026, 1, 2, 23)), DateTime(2026, 1, 2));
   });
 }

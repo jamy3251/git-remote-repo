@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../diet/diet_state.dart';
 import '../../diet/meal.dart';
 import '../../diet/nutrients.dart';
+import '../../diet/price_state.dart';
 import '../../recommend/meal_planner.dart';
 import '../widgets/coach_line.dart';
 import '../widgets/panel.dart';
@@ -25,6 +26,11 @@ class DietScreen extends ConsumerWidget {
     final profile = ref.watch(bodyProfileProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('식단'), actions: [
+        IconButton(
+          tooltip: '열량 추적',
+          onPressed: () => context.push('/diet/trend'),
+          icon: const Icon(Icons.show_chart),
+        ),
         IconButton(
           tooltip: '몸 정보',
           onPressed: () => context.push('/diet/profile'),
@@ -45,6 +51,8 @@ class DietScreen extends ConsumerWidget {
             const _AddRow(),
             const SizedBox(height: Gap.md),
             const _MealPlanPanel(),
+            const SizedBox(height: Gap.md),
+            const _BudgetLink(),
             const SizedBox(height: Gap.md),
             const _TodayMeals(),
           ],
@@ -81,11 +89,15 @@ class _TargetPanel extends ConsumerWidget {
     final t = target.target;
     final left = t.kcal - eaten.kcal;
     final goal = ref.watch(bodyProfileProvider).valueOrNull?.goal;
+    final now = ref.read(clockProvider)();
+    final burn = ref.watch(workoutBurnProvider)[DateTime(now.year, now.month, now.day)];
 
     return Panel(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        PanelLabel('오늘 · ${goal?.label ?? ''} 목표 ${kcal(t.kcal)}'),
+        PanelLabel('오늘 · ${goal?.label ?? ''} 목표 ${kcal(t.kcal)}${target.measured ? ' · 실측 기준' : ''}'),
         Text(left >= 0 ? '${kcal(left)} 남았어요' : '${kcal(-left)} 넘었어요', style: AppText.title),
+        if (burn != null && burn.kcal > 0)
+          Text('오늘 운동 ${burn.minutes}분 · 약 ${kcal(burn.kcal)} 소모', style: AppText.caption),
         const SizedBox(height: Gap.md),
         _Bar(label: '열량', got: eaten.kcal, want: t.kcal, unit: 'kcal', color: AppColors.teal),
         _Bar(label: '탄수화물', got: eaten.carb, want: t.carb, unit: 'g', color: AppColors.amber),
@@ -316,6 +328,29 @@ class _TodayMeals extends ConsumerWidget {
             ),
           ),
     ]);
+  }
+}
+
+/// 장보기 식단으로 가는 줄. 목표가 있으면 하루 값을 미리 보인다.
+class _BudgetLink extends ConsumerWidget {
+  const _BudgetLink();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final plan = ref.watch(budgetPlanProvider).valueOrNull;
+    return Panel(
+      padding: EdgeInsets.zero,
+      child: ListTile(
+        leading: const Icon(Icons.shopping_basket_outlined),
+        title: const Text('장보기 식단', style: AppText.bodyStrong),
+        subtitle: Text(
+          plan == null || plan.isEmpty ? '동네 시세로 일주일 식단과 값을 짜요' : '하루 약 ${(plan.dayWon / 100).round() * 100}원 · 일주일 장보기 목록',
+          style: AppText.caption,
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => context.push('/diet/budget'),
+      ),
+    );
   }
 }
 

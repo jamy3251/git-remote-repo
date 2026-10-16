@@ -89,6 +89,7 @@ flutter:
   assets:
     - assets/models/mobilenet_v3_small.tflite
     - assets/foods/
+    - assets/prices/
 
   fonts:
     - family: Pretendard

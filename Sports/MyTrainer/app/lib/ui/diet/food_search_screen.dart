@@ -93,6 +93,10 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
               title: const Text('목록에 없으면 직접 입력'),
               onTap: () => context.pushReplacement('/diet/manual'),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.md, Gap.xl, Gap.xl),
+              child: Text('영양성분 출처: 식품의약품안전처 식품영양성분 데이터베이스', style: AppText.caption),
+            ),
           ]),
         ),
       ]),

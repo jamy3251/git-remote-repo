@@ -77,12 +77,23 @@ class BodyProfile {
 /// 하루 목표와 그 근거 문장.
 @immutable
 class DailyTarget {
-  const DailyTarget({required this.bmr, required this.tdee, required this.target, required this.reasons});
+  const DailyTarget({
+    required this.bmr,
+    required this.tdee,
+    required this.formulaTdee,
+    required this.target,
+    required this.reasons,
+  });
 
   final double bmr;
 
-  /// 유지 열량.
+  /// 유지 열량. 실측이 있으면 실측.
   final double tdee;
+
+  /// 계산식(BMR×활동 계수) 유지 열량.
+  final double formulaTdee;
+
+  bool get measured => tdee != formulaTdee;
   final Nutrients target;
   final List<String> reasons;
 }
@@ -93,14 +104,20 @@ class DailyTarget {
 /// - 유지 열량 = BMR × 활동 계수.
 /// - 감량 −20%(BMR 아래로는 내리지 않음), 증량 +10%.
 /// - 단백질 g/kg: 감량 2.0, 유지 1.6, 증량 1.8. 지방은 열량의 25%. 나머지 탄수화물.
-DailyTarget computeTarget(BodyProfile p, DateTime now) {
+///
+/// [measuredTdee] 가 있으면(체중·식단 기록으로 역산, tracking.dart) 활동 계수 대신 그 값을 유지 열량으로 쓴다.
+DailyTarget computeTarget(BodyProfile p, DateTime now, {double? measuredTdee}) {
   final age = p.ageAt(now);
   final bmr = 10 * p.weightKg + 6.25 * p.heightCm - 5 * age + (p.sex == Sex.male ? 5 : -161);
-  final tdee = bmr * p.activity.factor;
+  final formula = bmr * p.activity.factor;
+  final tdee = measuredTdee ?? formula;
 
   final reasons = <String>[
     '기초대사량 ${bmr.round()}kcal (키 ${p.heightCm.round()}cm, ${p.weightKg.toStringAsFixed(1)}kg, $age세)',
-    '활동량 "${p.activity.label}" ×${p.activity.factor} → 유지 열량 ${tdee.round()}kcal',
+    if (measuredTdee == null)
+      '활동량 "${p.activity.label}" ×${p.activity.factor} → 유지 열량 ${tdee.round()}kcal'
+    else
+      '유지 열량 ${tdee.round()}kcal: 체중·식단 기록으로 잰 값 (계산식으로는 ${formula.round()}kcal)',
   ];
 
   double kcal;
@@ -130,6 +147,7 @@ DailyTarget computeTarget(BodyProfile p, DateTime now) {
   return DailyTarget(
     bmr: bmr,
     tdee: tdee,
+    formulaTdee: formula,
     target: Nutrients(kcal: kcal, carb: carb, protein: protein, fat: fat),
     reasons: reasons,
   );

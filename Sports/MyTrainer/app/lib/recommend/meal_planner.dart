@@ -151,7 +151,7 @@ MealPlan planMeal({
   for (final p in proteins) {
     for (final c in carbs) {
       if (identical(p, c)) continue;
-      final s = _solve(p, c, mealTarget);
+      final s = solvePair(p, c, mealTarget);
       if (s != null) all.add(s);
     }
   }
@@ -176,17 +176,17 @@ MealPlan planMeal({
 
 const _minAmount = 30.0, _maxAmount = 400.0;
 
-/// 단백질 음식 g1, 탄수화물 음식 g2 로 단백질·탄수화물 두 식을 푼다.
-MealSuggestion? _solve(Candidate p, Candidate c, Nutrients t) {
+/// 단백질 음식 g1, 탄수화물 음식 g2 로 단백질·탄수화물 두 식을 푼다. 장보기 식단도 이걸 쓴다.
+MealSuggestion? solvePair(Candidate p, Candidate c, Nutrients t, {double pMax = _maxAmount, double cMax = _maxAmount}) {
   final p1 = p.per100.protein / 100, p2 = c.per100.protein / 100;
   final c1 = p.per100.carb / 100, c2 = c.per100.carb / 100;
   final det = p1 * c2 - p2 * c1;
   if (det.abs() < 1e-6) return null;
   var g1 = (t.protein * c2 - p2 * t.carb) / det;
   var g2 = (p1 * t.carb - t.protein * c1) / det;
-  double fit(double g) => ((g.clamp(_minAmount, _maxAmount)) / 10).round() * 10.0;
-  g1 = fit(g1);
-  g2 = fit(g2);
+  double fit(double g, double max) => ((g.clamp(_minAmount, max)) / 10).round() * 10.0;
+  g1 = fit(g1, pMax);
+  g2 = fit(g2, cMax);
 
   final items = [SuggestedItem(p, g1), SuggestedItem(c, g2)];
   final total = items.fold(Nutrients.zero, (a, i) => a + i.nutrients);

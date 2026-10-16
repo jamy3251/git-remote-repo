@@ -47,3 +47,4 @@ app.*.map.json
 # 평가·DB 도구가 받은 원본(커밋하지 않음)
 /tool/eval/cache/
 /tool/food_db/cache/
+/tool/prices/cache/

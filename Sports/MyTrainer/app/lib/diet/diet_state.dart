@@ -16,6 +16,7 @@ import 'food_photo.dart';
 import 'meal.dart';
 import 'meal_draft.dart';
 import 'nutrients.dart';
+import 'tracking.dart';
 
 // main 에서 실제 값으로 덮어쓴다.
 final dietRepositoryProvider =
@@ -43,9 +44,63 @@ class BodyProfileController extends AsyncNotifier<BodyProfile?> {
   }
 }
 
-final dailyTargetProvider = Provider<DailyTarget?>((ref) {
+/// 체중 기록(최근 35일). 새로 재면 몸 정보의 체중도 바꿔 목표가 따라오게 한다.
+final weightsProvider = AsyncNotifierProvider<WeightsController, List<WeightEntry>>(WeightsController.new);
+
+class WeightsController extends AsyncNotifier<List<WeightEntry>> {
+  DietRepository get _repo => ref.read(dietRepositoryProvider);
+
+  @override
+  Future<List<WeightEntry>> build() async {
+    final now = ref.read(clockProvider)();
+    return (await _repo.weights(since: dayOf(now).subtract(const Duration(days: 35))))
+      ..sort((a, b) => a.day.compareTo(b.day));
+  }
+
+  Future<void> save(double kg) async {
+    final day = dayOf(ref.read(clockProvider)());
+    final entry = WeightEntry(day: day, kg: kg);
+    await _repo.saveWeight(entry);
+    state = AsyncData([...?state.valueOrNull?.where((w) => w.day != day), entry]..sort((a, b) => a.day.compareTo(b.day)));
+    final p = ref.read(bodyProfileProvider).valueOrNull;
+    if (p != null) await ref.read(bodyProfileProvider.notifier).save(p.copyWith(weightKg: kg));
+  }
+
+  Future<void> remove(DateTime day) async {
+    await _repo.deleteWeight(day);
+    state = AsyncData([...?state.valueOrNull?.where((w) => w.day != dayOf(day))]);
+  }
+}
+
+/// 계산식만으로 낸 목표(실측 유지 열량을 재는 기준).
+final _formulaTargetProvider = Provider<DailyTarget?>((ref) {
   final p = ref.watch(bodyProfileProvider).valueOrNull;
   return p == null ? null : computeTarget(p, ref.read(clockProvider)());
+});
+
+/// 체중·식단 기록으로 잰 유지 열량. 조건이 덜 찼으면 ready=false 와 이유.
+final measuredTdeeProvider = Provider<MeasuredTdee?>((ref) {
+  final formula = ref.watch(_formulaTargetProvider);
+  final meals = ref.watch(mealsProvider).valueOrNull;
+  final weights = ref.watch(weightsProvider).valueOrNull;
+  if (formula == null || meals == null || weights == null) return null;
+  return measureTdee(meals: meals, weights: weights, now: ref.read(clockProvider)(), formulaTdee: formula.tdee);
+});
+
+final dailyTargetProvider = Provider<DailyTarget?>((ref) {
+  final p = ref.watch(bodyProfileProvider).valueOrNull;
+  if (p == null) return null;
+  final m = ref.watch(measuredTdeeProvider);
+  if (m == null || !m.ready) return ref.watch(_formulaTargetProvider);
+  return computeTarget(p, ref.read(clockProvider)(), measuredTdee: m.kcal);
+});
+
+/// 날짜별 운동 소모 추정. 몸 정보(체중)가 없으면 비어 있다.
+final workoutBurnProvider = Provider<Map<DateTime, WorkoutBurn>>((ref) {
+  final kg = ref.watch(bodyProfileProvider).valueOrNull?.weightKg;
+  final sets = ref.watch(workoutProvider).valueOrNull?.history;
+  if (kg == null || sets == null) return const {};
+  return workoutBurn(sets, kg);
 });
 
 /// 최근 30일 식단(추천 끼니의 "자주 먹는 음식"도 여기서 찾는다).
