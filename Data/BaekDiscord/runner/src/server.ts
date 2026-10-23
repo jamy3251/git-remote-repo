@@ -17,6 +17,7 @@ import { WorkLog, gitDelta } from "./worklog.js";
 import { buildReviewPrompt, collectDiff, fixPrompt, parseReview, pickReviewer } from "./crossreview.js";
 import { binaryAvailable } from "./presets.js";
 import { ProductStore } from "./products.js";
+import { PlaybookStore } from "./playbook.js";
 import { heuristicSummary, refinePrompt, summarizeWork } from "./prompts.js";
 import { proxyHttp, proxyUpgrade } from "./proxy.js";
 import { gitChangesSync, gitSummary } from "./workspace.js";
@@ -114,6 +115,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
     worklog: (limit) => worklog.list(limit),
     crossReview: (id, reviewer, mode) => startReview(id, reviewer, mode, "chat"),
     products: async () => (await products.list()).products,
+    playbook: (q) => playbook.search(q, 5),
     liveFolders: () => listFolder(cfg.cwdRoot, null, folderContext()).live,
   });
   const tunnel = new TunnelManager({ port: cfg.port, token: cfg.token, dashboardPath: cfg.dashboardPath });
@@ -133,6 +135,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
   });
   const worklog = new WorkLog(path.join(process.cwd(), ".data", "worklog.jsonl"));
   const summarizing = new Set<string>();
+  const playbook = new PlaybookStore(process.env.RUNNER_PLAYBOOK_DIR ?? path.resolve(process.cwd(), "..", "docs", "playbook"), brain);
   const products = new ProductStore(cfg.cwdRoot, path.join(process.cwd(), ".data", "products.json"), { worklog: () => worklog.list(500), brain });
 
   /** Have a different AI review a finished session, read-only. Returns the updated log entry. */
@@ -568,6 +571,27 @@ export function createRunnerServer(cfg: RunnerConfig) {
           try {
             const r = await products.list(msg.refresh === true);
             return send(state, { type: "products", ...r, reqId: msg.reqId });
+          } catch (e) {
+            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+          }
+        }
+        case "playbook":
+          return send(state, { type: "playbook", entries: playbook.search(typeof msg.query === "string" ? msg.query.slice(0, 200) : "", 50), reqId: msg.reqId });
+        case "playbook_save": {
+          try {
+            const id = typeof msg.id === "string" ? msg.id : undefined;
+            return send(state, { type: "playbook_entry", entry: playbook.save(msg.entry, id), reqId: msg.reqId });
+          } catch (e) {
+            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+          }
+        }
+        case "playbook_draft": {
+          if (!isSafeId(msg.id)) return;
+          const entry = worklog.get(msg.id);
+          if (!entry) return send(state, { type: "error", message: "작업 기록을 찾을 수 없습니다", reqId: msg.reqId });
+          if (!aiLimiter.allow(state.client)) return send(state, { type: "error", message: "모델 호출이 너무 잦습니다. 잠시 뒤 다시 시도하세요", reqId: msg.reqId });
+          try {
+            return send(state, { type: "playbook_draft", draft: await playbook.draftFrom(entry), reqId: msg.reqId });
           } catch (e) {
             return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
           }

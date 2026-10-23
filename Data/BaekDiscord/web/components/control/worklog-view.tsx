@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { CrossReview, ReviewMode, ReviewerId, WorkLogEntry } from "@/lib/runner/protocol";
+import type { CrossReview, PlaybookInput, ReviewMode, ReviewerId, WorkLogEntry } from "@/lib/runner/protocol";
 import type { RunnerApi } from "@/lib/runner/use-runner";
 import { fmtDuration, shortPath } from "./labels";
 
@@ -16,6 +16,8 @@ export interface DraftRequest {
 interface Props {
   runner: RunnerApi;
   onDraft?: (d: DraftRequest) => void;
+  /** Open the troubleshooting dictionary with a drafted entry. */
+  onPlaybook?: (d: PlaybookInput) => void;
   className?: string;
 }
 
@@ -39,7 +41,7 @@ function outcome(e: WorkLogEntry): { text: string; cls: string } {
 }
 
 /** Finished sessions grouped by day: what ran where, how it ended, what changed. */
-export function WorkLogView({ runner, onDraft, className = "" }: Props) {
+export function WorkLogView({ runner, onDraft, onPlaybook, className = "" }: Props) {
   const { worklog } = runner;
   const [folder, setFolder] = useState<string>("all");
   const folders = useMemo(() => [...new Set(worklog.map((e) => e.cwd))], [worklog]);
@@ -80,7 +82,7 @@ export function WorkLogView({ runner, onDraft, className = "" }: Props) {
               <div className="sticky top-0 z-[1] bg-surface/95 px-3 pb-1 pt-3 text-[11px] font-medium text-muted backdrop-blur">{g.day}</div>
               <ul className="divide-y divide-border/70">
                 {g.items.map((e) => (
-                  <Item key={e.id} entry={e} runner={runner} onDraft={onDraft} />
+                  <Item key={e.id} entry={e} runner={runner} onDraft={onDraft} onPlaybook={onPlaybook} />
                 ))}
               </ul>
             </div>
@@ -91,7 +93,7 @@ export function WorkLogView({ runner, onDraft, className = "" }: Props) {
   );
 }
 
-function Item({ entry: e, runner, onDraft }: { entry: WorkLogEntry; runner: RunnerApi; onDraft?: (d: DraftRequest) => void }) {
+function Item({ entry: e, runner, onDraft, onPlaybook }: { entry: WorkLogEntry; runner: RunnerApi; onDraft?: (d: DraftRequest) => void; onPlaybook?: (d: PlaybookInput) => void }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -111,6 +113,18 @@ function Item({ entry: e, runner, onDraft }: { entry: WorkLogEntry; runner: Runn
       setErr((x as Error).message);
     } finally {
       setStarting(false);
+    }
+  }
+
+  async function toPlaybook() {
+    setBusy(true);
+    setErr(null);
+    try {
+      onPlaybook?.(await runner.draftPlaybook(e.id));
+    } catch (x) {
+      setErr((x as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -194,6 +208,11 @@ function Item({ entry: e, runner, onDraft }: { entry: WorkLogEntry; runner: Runn
             {onDraft && (e.prompt || e.goal) && (
               <button className="btn min-h-9 text-xs" onClick={() => onDraft({ cwd: e.cwd, prompt: e.prompt ?? e.goal ?? "", goal: e.goal ?? undefined, preset: e.preset })}>
                 이 지시로 다시
+              </button>
+            )}
+            {onPlaybook && (
+              <button className={`btn min-h-9 text-xs ${o.cls === "text-danger" || last?.verdict === "fail" ? "btn-primary" : ""}`} onClick={toPlaybook} disabled={busy || runner.status !== "open"}>
+                난제 사전에 남기기
               </button>
             )}
             <span className="ml-auto font-mono text-[10px] text-muted">{e.id}</span>

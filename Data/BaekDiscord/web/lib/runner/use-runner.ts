@@ -8,6 +8,8 @@ import type {
   FsListing,
   Policy,
   PresetInfo,
+  PlaybookEntry,
+  PlaybookInput,
   Product,
   ProductMetaPatch,
   RefinedPrompt,
@@ -77,6 +79,11 @@ export interface RunnerApi {
   updateProduct: (path: string, patch: ProductMetaPatch) => Promise<Product>;
   pingProduct: (path: string) => Promise<Product>;
   productInsight: (path: string) => Promise<Product>;
+  /** Troubleshooting dictionary: search entries (empty query lists the newest). */
+  searchPlaybook: (query: string) => Promise<PlaybookEntry[]>;
+  savePlaybook: (entry: PlaybookInput, id?: string) => Promise<PlaybookEntry>;
+  /** Draft a dictionary entry from a finished/failed work-log entry (prompt model). */
+  draftPlaybook: (workId: string) => Promise<PlaybookInput>;
   /** Have a different AI review a finished session (read-only). */
   crossReview: (id: string, reviewer?: ReviewerId | "auto", mode?: ReviewMode) => Promise<WorkLogEntry>;
   /** Attach to a session's output stream; the runner replays history first. */
@@ -347,6 +354,31 @@ export function useRunner(): RunnerApi {
   const pingProduct = useCallback((path: string) => productCall({ type: "product_ping", path }, 20_000), [productCall]);
   const productInsight = useCallback((path: string) => productCall({ type: "product_insight", path }, 150_000), [productCall]);
 
+  const searchPlaybook = useCallback(
+    async (query: string) => {
+      const m = await request({ type: "playbook", query }, 15_000);
+      if (m.type !== "playbook") throw new Error("unexpected reply");
+      return m.entries;
+    },
+    [request],
+  );
+  const savePlaybook = useCallback(
+    async (entry: PlaybookInput, id?: string) => {
+      const m = await request({ type: "playbook_save", entry, id }, 15_000);
+      if (m.type !== "playbook_entry") throw new Error("unexpected reply");
+      return m.entry;
+    },
+    [request],
+  );
+  const draftPlaybook = useCallback(
+    async (workId: string) => {
+      const m = await request({ type: "playbook_draft", id: workId }, 150_000);
+      if (m.type !== "playbook_draft") throw new Error("unexpected reply");
+      return m.draft;
+    },
+    [request],
+  );
+
   const crossReview = useCallback(
     async (id: string, reviewer: ReviewerId | "auto" = "auto", mode: ReviewMode = "review") => {
       const m = await request({ type: "cross_review", id, reviewer, mode }, 30_000);
@@ -392,6 +424,9 @@ export function useRunner(): RunnerApi {
       worklog,
       summarizeWork,
       crossReview,
+      searchPlaybook,
+      savePlaybook,
+      draftPlaybook,
       products,
       loadProducts,
       updateProduct,
@@ -399,6 +434,6 @@ export function useRunner(): RunnerApi {
       productInsight,
       subscribe,
     }),
-    [settings, updateSettings, status, info, presets, sessions, events, supervisor, tunnel, chat, chatBusy, workspaces, lastError, connect, disconnect, send, subscribe, listFolder, refine, worklog, summarizeWork, crossReview, products, loadProducts, updateProduct, pingProduct, productInsight],
+    [settings, updateSettings, status, info, presets, sessions, events, supervisor, tunnel, chat, chatBusy, workspaces, lastError, connect, disconnect, send, subscribe, listFolder, refine, worklog, summarizeWork, crossReview, searchPlaybook, savePlaybook, draftPlaybook, products, loadProducts, updateProduct, pingProduct, productInsight],
   );
 }

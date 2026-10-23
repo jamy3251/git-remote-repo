@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
-import type { Policy } from "@/lib/runner/protocol";
+import type { PlaybookInput, Policy } from "@/lib/runner/protocol";
 import { useRunner, type RunnerApi } from "@/lib/runner/use-runner";
 import { RunnerSettingsBar } from "@/components/runner-settings-bar";
 import { Overview } from "@/components/control/overview";
@@ -13,11 +13,12 @@ import { WorkLogView, type DraftRequest } from "@/components/control/worklog-vie
 import { TerminalScreen } from "@/components/control/terminal-screen";
 import { EventLog } from "@/components/control/event-log";
 import { AppPanel } from "@/components/control/app-panel";
+import { PlaybookView } from "@/components/control/playbook-view";
 import { ProductsView, type ProductDraft } from "@/components/products/products-view";
 import { needsAttention, policyLabel, policyOptions } from "@/components/control/labels";
 
 type Filter = "all" | "running" | "attention";
-type Tab = "chat" | "sessions" | "new" | "products" | "log";
+type Tab = "chat" | "sessions" | "new" | "products" | "log" | "playbook";
 
 const DESKTOP = "(min-width: 1024px)";
 
@@ -43,6 +44,7 @@ export function ControlView() {
     const cwd = new URLSearchParams(window.location.search).get("cwd");
     return cwd ? { cwd, prompt: "", nonce: Date.now() } : null;
   });
+  const [playbookDraft, setPlaybookDraft] = useState<PlaybookInput | null>(null);
   const termSession = termId ? runner.sessions.find((s) => s.id === termId) : undefined;
 
   const fromProduct = (d: ProductDraft) => {
@@ -53,6 +55,11 @@ export function ControlView() {
     setDraft({ ...d, nonce: Date.now() });
     setTab("new");
     if (desktop) window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const toPlaybook = (d: PlaybookInput) => {
+    setPlaybookDraft(d);
+    setTab("playbook");
   };
 
   const terminal = termSession ? <TerminalScreen session={termSession} runner={runner} onClose={() => setTermId(null)} /> : null;
@@ -84,7 +91,12 @@ export function ControlView() {
           )}
           {tab === "log" && (
             <div className="h-full overflow-y-auto px-3 py-3">
-              <WorkLogView runner={runner} onDraft={reuse} />
+              <WorkLogView runner={runner} onDraft={reuse} onPlaybook={toPlaybook} />
+            </div>
+          )}
+          {tab === "playbook" && (
+            <div className="h-full overflow-y-auto px-3 py-3">
+              <PlaybookView key={playbookDraft ? "draft" : "list"} runner={runner} draft={playbookDraft} onDraftConsumed={() => setPlaybookDraft(null)} />
             </div>
           )}
         </MobileShell>
@@ -124,7 +136,11 @@ export function ControlView() {
             </div>
             <Feed runner={runner} onOpenTerminal={setTermId} className="min-h-0 flex-1" />
           </div>
-          <WorkLogView runner={runner} onDraft={reuse} className="max-h-[70vh] overflow-y-auto" />
+          <WorkLogView runner={runner} onDraft={reuse} onPlaybook={(d) => setPlaybookDraft(d)} className="max-h-[70vh] overflow-y-auto" />
+          <div className="card space-y-2 p-3">
+            <h2 className="text-sm font-medium">난제 해결 사전</h2>
+            <PlaybookView key={playbookDraft ? "draft" : "list"} runner={runner} draft={playbookDraft} onDraftConsumed={() => setPlaybookDraft(null)} />
+          </div>
         </div>
       </div>
       {terminal}
@@ -149,8 +165,9 @@ function MobileShell({ runner, tab, setTab, children }: { runner: RunnerApi; tab
     { id: "new", label: "새 작업" },
     { id: "products", label: "제품" },
     { id: "log", label: "내역" },
+    { id: "playbook", label: "난제" },
   ];
-  const titles: Record<Tab, string> = { chat: "관제", sessions: "세션", new: "새 작업", products: "프로덕트", log: "작업 내역" };
+  const titles: Record<Tab, string> = { chat: "관제", sessions: "세션", new: "새 작업", products: "프로덕트", log: "작업 내역", playbook: "난제 해결 사전" };
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-background" style={{ paddingTop: "env(safe-area-inset-top)" }}>

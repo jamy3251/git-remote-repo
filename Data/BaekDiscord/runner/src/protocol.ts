@@ -188,6 +188,9 @@ export type ClientMessage =
   | { type: "worklog_summarize"; id: string; reqId?: string }
   | { type: "cross_review"; id: string; reviewer?: ReviewerId | "auto"; mode?: ReviewMode; reqId?: string }
   | { type: "products"; refresh?: boolean; reqId?: string }
+  | { type: "playbook"; query?: string; reqId?: string }
+  | { type: "playbook_save"; entry: PlaybookInput; id?: string; reqId?: string }
+  | { type: "playbook_draft"; id: string; reqId?: string }
   | { type: "product_update"; path: string; patch: ProductMetaPatch; reqId?: string }
   | { type: "product_insight"; path: string; reqId?: string }
   | { type: "product_ping"; path: string; reqId?: string };
@@ -216,6 +219,9 @@ export type ServerMessage =
   | { type: "worklog_entry"; entry: WorkLogEntry; reqId?: string }
   | { type: "products"; products: Product[]; weeks: number[]; scannedAt: number; reqId?: string }
   | { type: "product"; product: Product; reqId?: string }
+  | { type: "playbook"; entries: PlaybookEntry[]; reqId?: string }
+  | { type: "playbook_entry"; entry: PlaybookEntry; reqId?: string }
+  | { type: "playbook_draft"; draft: PlaybookInput; reqId?: string }
   | { type: "error"; message: string; reqId?: string };
 
 export interface CompileRequest {
@@ -402,4 +408,20 @@ export interface Product {
   flags: Array<{ kind: "dirty" | "unpushed" | "down" | "failed" | "review"; text: string }>;
   work: { count: number; lastAt: number | null; lastOutcome: string | null; lastReview: string | null };
   meta: ProductMeta;
+}
+
+/** One hard-won fix in the troubleshooting dictionary (docs/playbook/<id>.md). */
+export interface PlaybookInput {
+  title: string;
+  tags: string[];
+  symptom: string;
+  cause: string;
+  fix: string;
+  example: string;
+  related: string[];
+}
+
+export interface PlaybookEntry extends PlaybookInput {
+  id: string;
+  updatedAt: number;
 }
