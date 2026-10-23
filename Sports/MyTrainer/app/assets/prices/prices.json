@@ -1,6 +1,1433 @@
 {
- "builtAt": "2026-10-18",
- "regions": [],
+ "builtAt": "2026-10-23",
+ "regions": [
+  {
+   "name": "서울",
+   "lat": 37.5665,
+   "lng": 126.978,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 5255,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 37029,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 23432,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 4517,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 3515,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3852,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 4351,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2788,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2211,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 4174,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "부산",
+   "lat": 35.1796,
+   "lng": 129.0756,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 4943,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 36740,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 22464,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 4217,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 3615,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3822,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 4197,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 3138,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2658,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 4878,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "대구",
+   "lat": 35.8714,
+   "lng": 128.6014,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 7840,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 35984,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 19852,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 4912,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 4190,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 4002,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 4245,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2657,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2310,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 4244,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "인천",
+   "lat": 37.4563,
+   "lng": 126.7052,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 7840,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 35950,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 20320,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 4078,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 4050,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3978,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 4248,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2660,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2121,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 4078,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "광주",
+   "lat": 35.1595,
+   "lng": 126.8526,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 5678,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 32000,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 17588,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 4800,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 4020,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3120,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 4019,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2523,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2100,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 4667,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "대전",
+   "lat": 36.3504,
+   "lng": 127.3845,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 7665,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 37684,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 24452,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 5100,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 3910,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3504,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 4243,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2493,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2775,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 4270,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "울산",
+   "lat": 35.5384,
+   "lng": 129.3114,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 4573,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 40925,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 23240,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 4320,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 3040,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3960,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 4218,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 1830,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2754,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 3355,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "수원",
+   "lat": 37.2636,
+   "lng": 127.0286,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 5023,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 33500,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 22420,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 4375,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 3100,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3840,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 4120,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2355,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2316,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 3043,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "춘천",
+   "lat": 37.8813,
+   "lng": 127.7298,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 37600,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 20000,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 4885,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 2650,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3840,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 3830,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2280,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 3710,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "청주",
+   "lat": 36.6424,
+   "lng": 127.489,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 6755,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 35325,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 19060,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 4990,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 3290,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3540,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 4128,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2390,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2214,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 3113,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "전주",
+   "lat": 35.8242,
+   "lng": 127.148,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 7420,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 37600,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 21620,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 4995,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 2675,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3792,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 3995,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2245,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2820,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 3820,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "포항",
+   "lat": 36.019,
+   "lng": 129.3435,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 5918,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 33750,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 18640,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 5085,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 4195,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3648,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 4248,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2495,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2214,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 4995,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "제주",
+   "lat": 33.4996,
+   "lng": 126.5312,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 6250,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 36225,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 20160,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 5325,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 4395,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 4098,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 3788,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2495,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2589,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 4915,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "의정부",
+   "lat": 37.7381,
+   "lng": 127.0337,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "순천",
+   "lat": 34.9507,
+   "lng": 127.4872,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 7420,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 39700,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 27960,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 4413,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 2675,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 4032,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 4950,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2325,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2880,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 3710,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "안동",
+   "lat": 36.5684,
+   "lng": 128.7294,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 7420,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 40900,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 27920,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 6980,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 2490,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3972,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 3980,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2490,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 3060,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 3980,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "창원",
+   "lat": 35.2281,
+   "lng": 128.6811,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 7420,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 36175,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 25400,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 4870,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 2900,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3696,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 4868,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2490,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2553,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 3730,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "용인",
+   "lat": 37.2411,
+   "lng": 127.1776,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 7420,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 46250,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 27920,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 5320,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 2490,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3972,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 2480,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2490,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2274,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 3980,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "세종",
+   "lat": 36.48,
+   "lng": 127.289,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 7420,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 40900,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 27920,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 5980,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 2490,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3972,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 3980,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2490,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2685,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 3980,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "성남",
+   "lat": 37.42,
+   "lng": 127.1265,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 7525,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 35650,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 26800,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 3320,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 1980,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 5380,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2140,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 1866,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 3580,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "고양",
+   "lat": 37.6584,
+   "lng": 126.832,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 6475,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 34725,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 22000,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 3650,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 2810,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 2376,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 3980,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2485,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2739,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 3270,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "천안",
+   "lat": 36.8151,
+   "lng": 127.1139,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "mackerel": {
+     "won": 5735,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "rice": {
+     "won": 38400,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "brown_rice": {
+     "won": 27920,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "sweet_potato": {
+     "won": 6980,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "potato": {
+     "won": 2490,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "banana": {
+     "won": 3972,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "cabbage": {
+     "won": 3980,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "broccoli": {
+     "won": 2490,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "spinach": {
+     "won": 2982,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "carrot": {
+     "won": 3980,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  },
+  {
+   "name": "김해",
+   "lat": 35.2285,
+   "lng": 128.8894,
+   "prices": {
+    "egg": {
+     "won": 9773,
+     "source": "kamis",
+     "date": "2026-10-23"
+    },
+    "pork_shoulder": {
+     "won": 1708,
+     "source": "kamis",
+     "date": "2026-10-23"
+    }
+   }
+  }
+ ],
  "national": {
   "tofu": {
    "won": 3592,
@@ -18,14 +1445,64 @@
    "date": "2026-09-25"
   },
   "rice": {
-   "won": 39980,
-   "source": "chamga",
-   "date": "2026-09-25"
+   "won": 36740,
+   "source": "kamis",
+   "date": null
   },
   "brown_rice": {
-   "won": 19867,
-   "source": "chamga",
-   "date": "2026-09-25"
+   "won": 22464,
+   "source": "kamis",
+   "date": null
+  },
+  "egg": {
+   "won": 9773,
+   "source": "kamis",
+   "date": null
+  },
+  "pork_shoulder": {
+   "won": 1708,
+   "source": "kamis",
+   "date": null
+  },
+  "mackerel": {
+   "won": 7420,
+   "source": "kamis",
+   "date": null
+  },
+  "sweet_potato": {
+   "won": 4885,
+   "source": "kamis",
+   "date": null
+  },
+  "potato": {
+   "won": 3040,
+   "source": "kamis",
+   "date": null
+  },
+  "banana": {
+   "won": 3852,
+   "source": "kamis",
+   "date": null
+  },
+  "cabbage": {
+   "won": 4128,
+   "source": "kamis",
+   "date": null
+  },
+  "broccoli": {
+   "won": 2490,
+   "source": "kamis",
+   "date": null
+  },
+  "spinach": {
+   "won": 2553,
+   "source": "kamis",
+   "date": null
+  },
+  "carrot": {
+   "won": 3980,
+   "source": "kamis",
+   "date": null
   }
  },
  "online": {
