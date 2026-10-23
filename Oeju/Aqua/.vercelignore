@@ -1,0 +1,9 @@
+.env*
+!.env.example
+android
+.next
+node_modules
+assets/android
+*.tsbuildinfo
+dist
+scripts/eval-*

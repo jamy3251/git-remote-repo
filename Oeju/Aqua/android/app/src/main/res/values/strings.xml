@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">아쿠아 도감</string>
+    <string name="title_activity_main">아쿠아 도감</string>
+    <string name="package_name">kr.aquadex.app</string>
+    <string name="custom_url_scheme">kr.aquadex.app</string>
+</resources>
