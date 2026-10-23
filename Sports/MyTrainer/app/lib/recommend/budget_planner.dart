@@ -11,14 +11,18 @@ import 'meal_planner.dart';
 /// 2. 남은 목표를 세 끼로 나누고, 단백질 식재료 × 탄수화물 식재료 조합마다 양을 푼다(solvePair).
 ///    지방이 모자라면 지방 1g 값이 가장 싼 식재료(식용유 등)로 채운다(조리용 기름 15g 까지).
 /// 3. 열량 ±12%, 단백질 85% 이상인 조합만 남겨 한 끼 값이 싼 순으로 정렬.
-/// 4. 가장 싼 조합의 1.5배 안에서, 단백질 식재료가 되도록 겹치지 않게(모자라면 탄수화물이 다르게) 3개를 골라 하루 세 끼에 돌려 쓴다(날마다 한 칸씩 밀어서).
+/// 4. 단백질이 겹치지 않게(닭가슴살·닭안심은 같은 무리) 가장 싼 조합의 2배 안에서 먼저 고르고, 모자라면 1.5배 안에서 탄수화물이 다른 것으로 채워 6개를 하루 세 끼에 돌려 쓴다(날마다 한 칸씩 밀어서).
 /// 5. 일주일 먹는 양을 파는 단위로 올림해 장보기 목록과 실제 낼 돈을 낸다.
 
 const vegPerMeal = 100.0;
 const kcalTolerance = 0.12;
 const minProteinRatio = 0.85;
-const poolSize = 3;
+/// 일주일에 돌려 쓰는 조합 수. 하루 세 끼는 이 중 이어진 셋이다.
+const poolSize = 6;
 const maxPriceRatio = 1.5;
+
+/// 단백질이 다른 조합은 가장 싼 조합의 이 배수까지 쓴다(매 끼니 같은 단백질만 먹지 않게).
+const varietyPriceRatio = 2.0;
 
 @immutable
 class PlanItem {
@@ -95,7 +99,7 @@ BudgetPlan planBudget({required Nutrients daily, required List<PricedFood> foods
 
   final vegs = foods.where((f) => f.item.role == FoodRole.veg).toList()
     ..sort((a, b) => a.wonPerGram.compareTo(b.wonPerGram));
-  final proteins = foods.where((f) => f.item.role == FoodRole.protein).toList();
+  final proteins = foods.where((f) => f.item.role == FoodRole.protein && f.item.mealItem).toList();
   final carbs = foods.where((f) => f.item.role == FoodRole.carb).toList();
   final fats = foods.where((f) => f.item.role == FoodRole.fat && f.per100.fat > 0).toList()
     ..sort((a, b) => (a.wonPerGram / a.per100.fat).compareTo(b.wonPerGram / b.per100.fat));
@@ -145,18 +149,16 @@ BudgetPlan planBudget({required Nutrients daily, required List<PricedFood> foods
     reasons.add('열량 ±${(kcalTolerance * 100).round()}%, 단백질 ${(minProteinRatio * 100).round()}% 이상 맞는 '
         '${feasible.length}개 조합 중 싼 순서로, 끼니마다 겹치지 않게 골랐어요');
   }
-  // 단백질이 겹치지 않는 것부터, 모자라면 탄수화물이 다른 것으로 채운다.
-  // 가장 싼 조합의 1.5배가 넘는 것은 겹치지 않더라도 쓰지 않는다(다양함보다 값).
-  if (feasible.isNotEmpty) {
-    final limit = feasible.first.won * maxPriceRatio;
-    source = source.where((c) => c.won <= limit).toList();
-  }
+  // 단백질이 겹치지 않는 것부터(가장 싼 조합의 2배까지), 모자라면 탄수화물이 다른 것으로 채운다(1.5배까지).
+  final cheapest = feasible.isEmpty ? double.infinity : feasible.first.won;
   final pool = <_Combo>[];
   final usedProtein = <String>{};
   for (final c in source) {
     if (pool.length == poolSize) break;
-    if (usedProtein.add(c.items.first.food.item.id)) pool.add(c);
+    if (c.won > cheapest * varietyPriceRatio) break;
+    if (usedProtein.add(c.items.first.food.item.groupId)) pool.add(c);
   }
+  source = source.where((c) => c.won <= cheapest * maxPriceRatio).toList();
   for (final c in source) {
     if (pool.length == poolSize) break;
     if (!pool.contains(c) && !pool.any((p) => p.items[1].food.item.id == c.items[1].food.item.id)) pool.add(c);

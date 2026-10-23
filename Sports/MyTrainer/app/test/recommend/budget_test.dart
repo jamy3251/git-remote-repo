@@ -51,6 +51,21 @@ void main() {
     expect(book.priceOf(rice, busan, const {}).source, PriceSource.base);
   });
 
+  test('매장 시세와 쿠팡 값이 둘 다 있으면 싼 쪽, 다른 쪽은 대조로 남긴다', () {
+    final book = PriceBook.parse('''{
+      "national": {"tofu": {"won": 3600, "source": "chamga"}, "rice": {"won": 30000, "source": "chamga"}},
+      "online": {"tofu": {"won": 1300, "source": "online"}, "rice": {"won": 32000, "source": "online"}, "oats": {"won": 6000, "source": "online"}}
+    }''');
+    Price p(String id, [Map<String, int> o = const {}]) => book.priceOf(priceItemById(id)!, null, o);
+    expect(p('tofu').source, PriceSource.online);
+    expect(p('tofu').compare?.won, 3600);
+    expect(p('rice').source, PriceSource.chamga);
+    expect(p('rice').compare?.source, PriceSource.online);
+    expect(p('oats').won, 6000);
+    expect(p('oats').compare, isNull);
+    expect(p('tofu', const {'tofu': 2000}).source, PriceSource.user);
+  });
+
   test('1g 값은 먹는 부분 기준(고등어는 60%만)', () {
     final m = _foods().firstWhere((f) => f.item.id == 'mackerel');
     expect(m.wonPerGram, closeTo(4000 / (350 * 0.6), 1e-9));

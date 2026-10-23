@@ -301,17 +301,19 @@ void main() {
     await t.pumpAndSettle();
     expect(find.textContaining('하루 약 '), findsOneWidget);
     expect(find.text('일주일 장보기'), findsOneWidget);
-    expect(find.textContaining('참고값 18개'), findsOneWidget);
+    expect(find.textContaining('참고값 28개'), findsOneWidget);
 
-    final chicken = find.textContaining(RegExp(r'^닭가슴살 냉동 1kg × \d'));
+    final chicken = find.textContaining(RegExp(r'^닭안심 1kg × \d'));
     expect(chicken, findsOneWidget);
+    await t.ensureVisible(chicken);
+    await t.pumpAndSettle();
     await t.tap(chicken);
     await t.pumpAndSettle();
     await t.enterText(find.widgetWithText(TextField, '우리 동네 값'), '99000');
     await t.tap(find.text('저장'));
     await t.pumpAndSettle();
     expect(prefs.getString('mytrainer.price_overrides'), contains('99000'));
-    expect(find.textContaining(RegExp(r'^닭가슴살 냉동 1kg × \d')), findsNothing);
+    expect(find.textContaining(RegExp(r'^닭안심 1kg × \d')), findsNothing);
     expect(find.textContaining('직접 고친 값 1개'), findsOneWidget);
   });
 

@@ -168,7 +168,7 @@ ColumnCheck checkColumns(Iterable<Food> foods) {
       if ((n.atwaterKcal - n.kcal).abs() / n.kcal > 0.3) off++;
     }
     if (f.maker.isNotEmpty) continue;
-    if (f.name.contains('닭가슴살') && n.carb > n.protein) problems.add('닭가슴살 탄>단');
+    if (f.name.startsWith('닭가슴살') && n.carb > n.protein) problems.add('닭가슴살 탄>단');
     if ((f.name == '쌀밥' || f.name.startsWith('백미밥')) && n.protein > n.carb) problems.add('쌀밥 단>탄');
     if (f.name.contains('식용유') && n.fat < n.carb) problems.add('식용유 지<탄');
   }

@@ -42,28 +42,37 @@ void main() {
     expect(kamisPrice(rows, priceItemById('sweet_potato')!, kamisSpecs['sweet_potato']!), 5800);
   });
 
-  test('참가격: 무게를 아는 상품만, 1g 값 중간값을 파는 단위로', () {
-    final goods = [
-      chamgaGood({'goodId': '1', 'goodName': '하림 닭가슴살 1kg', 'goodTotalCnt': '1', 'goodTotalDivCode': 'kg'}),
-      chamgaGood({'goodId': '2', 'goodName': '훈제 닭가슴살 100g', 'goodTotalCnt': '100', 'goodTotalDivCode': 'g'}),
-      chamgaGood({'goodId': '3', 'goodName': '풀무원 두부', 'goodTotalCnt': '1', 'goodTotalDivCode': '개'}),
-    ].whereType<ChamgaGood>().toList();
-    expect(goods.length, 2);
-    final matched = chamgaMatch(goods);
-    expect(matched['chicken_breast']!.map((g) => g.id), ['1', '2']);
-    expect(matched['tofu'], isEmpty);
-    final won = chamgaPrice(priceItemById('chicken_breast')!, matched['chicken_breast']!, {
-      '1': [9800, 10200],
-      '2': [1500],
-    });
-    // 1g 값: 9.8, 10.2, 15 → 중간 10.2 → 1kg 10,200원
-    expect(won, 10200);
+  test('상품명 괄호 안 내용량', () {
+    expect(gramsInName('국산콩두부 부침용(380g)'), 380);
+    expect(gramsInName('백설 콩기름(1.5L)'), 1500);
+    expect(gramsInName('김천 금물쌀(10kg)'), 10000);
+    expect(gramsInName('어느 두부(300g*2)'), 600);
+    expect(gramsInName('CJ 1등급 깨끗한 계란(10개)', countGrams: 60), 600);
+    expect(gramsInName('CJ 1등급 깨끗한 계란(10개)'), isNull);
+    expect(gramsInName('두부 한 모'), isNull);
   });
 
-  test('주소 → 시세 지역', () {
-    expect(regionOfAddress('서울특별시 노원구 공릉로 232'), '서울');
-    expect(regionOfAddress('경기도 구리시'), '수원');
-    expect(regionOfAddress('경상남도 창원시'), '창원');
-    expect(regionOfAddress('Tokyo'), isNull);
+  test('참가격: 이름 조건·정상가만, 1g 값 중간값을 파는 단위로', () {
+    Map<String, dynamic> row(String name, int won, {String? sale}) =>
+        {'상품명': name, '판매가격': won, '세일여부': sale, '원플러스원': null, '조사일': '2026-09-11'};
+    final spec = chamgaSpecs['tofu']!;
+    final rows = [
+      row('국산콩두부 부침용(380g)', 3800), // 10원/g
+      row('행복한콩 찌개두부(300g)', 2400), // 8원/g
+      row('행복한콩 찌개두부(300g)', 3600), // 12원/g
+      row('행복한콩 찌개두부(300g)', 900, sale: 'Y'), // 세일은 뺀다
+      row('아이꼬야 소고기와두부진밥(100g)', 3000), // 두부 요리는 뺀다
+    ].map((r) => chamgaRow(r, spec)).whereType<ChamgaRow>().toList();
+    expect(rows.length, 3);
+    expect(chamgaPrice(priceItemById('tofu')!, rows), 3000); // 10원/g × 300g
+  });
+
+  test('참가격: 쌀은 작은 상품(떡볶이·고추장)과 다른 곡물을 거른다', () {
+    final spec = chamgaSpecs['rice']!;
+    bool ok(String name) => chamgaRow({'상품명': name, '판매가격': 30000}, spec) != null;
+    expect(ok('임금님표 이천쌀 특등급(10kg)'), isTrue);
+    expect(ok('미정당 쌀 국물떡볶이(401g)'), isFalse);
+    expect(ok('해찬들 우리쌀 고추장(1kg)'), isFalse);
+    expect(ok('불릴필요없는 현미(2kg)'), isFalse);
   });
 }

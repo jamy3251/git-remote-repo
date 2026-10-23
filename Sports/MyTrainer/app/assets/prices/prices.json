@@ -1,0 +1,173 @@
+{
+ "builtAt": "2026-10-18",
+ "regions": [],
+ "national": {
+  "tofu": {
+   "won": 3592,
+   "source": "chamga",
+   "date": "2026-09-25"
+  },
+  "cooking_oil": {
+   "won": 9313,
+   "source": "chamga",
+   "date": "2026-09-25"
+  },
+  "peanut": {
+   "won": 17967,
+   "source": "chamga",
+   "date": "2026-09-25"
+  },
+  "rice": {
+   "won": 39980,
+   "source": "chamga",
+   "date": "2026-09-25"
+  },
+  "brown_rice": {
+   "won": 19867,
+   "source": "chamga",
+   "date": "2026-09-25"
+  }
+ },
+ "online": {
+  "chicken_breast": {
+   "won": 8410,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "egg": {
+   "won": 8985,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "tofu": {
+   "won": 1314,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "pork_shoulder": {
+   "won": 1688,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "mackerel": {
+   "won": 3568,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "greek_yogurt": {
+   "won": 6165,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "rice": {
+   "won": 31900,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "brown_rice": {
+   "won": 15400,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "sweet_potato": {
+   "won": 3325,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "potato": {
+   "won": 2380,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "oats": {
+   "won": 5980,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "banana": {
+   "won": 3936,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "cabbage": {
+   "won": 10350,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "broccoli": {
+   "won": 1856,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "spinach": {
+   "won": 3375,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "carrot": {
+   "won": 4430,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "cooking_oil": {
+   "won": 5274,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "peanut": {
+   "won": 7900,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "tuna_can": {
+   "won": 2617,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "pork_ham": {
+   "won": 11990,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "chicken_tender": {
+   "won": 8500,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "chicken_thigh": {
+   "won": 15760,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "beef_round": {
+   "won": 26900,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "squid": {
+   "won": 10845,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "shrimp": {
+   "won": 19415,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "salmon": {
+   "won": 29000,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "natto": {
+   "won": 7678,
+   "source": "online",
+   "date": "2026-10-18"
+  },
+  "whey": {
+   "won": 37600,
+   "source": "online",
+   "date": "2026-10-18"
+  }
+ }
+}

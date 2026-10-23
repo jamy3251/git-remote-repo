@@ -37,14 +37,33 @@ const kamisSpecs = <String, KamisSpec>{
   'carrot': KamisSpec('200', '당근'),
 };
 
-/// 품목 id → 참가격 상품명에 들어 있어야 하는 말.
-const chamgaKeywords = <String, List<String>>{
-  'chicken_breast': ['닭가슴살'],
-  'tofu': ['두부'],
-  'greek_yogurt': ['그릭'],
-  'oats': ['오트밀'],
-  'cooking_oil': ['콩기름', '식용유'],
-  'peanut': ['땅콩'],
+/// 참가격(한국소비자원 생필품 가격 정보)에서 찾을 것. 상품명에 [include] 중 하나가 있고 [exclude] 는 없어야 한다.
+@immutable
+class ChamgaSpec {
+  const ChamgaSpec(this.include, {this.exclude = const [], this.countGrams, this.minGrams = 0});
+
+  final List<String> include;
+  final List<String> exclude;
+
+  /// '(10개)' 처럼 개수로 파는 상품의 한 개 무게(g).
+  final double? countGrams;
+
+  /// 이보다 작은 상품은 뺀다(쌀 이름이 든 떡볶이·고추장 등을 거르는 용도).
+  final double minGrams;
+}
+
+/// 품목 id → 참가격 검색 조건. KAMIS 에도 있는 품목(쌀·현미)은 KAMIS 값이 먼저다.
+/// 달걀은 조사 품목이 브랜드 계란뿐이라(2026-09, 30구 환산 약 2만 원) 시세로 쓰지 않고 KAMIS 만 쓴다.
+/// 닭가슴살·그릭요거트·오트밀은 2026-09 조사 품목에 없지만, 나중에 들어오면 잡히게 남겨 둔다.
+const chamgaSpecs = <String, ChamgaSpec>{
+  'chicken_breast': ChamgaSpec(['닭가슴살'], exclude: ['소시지', '볼', '만두', '샐러드']),
+  'tofu': ChamgaSpec(['두부'], exclude: ['진밥', '유부', '과자']),
+  'greek_yogurt': ChamgaSpec(['그릭']),
+  'oats': ChamgaSpec(['오트밀', '귀리'], exclude: ['음료', '우유', '바']),
+  'cooking_oil': ChamgaSpec(['식용유', '콩기름']),
+  'peanut': ChamgaSpec(['땅콩'], exclude: ['버터', '샌드', '캔디', '과자', '쿠키', '크림', '바', '잼']),
+  'rice': ChamgaSpec(['쌀'], exclude: ['현미', '찹쌀', '흑미', '만두', '떡', '고추장', '국수', '과자', '식초', '음료'], minGrams: 4000),
+  'brown_rice': ChamgaSpec(['현미'], exclude: ['고추장', '식초', '녹차', '차', '음료', '과자'], minGrams: 1000),
 };
 
 /// '1kg' '100g' '20kg' '30구' '10개' '1마리' 같은 단위 → g. 개수 단위는 [countGrams] 가 있어야 한다.
@@ -88,61 +107,53 @@ int? kamisPrice(List<Map<String, dynamic>> rows, PriceItem item, KamisSpec spec)
   return values.isEmpty ? null : _median(values).round();
 }
 
-/// 참가격 상품 하나.
+/// 참가격 한 줄(상품명·판매가격). 무게를 알고 정상가인 줄만.
 @immutable
-class ChamgaGood {
-  const ChamgaGood({required this.id, required this.name, required this.grams});
+class ChamgaRow {
+  const ChamgaRow({required this.name, required this.grams, required this.won, this.day});
 
-  final String id;
   final String name;
 
   /// 내용량(g 또는 ml).
   final double grams;
+  final double won;
+
+  /// 조사일(yyyy-MM-dd).
+  final String? day;
 }
 
-/// 상품 목록 한 줄(goodId, goodName, goodTotalCnt, goodTotalDivCode) → 상품. 무게를 모르면 null.
-ChamgaGood? chamgaGood(Map<String, String> r) {
-  final id = r['goodId'], name = r['goodName'];
-  final cnt = double.tryParse(r['goodTotalCnt'] ?? '');
-  final div = (r['goodTotalDivCode'] ?? '').toLowerCase();
-  if (id == null || name == null || cnt == null || cnt <= 0) return null;
-  final grams = switch (div) {
-    'g' || 'ml' => cnt,
-    'kg' || 'l' => cnt * 1000,
-    _ => null,
+/// 상품명 괄호 안 내용량 → g. '(380g)' '(1.5L)' '(100g*5)' '(10개)'. 개수는 [countGrams] 가 있어야 한다.
+double? gramsInName(String name, {double? countGrams}) {
+  final groups = RegExp(r'\(([^)]*)\)').allMatches(name).toList();
+  if (groups.isEmpty) return null;
+  final m = RegExp(r'(\d+(?:\.\d+)?)\s*(kg|g|ml|mL|L|l|개|구)(?:\s*[x×*X]\s*(\d+))?')
+      .firstMatch(groups.last.group(1)!);
+  if (m == null) return null;
+  final n = double.parse(m.group(1)!);
+  final times = double.tryParse(m.group(3) ?? '') ?? 1;
+  final g = switch (m.group(2)) {
+    'kg' || 'L' || 'l' => n * 1000,
+    'g' || 'ml' || 'mL' => n,
+    _ => countGrams == null ? null : n * countGrams,
   };
-  return grams == null ? null : ChamgaGood(id: id, name: name, grams: grams);
+  return g == null ? null : g * times;
 }
 
-/// 품목 id → 그 품목에 맞는 상품들.
-Map<String, List<ChamgaGood>> chamgaMatch(List<ChamgaGood> goods) => {
-      for (final e in chamgaKeywords.entries)
-        e.key: [for (final g in goods) if (e.value.any(g.name.contains)) g],
-    };
+/// 원본 한 줄 → [ChamgaRow]. 세일·1+1 값은 평소 가격이 아니라서 뺀다.
+ChamgaRow? chamgaRow(Map<String, dynamic> r, ChamgaSpec spec) {
+  final name = '${r['상품명'] ?? ''}';
+  if (!spec.include.any(name.contains) || spec.exclude.any(name.contains)) return null;
+  if (r['세일여부'] == 'Y' || r['원플러스원'] == 'Y') return null;
+  final won = parseWon(r['판매가격']);
+  final g = gramsInName(name, countGrams: spec.countGrams);
+  if (won == null || g == null || g < spec.minGrams || g <= 0) return null;
+  return ChamgaRow(name: name, grams: g, won: won, day: r['조사일'] as String?);
+}
 
-/// 매장별 판매가(goodId → 원 목록) → 품목 값(우리 파는 단위 기준, 1g 값의 중간값으로).
-int? chamgaPrice(PriceItem item, List<ChamgaGood> goods, Map<String, List<double>> pricesByGood) {
-  final perGram = <double>[
-    for (final g in goods)
-      for (final p in pricesByGood[g.id] ?? const <double>[])
-        if (p > 0) p / g.grams,
-  ];
+/// 맞는 줄들의 1g 값 중간값 → 품목 값(우리 파는 단위 기준 원).
+int? chamgaPrice(PriceItem item, List<ChamgaRow> rows) {
+  final perGram = [for (final r in rows) r.won / r.grams];
   return perGram.isEmpty ? null : (_median(perGram) * item.packGrams).round();
-}
-
-/// 주소 맨 앞(시·도) → 시세 지역 이름. 참가격 매장을 KAMIS 지역에 붙일 때 쓴다.
-String? regionOfAddress(String address) {
-  const map = {
-    '서울': '서울', '부산': '부산', '대구': '대구', '인천': '인천', '광주': '광주', '대전': '대전', '울산': '울산',
-    '세종': '세종', '경기': '수원', '강원': '춘천', '충북': '청주', '충청북': '청주', '충남': '천안', '충청남': '천안',
-    '전북': '전주', '전라북': '전주', '전남': '순천', '전라남': '순천', '경북': '포항', '경상북': '포항',
-    '경남': '창원', '경상남': '창원', '제주': '제주',
-  };
-  final a = address.trim();
-  for (final e in map.entries) {
-    if (a.startsWith(e.key)) return e.value;
-  }
-  return null;
 }
 
 double _median(List<double> v) {

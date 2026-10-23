@@ -20,8 +20,8 @@ import 'package:mytrainer/diet/food_source.dart';
 
 const _dir = 'tool/food_db';
 const _out = 'assets/foods/foods.tsv.gz';
-const _defaultEndpoint = 'https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo02/getFoodNtrCpntDbInq02';
-const _pageSize = 100;
+const _defaultEndpoint = 'https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo03/getFoodNtrCpntDbInq03';
+const _pageSize = 500; // API 최대
 
 Future<void> main(List<String> args) async {
   String? opt(String name) {

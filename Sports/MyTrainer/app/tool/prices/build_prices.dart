@@ -3,9 +3,10 @@
 // 1) KAMIS 지역별 일일 소매가(농축수산물: 달걀·돼지고기·고등어·쌀·고구마·채소 등)
 //      KAMIS_KEY=<인증키> KAMIS_ID=<신청 아이디> dart run tool/prices/build_prices.dart --kamis
 //    kamis.or.kr → 회원가입 → Open-API 이용 신청. 키와 아이디를 둘 다 넣는다.
-// 2) 한국소비자원 참가격(가공식품: 닭가슴살·두부·오트밀·식용유 등, 매장별 판매가)
+// 2) 한국소비자원 참가격(두부·식용유·땅콩, KAMIS 가 없으면 쌀·현미도. 매장별 판매가의 전국 중간값)
 //      DATA_GO_KR_KEY=<일반 인증키> dart run tool/prices/build_prices.dart --chamga
-//    data.go.kr 에서 "한국소비자원_생필품 가격 정보" 활용신청(식약처 DB 와 같은 키).
+//    data.go.kr 15083256 "한국소비자원_생필품 가격 정보" 활용신청(식약처 DB 와 같은 키). 매달 한 번 올라오는
+//    파일형 API(odcloud)라 가장 최근 달 하나를 통째로 받는다. 매장 주소가 없어서 지역별 값은 없다.
 // 둘 다 쓰려면 --kamis --chamga. 처음에는 --sample 로 원본 첫 응답만 본다(필드 이름 확인용).
 //
 // 선택:
@@ -21,7 +22,9 @@ import 'package:mytrainer/diet/price_source.dart';
 const _dir = 'tool/prices';
 const _out = 'assets/prices/prices.json';
 const _kamisUrl = 'http://www.kamis.or.kr/service/price/xml.do';
-const _chamgaUrl = 'http://openapi.price.go.kr/openApiImpl/ProductPriceInfoService';
+const _chamgaDocs = 'https://infuser.odcloud.kr/oas/docs?namespace=15083256/v1';
+const _chamgaApi = 'https://api.odcloud.kr/api';
+const _chamgaPage = 10000;
 
 /// KAMIS 소매가 조사 지역(코드, 이름, 시청 좌표). 앱은 헬스장에서 가장 가까운 곳을 쓴다.
 const _regions = <(String, String, double, double)>[
@@ -68,9 +71,11 @@ Future<void> main(List<String> args) async {
   // 기존 자산을 읽어 이번에 받지 않는 출처 값은 남긴다.
   final regionPrices = <String, Map<String, Map<String, Object?>>>{for (final r in _regions) r.$2: {}};
   final national = <String, Map<String, Object?>>{};
+  Object? online;
   final old = File(_out);
   if (old.existsSync()) {
     final j = jsonDecode(old.readAsStringSync()) as Map;
+    online = j['online'];
     for (final r in (j['regions'] as List? ?? const []).cast<Map>()) {
       final keep = regionPrices[r['name']];
       if (keep == null) continue;
@@ -133,7 +138,7 @@ Future<void> main(List<String> args) async {
         exit(64);
       }
       drop('chamga');
-      await _chamga(client, key, sample, regionPrices, national);
+      await _chamga(client, key, sample, national);
     }
   } finally {
     client.close();
@@ -147,6 +152,8 @@ Future<void> main(List<String> args) async {
         if (regionPrices[name]!.isNotEmpty) {'name': name, 'lat': lat, 'lng': lng, 'prices': regionPrices[name]},
     ],
     'national': national,
+    // 온라인 판매가는 이 도구가 받지 않는다(쿠팡은 공개 API 가 없어 검색 결과를 손으로 모음). 있던 값을 그대로 둔다.
+    if (online != null) 'online': online,
   };
   File(_out)
     ..parent.createSync(recursive: true)
@@ -185,86 +192,59 @@ Future<(List<Map<String, dynamic>>, String)> _kamisCategory(
   return (const <Map<String, dynamic>>[], fixedDate ?? '');
 }
 
-Future<void> _chamga(HttpClient client, String key, bool sample, Map<String, Map<String, Map<String, Object?>>> regionPrices,
-    Map<String, Map<String, Object?>> national) async {
-  Future<List<Map<String, String>>> list(String op, Map<String, String> q, String cacheName) async {
-    final file = File('$_dir/cache/chamga_$cacheName.xml');
+Future<void> _chamga(HttpClient client, String key, bool sample, Map<String, Map<String, Object?>> national) async {
+  // 달마다 데이터셋(uddi)이 하나씩 생긴다. 문서에서 이름 끝 날짜가 가장 늦은 것.
+  final docs = jsonDecode(await _get(client, Uri.parse(_chamgaDocs))) as Map;
+  final sets = [
+    for (final e in (docs['paths'] as Map).entries)
+      (e.key as String, '${((e.value as Map)['get'] as Map?)?['summary'] ?? ''}'),
+  ]..sort((a, b) => a.$2.substring(a.$2.length - 8).compareTo(b.$2.substring(b.$2.length - 8)));
+  final (path, title) = sets.last;
+  final uddi = path.split('uddi:').last;
+  stdout.writeln('참가격 $title');
+
+  final rows = <Map<String, dynamic>>[];
+  for (var page = 1;; page++) {
+    final file = File('$_dir/cache/chamga_${uddi}_$page.json');
     final body = file.existsSync()
         ? file.readAsStringSync()
-        : await _get(client, Uri.parse('$_chamgaUrl/$op').replace(queryParameters: {'serviceKey': key, ...q}));
-    final rows = _xmlItems(body);
-    if (rows.isNotEmpty) file.writeAsStringSync(body);
-    return rows;
+        : await _get(client, Uri.parse('$_chamgaApi$path').replace(queryParameters: {
+            'page': '$page',
+            'perPage': '${sample ? 5 : _chamgaPage}',
+            'serviceKey': key,
+          }));
+    final j = jsonDecode(body) as Map;
+    final data = (j['data'] as List? ?? const []).cast<Map>();
+    if (sample) {
+      stdout.writeln('전체 ${j['totalCount']}줄, 첫 줄 원본: ${data.firstOrNull}');
+      return;
+    }
+    if (data.isNotEmpty) file.writeAsStringSync(body);
+    rows.addAll([for (final r in data) r.cast<String, dynamic>()]);
+    if (data.length < _chamgaPage) break;
   }
 
-  final goodsRaw = await list('getProductInfoSvc.do', const {}, 'goods');
-  if (sample) {
-    stdout.writeln('참가격 상품 ${goodsRaw.length}개, 첫 줄 원본: ${goodsRaw.firstOrNull}');
-    final stores = await list('getStoreInfoSvc.do', const {}, 'stores');
-    stdout.writeln('참가격 매장 ${stores.length}곳, 첫 줄 원본: ${stores.firstOrNull}');
-    return;
-  }
-  final matched = chamgaMatch([for (final r in goodsRaw) if (chamgaGood(r) case final g?) g]);
-  final stores = {
-    for (final s in await list('getStoreInfoSvc.do', const {}, 'stores'))
-      if (s['entpId'] != null) s['entpId']!: regionOfAddress(s['plmkAddrBasic'] ?? s['roadAddrBasic'] ?? ''),
-  };
-
-  // 조사는 격주 금요일. 최근 금요일부터 8주 안에서 값이 있는 날.
-  var day = DateTime.now();
-  while (day.weekday != DateTime.friday) {
-    day = day.subtract(const Duration(days: 1));
-  }
-  for (final e in matched.entries) {
-    if (e.value.isEmpty) {
-      stdout.writeln('참가격 ${e.key}: 맞는 상품 없음');
+  for (final e in chamgaSpecs.entries) {
+    final matched = [for (final r in rows) if (chamgaRow(r, e.value) case final m?) m];
+    final item = priceItemById(e.key)!;
+    final won = chamgaPrice(item, matched);
+    if (won == null) {
+      stdout.writeln('참가격 ${item.name}: 맞는 상품 없음');
       continue;
     }
-    final byRegion = <String?, Map<String, List<double>>>{};
-    String? found;
-    for (var w = 0; w < 8 && found == null; w++) {
-      final d = day.subtract(Duration(days: 7 * w));
-      final ds = '${d.year}${'${d.month}'.padLeft(2, '0')}${'${d.day}'.padLeft(2, '0')}';
-      for (final g in e.value.take(10)) {
-        final rows = await list('getProductPriceInfoSvc.do', {'goodInspectDay': ds, 'goodId': g.id}, 'price_${g.id}_$ds');
-        for (final r in rows) {
-          final won = parseWon(r['goodPrice']);
-          if (won == null) continue;
-          final region = stores[r['entpId']];
-          ((byRegion[region] ??= {})[g.id] ??= []).add(won);
-          ((byRegion[null] ??= {})[g.id] ??= []).add(won); // 전국
-          found = '${d.year}-${'${d.month}'.padLeft(2, '0')}-${'${d.day}'.padLeft(2, '0')}';
-        }
-      }
-    }
-    final item = priceItemById(e.key)!;
-    for (final r in byRegion.entries) {
-      final won = chamgaPrice(item, e.value, r.value);
-      if (won == null) continue;
-      final v = {'won': won, 'source': 'chamga', 'date': found};
-      if (r.key == null) {
-        national[e.key] = v;
-      } else {
-        regionPrices[r.key]?.putIfAbsent(e.key, () => v);
-      }
-    }
-    stdout.writeln('참가격 ${item.name}: 상품 ${e.value.length}개, 지역 ${byRegion.length - 1}곳 ($found)');
+    final days = [for (final m in matched) if (m.day != null) m.day!]..sort();
+    // KAMIS 값이 이미 있으면(달걀·쌀·현미) 그쪽이 먼저다.
+    national.putIfAbsent(e.key, () => {'won': won, 'source': 'chamga', 'date': days.lastOrNull});
+    final names = {for (final m in matched) m.name};
+    stdout.writeln('참가격 ${item.name}: ${item.packLabel} $won원 (상품 ${names.length}개 · ${matched.length}곳, ${names.take(3).join(', ')})');
   }
 }
-
-/// 참가격은 XML. 평평한 `<item>` 만 쓰니 정규식으로 충분하다.
-List<Map<String, String>> _xmlItems(String xml) => [
-      for (final m in RegExp(r'<item>(.*?)</item>', dotAll: true).allMatches(xml))
-        {
-          for (final f in RegExp(r'<(\w+)>([^<]*)</\1>').allMatches(m.group(1)!)) f.group(1)!: f.group(2)!.trim(),
-        },
-    ];
 
 Future<String> _get(HttpClient client, Uri uri) async {
   for (var attempt = 1;; attempt++) {
     try {
       final req = await client.getUrl(uri);
-      final res = await req.close().timeout(const Duration(seconds: 30));
+      final res = await req.close().timeout(const Duration(seconds: 120));
       final body = await res.transform(utf8.decoder).join();
       if (res.statusCode == 200) return body;
       throw HttpException('${res.statusCode} ${body.length > 300 ? body.substring(0, 300) : body}');

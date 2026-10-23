@@ -233,7 +233,8 @@ class _PriceTable extends ConsumerWidget {
                       Text('${f.item.name} ${f.item.packLabel}', style: AppText.body),
                       Text(
                         '100g ${kcal(f.per100.kcal)} 단 ${grams(f.per100.protein)} · ${f.fromDb ? '식약처 DB' : '영양 기본값'} · '
-                        '${f.price.source.label}${f.price.date == null ? '' : ' ${f.price.date}'}',
+                        '${f.price.source.label}${f.price.date == null ? '' : ' ${f.price.date}'}'
+                        '${f.price.compare == null ? '' : ' · ${f.price.compare!.source.label} ${won(f.price.compare!.won)}'}',
                         style: AppText.caption,
                       ),
                     ]),
@@ -286,7 +287,8 @@ class _PriceSheetState extends ConsumerState<_PriceSheet> {
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('${f.item.name} ${f.item.packLabel}', style: AppText.section),
         const SizedBox(height: Gap.xs),
-        Text('지금 ${won(f.price.won)} · ${f.price.source.label}${f.price.region == null ? '' : ' (${f.price.region})'}',
+        Text('지금 ${won(f.price.won)} · ${f.price.source.label}${f.price.region == null ? '' : ' (${f.price.region})'}'
+            '${f.price.compare == null ? '' : ' · ${f.price.compare!.source.label} ${won(f.price.compare!.won)}'}',
             style: AppText.caption),
         const SizedBox(height: Gap.md),
         TextField(
