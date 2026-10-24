@@ -49,7 +49,8 @@ class BackgroundSync {
       await OfflineReadiness(prefs)
           .prepare(offlineParts(repo,
               machines: createMachineRepository(prefs, createPartyRepository(prefs, mode)),
-              routines: createRoutineRepository(prefs, mode)));
+              routines: createRoutineRepository(prefs, mode),
+              diet: createDietRepository(prefs, mode)));
     }
   }
 
