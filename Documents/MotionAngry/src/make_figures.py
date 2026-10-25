@@ -123,47 +123,76 @@ def system_diagram():
 
 
 def loop_diagram():
-    """그림(2번째 논문): 단말 내 자기 학습 구조 — 추정·정답 수집·학습·가드의 순환. 실선=구현·검증, 점선=향후."""
-    from matplotlib.patches import FancyBboxPatch
-    fig, ax = plt.subplots(figsize=(6.8, 3.0))
+    """그림 1(2번째 논문): 단말 내 재귀 학습 회로 — 세로 흐름(추정 → 피드백 수집 → 학생 모델 갱신 → 성능 가드 → 다시 추정). 1단 폭."""
+    from matplotlib.patches import FancyBboxPatch, Circle
+    fig, ax = plt.subplots(figsize=(3.6, 7.4))
     ax.set_xlim(0, 100)
-    ax.set_ylim(0, 48)
+    ax.set_ylim(0, 206)
     ax.axis("off")
-    ax.add_patch(FancyBboxPatch((1, 1), 98, 46, boxstyle="round,pad=0,rounding_size=1.5", fc="none", ec=MUTED, lw=0.8, ls="--"))
-    ax.text(3, 44.2, "재귀 학습 회로 — 스마트폰 내부 (인터넷 권한 없음)", fontsize=7.5, color=MUTED)
+    GREEN, GFILL = "#2a7f3f", "#e8f3ea"
+    AFILL, PFILL = "#eaf1f9", "#f8ece4"
 
-    def box(x, y, w, h, t, c=ACCENT, fill="#eaf1f9", fs=7.0):
-        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=1", fc=fill, ec=c, lw=0.9))
-        ax.text(x + w / 2, y + h / 2, t, ha="center", va="center", fontsize=fs, color=INK, linespacing=1.25)
+    def band(y0, y1, n, title, c):
+        ax.add_patch(FancyBboxPatch((2, y0), 96, y1 - y0, boxstyle="round,pad=0,rounding_size=2", fc="#fafafa", ec="#d9d9d9", lw=0.7))
+        ax.add_patch(Circle((8, y1 - 5), 3.1, fc=c, ec="none"))
+        ax.text(8, y1 - 5, str(n), ha="center", va="center", fontsize=7.5, color="white", fontweight="bold")
+        ax.text(13, y1 - 5, title, ha="left", va="center", fontsize=8.2, color=INK, fontweight="bold")
 
-    def arrow(x0, y0, x1, y1, ls="-", c=INK):
-        ax.annotate("", (x1, y1), (x0, y0), arrowprops=dict(arrowstyle="-|>", lw=0.8, color=c, ls=ls, shrinkA=0, shrinkB=0))
+    def box(x, y, w, h, s, c=ACCENT, fill=AFILL, fs=6.6):
+        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=1.2", fc=fill, ec=c, lw=0.9))
+        ax.text(x + w / 2, y + h / 2, s, ha="center", va="center", fontsize=fs, color=INK, linespacing=1.25)
 
-    # 위: 추정
-    box(3, 31, 17, 10, "가속도 50Hz\n→ 2Hz 특징 16개")
-    box(24, 31, 18, 10, "30분 요약 32개\n(폰이 몸에 없으면 보류)")
-    box(46, 31, 20, 10, "기본 모델(트리 50개)\n학생 모델(가중치 33개)")
-    box(70, 31, 26, 10, "쓸 모델 고르기\n→ 알림 표시·질문할 때 결정")
-    for a, b in ((20, 24), (42, 46), (66, 70)):
-        arrow(a, 36, b, 36)
-    # 아래: 정답 수집
-    box(3, 5, 17, 10, "앞카메라 표정\n계수 52개", PHYS, "#f8ece4")
-    box(24, 5, 18, 10, "표정 → 임시 정답\n(웃음·입 벌림 기준)", PHYS, "#f8ece4")
-    box(46, 5, 20, 10, "질문 알림\n급변 때(A) / 무작위 시각(B)", PHYS, "#f8ece4")
-    box(70, 5, 26, 10, "감정 격자 입력\n정서가·각성·세기", PHYS, "#f8ece4")
-    arrow(20, 10, 24, 10)
-    arrow(66, 10, 70, 10)
-    arrow(83, 31, 56, 15)                    # 트리거 → 질문 알림
-    ax.text(63.5, 21.5, "질문", fontsize=6.5, color=INK, ha="right")
-    # 학습 루프(가운데)
-    box(24, 18, 18, 8, "학생 학습\n1시간마다 100스텝", "#2a7f3f", "#e8f3ea")
-    arrow(33, 15, 33, 18)                     # 교사 라벨 → 학습
-    arrow(42, 22, 56, 31)                     # 학습 → 학생 모델
-    ax.text(47.5, 26.5, "가중치 갱신", fontsize=6.5, color=INK, ha="center")
-    box(70, 18, 26, 8, "성능 가드\n무작위(B) 응답으로 두 모델 채점", "#2a7f3f", "#e8f3ea", 6.6)
-    arrow(83, 15, 83, 18)                     # 격자 응답 → 가드
-    arrow(83, 26, 83, 31)                     # 가드 → 활성 모델
-    fig.tight_layout(pad=0.2)
+    def arrow(x0, y0, x1, y1, c=INK, lw=0.9, label=None, lx=None, ly=None):
+        ax.annotate("", (x1, y1), (x0, y0), arrowprops=dict(arrowstyle="-|>", lw=lw, color=c, shrinkA=0, shrinkB=0, mutation_scale=8))
+        if label:
+            ax.text(lx, ly, label, fontsize=6.0, color=c, ha="center", va="center",
+                    bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none"))
+
+    def elbow(points, c=INK, lw=0.9):
+        for (x0, y0), (x1, y1) in zip(points[:-1], points[1:]):
+            last = (x1, y1) == points[-1]
+            ax.annotate("", (x1, y1), (x0, y0), arrowprops=dict(arrowstyle="-|>" if last else "-", lw=lw, color=c, shrinkA=0, shrinkB=0, mutation_scale=8))
+
+    ax.text(50, 203, "스마트폰 내부 · 인터넷 권한 없음 · 모든 단계가 폰 안에서 실행", ha="center", va="center", fontsize=6.8, color=MUTED)
+
+    # 1 추정
+    band(146, 198, 1, "추정", ACCENT)
+    box(14, 178, 72, 9, "가속도 50Hz → 1분 특징 16개 → 최근 30분 요약 32개")
+    arrow(50, 178, 50, 171)
+    box(8, 161, 38, 10, "학생 모델\n이 폰에서 배우는 개인 기준", fs=6.2)
+    box(54, 161, 38, 10, "기본 모델\n여러 사람으로 배운 공통 기준", fs=6.2)
+    arrow(27, 161, 42, 155)
+    arrow(73, 161, 58, 155)
+    box(16, 148, 68, 7, "적용 모델 선택 → 각성·정서가 추정 → 알림 표시", fs=6.3)
+
+    # 2 피드백 수집
+    band(100, 140, 2, "정서 피드백 수집", PHYS)
+    arrow(50, 146, 50, 140.5, label="사용 중", lx=57, ly=143.4)
+    box(6, 112, 42, 16, "앞카메라 표정 계수 52개\n(영상은 저장하지 않음)\n웃음·입 벌림이 기준을 넘으면\n분 단위 임시 정답", PHYS, PFILL, 6.2)
+    box(52, 112, 42, 16, "질문 알림 두 경로\n급변 질문 A: 추정이 크게 바뀔 때\n무작위 질문 B: 하루 3회 난수 시각\n→ 기분 지도 응답", PHYS, PFILL, 6.2)
+    ax.text(27, 106, "학습 재료(교사)", ha="center", fontsize=6.0, color=PHYS, style="italic")
+    ax.text(73, 106, "A: 학습 재료 · B: 평가 기준", ha="center", fontsize=6.0, color=PHYS, style="italic")
+
+    # 3 학생 모델 갱신
+    band(62, 92, 3, "학생 모델 갱신", GREEN)
+    arrow(27, 112, 27, 92.5)
+    box(8, 66, 44, 14, "임시 정답이 50개 이상 모이면\n1시간마다 100스텝 경사하강\n→ 학생 모델 가중치 저장", GREEN, GFILL, 6.3)
+
+    # 4 성능 가드
+    band(6, 56, 4, "성능 가드", GREEN)
+    arrow(73, 112, 73, 56.5)
+    box(50, 16, 44, 28, "무작위 질문 B의 응답으로\n기본·학생 모델을 같은 기준에서 채점\n\n학생이 10%p 넘게 뒤지면\n→ 기본 모델로 복귀\n5%p 넘게 앞서면 → 학생 모델 재적용", GREEN, GFILL, 6.0)
+    ax.text(27, 30, "복귀와 재적용의 문턱을\n다르게 두어 경계에서\n모델이 번갈아 바뀌지 않게 함", ha="center", va="center", fontsize=5.8, color=MUTED, linespacing=1.3)
+
+    # 되돌아가는 화살표
+    elbow([(8, 73), (0.8, 73), (0.8, 166), (8, 166)], c=GREEN)
+    ax.text(1.2, 120, "가중치 갱신", rotation=90, fontsize=6.0, color=GREEN, ha="center", va="center",
+            bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none"))
+    elbow([(94, 30), (99.2, 30), (99.2, 151.5), (84, 151.5)], c=GREEN)
+    ax.text(98.8, 100, "적용 모델 결정", rotation=90, fontsize=6.0, color=GREEN, ha="center", va="center",
+            bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none"))
+
+    fig.tight_layout(pad=0.15)
     fig.savefig(FIG / "fig_loop.png", dpi=300)
     print("saved", FIG / "fig_loop.png")
 
