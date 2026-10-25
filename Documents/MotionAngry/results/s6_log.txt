@@ -1,0 +1,103 @@
+3771 responses, 77 users, 40 candidate parameters
+
+[A] arousal: top parameters
+   task               feature  auc_pooled direction  rho_within  user_sign_agree  n_users
+arousal     raw2_med_jerk_p10       0.628         +       0.235            0.861       72
+arousal       raw2_med_hp_p10       0.627         -      -0.241            0.819       72
+arousal       raw2_med_hp_iqr       0.626         +       0.234            0.861       72
+arousal raw2_med_sec_std_mean       0.626         +       0.244            0.847       72
+arousal      raw2_iqr_hp_mean       0.626         +       0.225            0.903       72
+arousal       raw2_med_hp_p90       0.625         +       0.240            0.833       72
+
+[A] valence: top parameters
+   task              feature  auc_pooled direction  rho_within  user_sign_agree  n_users
+valence    raw2_med_jerk_p10       0.593         +       0.161            0.764       72
+valence      raw2_med_hp_iqr       0.591         +       0.159            0.764       72
+valence      raw2_med_hp_p10       0.590         -      -0.162            0.778       72
+valence      raw2_med_hp_p90       0.590         +       0.161            0.792       72
+valence coarse_med_act0_frac       0.590         -      -0.159            0.736       72
+valence  raw2_med_still_frac       0.587         -      -0.162            0.764       72
+
+[A] stress: top parameters
+  task              feature  auc_pooled direction  rho_within  user_sign_agree  n_users
+stress  raw2_med_sec_std_cv       0.555         +       0.098            0.625       72
+stress  raw2_iqr_sec_std_cv       0.542         +       0.072            0.694       72
+stress coarse_med_act0_frac       0.538         +       0.078            0.694       72
+stress      raw2_med_hp_iqr       0.534         -      -0.084            0.653       72
+stress     raw2_med_hp_sent       0.533         +       0.023            0.611       72
+stress    raw2_med_jerk_p10       0.533         -      -0.083            0.625       72
+
+[B] arousal: outer AUROC by k {1: 0.608, 2: 0.608, 3: 0.614, 4: 0.615, 5: 0.616} | all 0.632 | intensity 0.606
+added
+coarse_med_act_trans    3
+raw2_med_still_frac     3
+raw2_iqr_still_frac     3
+raw2_med_hp_bp0.1-1     2
+raw2_med_hp_domf        2
+raw2_iqr_hp_mean        2
+raw2_med_hp_iqr         2
+raw2_iqr_jerk_std       1
+
+[B] valence: outer AUROC by k {1: 0.571, 2: 0.573, 3: 0.577, 4: 0.57, 5: 0.567} | all 0.586 | intensity 0.565
+added
+coarse_med_act0_frac    3
+raw2_iqr_hp_domf        3
+raw2_iqr_jerk_p10       3
+raw2_med_jerk_p10       3
+coarse_med_act_trans    2
+raw2_iqr_hp_iqr         2
+coarse_iqr_act_trans    1
+raw2_iqr_hp_p10         1
+
+[B] stress: outer AUROC by k {1: 0.51, 2: 0.51, 3: 0.52, 4: 0.511, 5: 0.522} | all 0.521 | intensity 0.512
+added
+coarse_iqr_act2_frac    3
+raw2_med_hp_domf        3
+raw2_med_jerk_p90       3
+raw2_med_still_frac     2
+coarse_iqr_act1_frac    1
+coarse_med_act0_frac    1
+raw2_iqr_jerk_std       1
+raw2_iqr_sec_std_cv     1
+[C] arousal raw 0.632
+[C] arousal baseline_z 0.609
+[C] arousal raw+z 0.627
+[C] valence raw 0.586
+[C] valence baseline_z 0.556
+[C] valence raw+z 0.571
+[C] stress raw 0.521
+[C] stress baseline_z 0.518
+[C] stress raw+z 0.512
+[D] done raw
+[D] done raw+z
+features  trees  leaves  loso_auc  model_bytes
+     raw     10       3     0.621         1600
+     raw     10       7     0.627         4160
+     raw     10      15     0.624         9280
+     raw     25       3     0.627         4000
+     raw     25       7     0.634        10400
+     raw     25      15     0.630        23200
+     raw     50       3     0.635         8000
+     raw     50       7     0.636        20800
+     raw     50      15     0.631        46400
+     raw    100       3     0.637        16000
+     raw    100       7     0.632        41600
+     raw    100      15     0.627        92800
+     raw    200       3     0.637        32000
+     raw    200       7     0.626        83200
+     raw    200      15     0.613       185600
+   raw+z     10       3     0.615         1600
+   raw+z     10       7     0.619         4160
+   raw+z     10      15     0.616         9280
+   raw+z     25       3     0.624         4000
+   raw+z     25       7     0.626        10400
+   raw+z     25      15     0.626        23200
+   raw+z     50       3     0.631         8000
+   raw+z     50       7     0.630        20800
+   raw+z     50      15     0.624        46400
+   raw+z    100       3     0.634        16000
+   raw+z    100       7     0.627        41600
+   raw+z    100      15     0.621        92800
+   raw+z    200       3     0.633        32000
+   raw+z    200       7     0.618        83200
+   raw+z    200      15     0.613       185600

@@ -1,0 +1,10 @@
+task,features,loso_auc
+arousal,raw,0.6323382328906322
+arousal,baseline_z,0.6093344738394196
+arousal,raw+z,0.6274533316279036
+valence,raw,0.5861646093147965
+valence,baseline_z,0.5559674267853071
+valence,raw+z,0.5709686822654055
+stress,raw,0.52097011855572
+stress,baseline_z,0.51825733528982
+stress,raw+z,0.5117551894988243

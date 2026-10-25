@@ -1,0 +1,12 @@
+[arousal] k= 0 users=77 test=3771 | base pooled 0.623 user-mean 0.614 | own pooled 0.623 user-mean 0.614 | blend pooled 0.623 user-mean 0.614
+[arousal] k= 5 users=56 test=2415 | base pooled 0.621 user-mean 0.606 | own pooled 0.543 user-mean 0.505 | blend pooled 0.577 user-mean 0.554
+[arousal] k=10 users=71 test=2827 | base pooled 0.618 user-mean 0.634 | own pooled 0.592 user-mean 0.550 | blend pooled 0.618 user-mean 0.598
+[arousal] k=15 users=72 test=2583 | base pooled 0.630 user-mean 0.642 | own pooled 0.599 user-mean 0.548 | blend pooled 0.634 user-mean 0.602
+[arousal] k=20 users=71 test=2226 | base pooled 0.628 user-mean 0.653 | own pooled 0.610 user-mean 0.567 | blend pooled 0.637 user-mean 0.617
+[arousal] k=30 users=63 test=1549 | base pooled 0.640 user-mean 0.635 | own pooled 0.613 user-mean 0.574 | blend pooled 0.640 user-mean 0.603
+[valence] k= 0 users=77 test=3771 | base pooled 0.587 user-mean 0.594 | own pooled 0.587 user-mean 0.594 | blend pooled 0.587 user-mean 0.594
+[valence] k= 5 users=54 test=2328 | base pooled 0.598 user-mean 0.596 | own pooled 0.529 user-mean 0.554 | blend pooled 0.553 user-mean 0.575
+[valence] k=10 users=68 test=2688 | base pooled 0.595 user-mean 0.614 | own pooled 0.578 user-mean 0.557 | blend pooled 0.599 user-mean 0.588
+[valence] k=15 users=69 test=2450 | base pooled 0.594 user-mean 0.632 | own pooled 0.601 user-mean 0.566 | blend pooled 0.617 user-mean 0.602
+[valence] k=20 users=69 test=2167 | base pooled 0.596 user-mean 0.651 | own pooled 0.612 user-mean 0.563 | blend pooled 0.627 user-mean 0.608
+[valence] k=30 users=62 test=1523 | base pooled 0.595 user-mean 0.611 | own pooled 0.620 user-mean 0.549 | blend pooled 0.632 user-mean 0.585

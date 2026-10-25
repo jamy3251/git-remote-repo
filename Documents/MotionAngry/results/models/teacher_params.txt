@@ -1,0 +1,3 @@
+theta_v 0.0004
+theta_a 0.0235
+conf_min 0.3

@@ -1,0 +1,4 @@
+k,theta_v,theta_a,how_v,how_a,n_tuning_minutes,n_days,tuning_days,tuning_tap_wall_ms
+3,0.0004,0.0235,percentile70,percentile70,31,2,2026-10-24|2026-10-25,
+5,0.0004,0.0235,percentile70,percentile70,31,2,2026-10-24|2026-10-25,
+7,0.0004,0.0235,percentile70,percentile70,31,2,2026-10-24|2026-10-25,

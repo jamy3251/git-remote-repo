@@ -1,0 +1,4 @@
+fs=2 cases=5 max_rel_feat_err=9.343e-16 max_prob_err=0.000e+00 model_load_ms=39.8 feat_us_median=158 feat_us_p95=395 infer_us_median=24 infer_us_p95=120
+fs=8 cases=5 max_rel_feat_err=1.195e-15 max_prob_err=0.000e+00 model_load_ms=16.8 feat_us_median=435 feat_us_p95=684 infer_us_median=19 infer_us_p95=35
+fs=16 cases=5 max_rel_feat_err=1.449e-15 max_prob_err=0.000e+00 model_load_ms=17.8 feat_us_median=1479 feat_us_p95=1573 infer_us_median=18 infer_us_p95=30
+fs=32 cases=5 max_rel_feat_err=2.290e-14 max_prob_err=0.000e+00 model_load_ms=21.3 feat_us_median=3806 feat_us_p95=4124 infer_us_median=19 infer_us_p95=21

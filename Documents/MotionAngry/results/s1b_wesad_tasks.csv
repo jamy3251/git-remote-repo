@@ -1,0 +1,13 @@
+task,features,auroc,macro_f1,user_auroc_median,n_feats
+stress vs baseline,coarse,0.779,0.728,0.785,4
+stress vs baseline,noori32,0.914,0.861,0.949,19
+stress vs baseline,raw32,0.917,0.852,0.961,36
+stress vs baseline,phys,0.886,0.827,0.988,16
+amusement vs baseline,coarse,0.694,0.634,0.722,4
+amusement vs baseline,noori32,0.77,0.661,0.817,19
+amusement vs baseline,raw32,0.725,0.635,0.858,36
+amusement vs baseline,phys,0.638,0.645,0.631,16
+meditation vs baseline,coarse,0.895,0.797,0.946,4
+meditation vs baseline,noori32,0.927,0.833,0.962,19
+meditation vs baseline,raw32,0.919,0.848,0.957,36
+meditation vs baseline,phys,0.749,0.69,0.851,16

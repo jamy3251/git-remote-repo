@@ -1,0 +1,3 @@
+elapsed_s,charge_uah,current_ua,level,pss_kb,java_heap_kb,n_events
+0.1,3238839,301,86,35997,5661,0
+60.1,3242592,97,86,29900,5661,1001

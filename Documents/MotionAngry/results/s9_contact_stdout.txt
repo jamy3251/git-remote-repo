@@ -1,0 +1,10 @@
+       subset    n  auroc  charging_mean  screen_on_mean
+          all 3771  0.623          0.187           0.361
+    contact=1 3080  0.623          0.028           0.355
+    contact=0  691  0.595          0.874           0.386
+ charging<0.5 3097  0.624          0.028           0.354
+charging>=0.5  674  0.591          0.888           0.392
+  screen_on>0 3665  0.623          0.191           0.368
+  screen_on=0  106  0.647          0.013           0.000
+dropped by gate: 0.183
+EXIT=0

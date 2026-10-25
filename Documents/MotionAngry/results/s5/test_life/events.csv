@@ -1,0 +1,17 @@
+t_ns,wall_ms,type,app,media,value
+377319672395298,1792488744294,log_start,,,
+377319699614490,1792488744321,app,kr.ac.seoil.motionaffect,,
+377436787588368,1792488861409,app,com.android.settings,,
+377445791550400,1792488870413,app,kr.ac.seoil.motionaffect,,
+377448792465129,1792488873414,app,com.android.settings,,
+377454794152509,1792488879415,app,kr.ac.seoil.motionaffect,,
+377460796623736,1792488885418,app,com.google.android.youtube,,
+377463595613541,1792488888217,rate,com.google.android.youtube,,like
+377471223958728,1792488895845,rate,com.google.android.youtube,,like
+377481887075374,1792488906508,rate,com.google.android.youtube,,dislike
+377490661740714,1792488915283,rate,com.google.android.youtube,,like
+377518087921848,1792488942709,rate,com.google.android.youtube,,like
+377555683861899,1792488980305,rate,com.google.android.youtube,,like
+377568574751697,1792488993196,rate,com.google.android.youtube,,like
+377574891800731,1792488999513,app,kr.ac.seoil.motionaffect,,
+377579331593882,1792489003953,log_stop,kr.ac.seoil.motionaffect,,

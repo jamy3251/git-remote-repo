@@ -1,0 +1,12 @@
+data/
+__pycache__/
+*.pyc
+.pytest_cache/
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+# 참고 논문 PDF(저작권) — 서지·해석(.md)만 추적
+/*.pdf
+paper/refs/*.pdf
+paper/refs/*.html
