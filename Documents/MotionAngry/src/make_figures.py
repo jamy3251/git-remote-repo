@@ -88,7 +88,7 @@ def system_diagram():
     ax.set_ylim(0, 40)
     ax.axis("off")
     ax.add_patch(FancyBboxPatch((1, 1), 98, 38, boxstyle="round,pad=0,rounding_size=1.5", fc="none", ec=MUTED, lw=0.8, ls="--"))
-    ax.text(3, 36.2, "스마트폰 내부 (인터넷 권한 없음)", fontsize=7.5, color=MUTED)
+    ax.text(3, 36.2, "재귀 학습 회로 — 스마트폰 내부 (인터넷 권한 없음)", fontsize=7.5, color=MUTED)
 
     def box(x, y, w, h, t, c=ACCENT, fill="#eaf1f9"):
         ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=1", fc=fill, ec=c, lw=0.9))
@@ -130,7 +130,7 @@ def loop_diagram():
     ax.set_ylim(0, 48)
     ax.axis("off")
     ax.add_patch(FancyBboxPatch((1, 1), 98, 46, boxstyle="round,pad=0,rounding_size=1.5", fc="none", ec=MUTED, lw=0.8, ls="--"))
-    ax.text(3, 44.2, "스마트폰 내부 (인터넷 권한 없음)", fontsize=7.5, color=MUTED)
+    ax.text(3, 44.2, "재귀 학습 회로 — 스마트폰 내부 (인터넷 권한 없음)", fontsize=7.5, color=MUTED)
 
     def box(x, y, w, h, t, c=ACCENT, fill="#eaf1f9", fs=7.0):
         ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=1", fc=fill, ec=c, lw=0.9))
