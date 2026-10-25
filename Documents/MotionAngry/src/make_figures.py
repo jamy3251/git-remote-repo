@@ -123,74 +123,69 @@ def system_diagram():
 
 
 def loop_diagram():
-    """그림 1(2번째 논문): 단말 내 재귀 학습 회로 — 세로 흐름(추정 → 피드백 수집 → 학생 모델 갱신 → 성능 가드 → 다시 추정). 1단 폭."""
+    """그림 1(2번째 논문): 단말 내 재귀 학습 회로 — 세로 4단, 글자 최소, 색은 파랑 하나. 1단 폭."""
     from matplotlib.patches import FancyBboxPatch, Circle
-    fig, ax = plt.subplots(figsize=(3.6, 7.4))
+    fig, ax = plt.subplots(figsize=(3.4, 6.2))
     ax.set_xlim(0, 100)
-    ax.set_ylim(0, 206)
+    ax.set_ylim(0, 176)
     ax.axis("off")
-    GREEN, GFILL = ACCENT, "#ffffff"
-    AFILL, PFILL = "#ffffff", "#ffffff"
 
-    def band(y0, y1, n, title, c):
-        ax.add_patch(FancyBboxPatch((2, y0), 96, y1 - y0, boxstyle="round,pad=0,rounding_size=2", fc="#f7f7f7", ec="none", lw=0))
-        ax.add_patch(Circle((8, y1 - 5), 3.1, fc=c, ec="none"))
+    def band(y0, y1, n, title):
+        ax.add_patch(FancyBboxPatch((2, y0), 96, y1 - y0, boxstyle="round,pad=0,rounding_size=2", fc="#f6f6f6", ec="none"))
+        ax.add_patch(Circle((8, y1 - 5), 3.0, fc=ACCENT, ec="none"))
         ax.text(8, y1 - 5, str(n), ha="center", va="center", fontsize=7.5, color="white", fontweight="bold")
-        ax.text(13, y1 - 5, title, ha="left", va="center", fontsize=8.2, color=INK, fontweight="bold")
+        ax.text(13, y1 - 5, title, ha="left", va="center", fontsize=8.5, color=INK, fontweight="bold")
 
-    def box(x, y, w, h, s, c="#8a8a8a", fill="#ffffff", fs=6.6):
-        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=1.2", fc="#ffffff", ec="#8a8a8a", lw=0.8))
-        ax.text(x + w / 2, y + h / 2, s, ha="center", va="center", fontsize=fs, color=INK, linespacing=1.25)
+    def box(x, y, w, h, s, fs=7.0):
+        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=1.2", fc="white", ec="#8a8a8a", lw=0.8))
+        ax.text(x + w / 2, y + h / 2, s, ha="center", va="center", fontsize=fs, color=INK, linespacing=1.3)
 
-    def arrow(x0, y0, x1, y1, c=INK, lw=0.9, label=None, lx=None, ly=None):
-        ax.annotate("", (x1, y1), (x0, y0), arrowprops=dict(arrowstyle="-|>", lw=lw, color=c, shrinkA=0, shrinkB=0, mutation_scale=8))
-        if label:
-            ax.text(lx, ly, label, fontsize=6.0, color=c, ha="center", va="center",
-                    bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none"))
+    def arrow(x0, y0, x1, y1, c=INK):
+        ax.annotate("", (x1, y1), (x0, y0), arrowprops=dict(arrowstyle="-|>", lw=0.9, color=c, shrinkA=0, shrinkB=0, mutation_scale=8))
 
-    def elbow(points, c=INK, lw=0.9):
+    def elbow(points, c=ACCENT):
         for (x0, y0), (x1, y1) in zip(points[:-1], points[1:]):
             last = (x1, y1) == points[-1]
-            ax.annotate("", (x1, y1), (x0, y0), arrowprops=dict(arrowstyle="-|>" if last else "-", lw=lw, color=c, shrinkA=0, shrinkB=0, mutation_scale=8))
+            ax.annotate("", (x1, y1), (x0, y0), arrowprops=dict(arrowstyle="-|>" if last else "-", lw=0.9, color=c, shrinkA=0, shrinkB=0, mutation_scale=8))
 
-    ax.text(50, 203, "스마트폰 내부 · 인터넷 권한 없음 · 모든 단계가 폰 안에서 실행", ha="center", va="center", fontsize=6.8, color=MUTED)
+    def side(x, y, s):
+        ax.text(x, y, s, rotation=90, fontsize=6.3, color=ACCENT, ha="center", va="center",
+                bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none"))
 
-    # 1 추정
-    band(146, 198, 1, "추정", ACCENT)
-    box(14, 178, 72, 9, "가속도 50Hz → 1분 특징 16개 → 최근 30분 요약 32개")
-    arrow(50, 178, 50, 171)
-    box(8, 161, 38, 10, "학생 모델\n이 폰에서 배우는 개인 기준", fs=6.2)
-    box(54, 161, 38, 10, "기본 모델\n여러 사람으로 배운 공통 기준", fs=6.2)
-    arrow(27, 161, 42, 155)
-    arrow(73, 161, 58, 155)
-    box(16, 148, 68, 7, "적용 모델 선택 → 각성·정서가 추정 → 알림 표시", fs=6.3)
+    ax.text(50, 173, "스마트폰 안에서만 실행 · 인터넷 권한 없음", ha="center", va="center", fontsize=6.8, color=MUTED)
 
-    # 2 피드백 수집
-    band(100, 140, 2, "정서 피드백 수집", ACCENT)
-    arrow(50, 146, 50, 140.5, label="사용 중", lx=57, ly=143.4)
-    box(6, 112, 42, 16, "앞카메라 표정 계수 52개\n(영상은 저장하지 않음)\n웃음·입 벌림이 기준을 넘으면\n분 단위 임시 정답", PHYS, PFILL, 6.2)
-    box(52, 112, 42, 16, "질문 알림 두 경로\n급변 질문 A: 추정이 크게 바뀔 때\n무작위 질문 B: 하루 3회 난수 시각\n→ 기분 지도 응답", PHYS, PFILL, 6.2)
-    ax.text(27, 106, "학습 재료(교사)", ha="center", fontsize=6.0, color=MUTED, style="italic")
-    ax.text(73, 106, "A: 학습 재료 · B: 평가 기준", ha="center", fontsize=6.0, color=MUTED, style="italic")
+    # 1 추정 (124~168)
+    band(118, 168, 1, "추정")
+    box(18, 150, 64, 9, "가속도 → 1분 특징 → 30분 요약 32개")
+    arrow(50, 150, 50, 144)
+    box(10, 136, 36, 9, "학생 모델\n개인 기준")
+    box(54, 136, 36, 9, "기본 모델\n공통 기준")
+    arrow(28, 136, 44, 128)
+    arrow(72, 136, 56, 128)
+    box(26, 121, 48, 7, "적용 모델 선택 → 추정·알림", fs=6.8)
 
-    # 3 학생 모델 갱신
-    band(62, 92, 3, "학생 모델 갱신", ACCENT)
-    arrow(27, 112, 27, 92.5)
-    box(8, 66, 44, 14, "임시 정답이 50개 이상 모이면\n1시간마다 100스텝 경사하강\n→ 학생 모델 가중치 저장", GREEN, GFILL, 6.3)
+    # 2 피드백 (86~118)
+    arrow(50, 121, 50, 114.5)
+    band(84, 114, 2, "정서 피드백 수집")
+    box(8, 88, 40, 16, "앞카메라 표정\n→ 분 단위 임시 정답\n(교사)")
+    box(52, 88, 40, 16, "기분 지도 응답\n급변 때 A\n무작위 시각 B")
 
-    # 4 성능 가드
-    band(6, 56, 4, "성능 가드", ACCENT)
-    arrow(73, 112, 73, 56.5)
-    box(50, 16, 44, 28, "무작위 질문 B의 응답으로\n기본·학생 모델을 같은 기준에서 채점\n\n학생이 10%p 넘게 뒤지면\n→ 기본 모델로 복귀\n5%p 넘게 앞서면 → 학생 모델 재적용", GREEN, GFILL, 6.0)
-    ax.text(27, 30, "복귀와 재적용의 문턱을\n다르게 두어 경계에서\n모델이 번갈아 바뀌지 않게 함", ha="center", va="center", fontsize=5.8, color=MUTED, linespacing=1.3)
+    # 3 갱신 (56~80)
+    arrow(28, 88, 28, 80.5)
+    band(56, 80, 3, "학생 모델 갱신")
+    box(8, 59, 40, 13, "1시간마다\n100스텝 학습")
 
-    # 되돌아가는 화살표
-    elbow([(8, 73), (0.8, 73), (0.8, 166), (8, 166)], c=GREEN)
-    ax.text(1.2, 120, "가중치 갱신", rotation=90, fontsize=6.0, color=GREEN, ha="center", va="center",
-            bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none"))
-    elbow([(94, 30), (99.2, 30), (99.2, 151.5), (84, 151.5)], c=GREEN)
-    ax.text(98.8, 100, "적용 모델 결정", rotation=90, fontsize=6.0, color=GREEN, ha="center", va="center",
-            bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none"))
+    # 4 가드 (6~50)
+    arrow(72, 88, 72, 50.5)
+    band(6, 50, 4, "성능 가드")
+    box(52, 14, 40, 27, "B 응답으로\n기본·학생 모델 채점\n\n뒤지면 기본 모델로 복귀\n앞서면 학생 모델 적용", fs=6.8)
+    ax.text(28, 27, "평가는 모델이 고르지 않은\n무작위 응답으로만", ha="center", va="center", fontsize=6.2, color=MUTED, linespacing=1.3)
+
+    # 되돌림
+    elbow([(8, 65.5), (0.8, 65.5), (0.8, 140.5), (10, 140.5)])
+    side(1.0, 104, "가중치 갱신")
+    elbow([(92, 27.5), (99.2, 27.5), (99.2, 124.5), (74, 124.5)])
+    side(99.0, 80, "적용 모델 결정")
 
     fig.tight_layout(pad=0.15)
     fig.savefig(FIG / "fig_loop.png", dpi=300)
@@ -293,11 +288,11 @@ def app_example():
     print("saved", FIG / "fig_app.png")
 
 
-def screens():
+def screens(names=("02_grid.png",)):
     """그림(2번째 논문): 실제 단말 화면. paper/figures/shots/ 의 PNG(파일명 순)를 가로로 나란히 붙여 fig_screens.png.
     예상 파일: 01_notification.png(추정 알림), 02_grid.png(감정 격자), 03_ask.png(질문 알림). 캡션 글자는 파일명의 번호 뒤 이름."""
     from PIL import Image
-    shots = sorted((FIG / "shots").glob("*.png"))
+    shots = [FIG / "shots" / nm for nm in names if (FIG / "shots" / nm).exists()]  # 2026-10-25: 논문 그림 3은 기분 지도 화면만(메인 화면은 추정값이 찍힌 캡처가 생기면 추가)
     if not shots:
         print("no shots in", FIG / "shots")
         return
