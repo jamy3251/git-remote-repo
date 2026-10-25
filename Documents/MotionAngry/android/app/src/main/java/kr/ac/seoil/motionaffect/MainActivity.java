@@ -3,12 +3,16 @@ package kr.ac.seoil.motionaffect;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
-import android.widget.Button;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.io.BufferedReader;
@@ -27,36 +31,181 @@ import java.util.Map;
  *   am start -n kr.ac.seoil.motionaffect/.MainActivity --es cmd stop
  *   am start -n kr.ac.seoil.motionaffect/.MainActivity --es cmd viewing --ei n 12   (영상 시청 실험, 화면 버튼과 같음)
  * 결과 파일: /sdcard/Android/data/kr.ac.seoil.motionaffect/files/
+ * 2026-10-25 화면 다듬기(Ui.java + 디자인 리뷰 반영): 상태 카드, 기록 토글, 기분 지도 버튼, 권한 목록(허용 여부). 기능은 그대로.
  */
 public class MainActivity extends Activity {
     static final String TAG = "MotionAffect";
     private TextView view;
+    private LinearLayout status, perm;
+    private TextView toggle;
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
-        col.setPadding(32, 32, 32, 32);
-        col.addView(button("일상 기록 시작", () -> {
-            startForegroundService(new Intent(this, LifeLogService.class));
-            show("일상 기록 시작");
-        }));
-        col.addView(button("일상 기록 중지", () -> {
-            stopService(new Intent(this, LifeLogService.class));
-            show("일상 기록 중지");
-        }));
-        col.addView(button("권한 1: 카메라(표정)", () -> requestPermissions(new String[]{Manifest.permission.CAMERA}, 1)));
-        col.addView(button("권한 2: 사용 기록(어떤 앱인지)", () -> startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))));
-        col.addView(button("권한 3: 알림 접근(곡·영상 제목)", () -> startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))));
-        col.addView(button("권한 4: 다른 앱 위에 표시(좋아/별로 버튼)", () -> startActivity(
-                new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())))));
-        col.addView(button("영상 시청 실험(보조)", () -> startActivity(new Intent(this, ViewingActivity.class))));
-        view = new TextView(this);
-        view.setText("MotionAffect: 외부 전송 없음 (인터넷 권한 없음)\n");
-        col.addView(view);
-        setContentView(col);
+        col.setBackgroundColor(Ui.BG);
+        int pad = Ui.dp(this, 20);
+        col.setPadding(pad, Ui.dp(this, 24), pad, Ui.dp(this, 40));
+
+        col.addView(Ui.text(this, "온디바이스 정서 추정", 12, Ui.MUTED, false));
+        col.addView(Ui.title(this, "MotionAffect"), Ui.block(this, 6));
+        col.addView(Ui.text(this, "움직임으로 기분을 읽고, 폰 안에서만 배웁니다", 14, Ui.MUTED, false), Ui.block(this, 6));
+        TextView noNet = Ui.pill(this, "인터넷 권한 없음 · 외부 전송 없음", Ui.MUTED, Ui.CHIP);
+        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        plp.topMargin = Ui.dp(this, 10);
+        col.addView(noNet, plp);
+
+        status = Ui.card(this);
+        col.addView(status, Ui.block(this, 20));
+
+        LinearLayout actions = new LinearLayout(this);
+        toggle = Ui.button(this, "기록 시작", true);
+        toggle.setOnClickListener(v -> {
+            boolean running = getSharedPreferences(AskAlarmReceiver.PREFS, MODE_PRIVATE).getBoolean(AskAlarmReceiver.KEY_RUNNING, false);
+            if (running) {
+                stopService(new Intent(this, LifeLogService.class));
+                show("일상 기록 중지");
+            } else {
+                startForegroundService(new Intent(this, LifeLogService.class));
+                show("일상 기록 시작");
+            }
+            status.postDelayed(this::renderStatus, 900);
+        });
+        TextView grid = Ui.button(this, "지금 기분 남기기", false);
+        grid.setOnClickListener(v -> startActivity(new Intent(this, AffectGridActivity.class)
+                .putExtra(AffectGridActivity.EXTRA_SRC, "main")));
+        actions.addView(toggle, Ui.pair(this, true));
+        actions.addView(grid, Ui.pair(this, false));
+        col.addView(actions, Ui.block(this, 16));
+
+        perm = Ui.card(this);
+        col.addView(perm, Ui.block(this, 16));
+
+        TextView viewing = Ui.text(this, "영상 시청 실험(보조) 열기", 13, Ui.MUTED, false);
+        viewing.setGravity(Gravity.CENTER);
+        viewing.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 4));
+        viewing.setOnClickListener(v -> startActivity(new Intent(this, ViewingActivity.class)));
+        col.addView(viewing, Ui.block(this, 20));
+
+        view = Ui.text(this, "", 12, Ui.MUTED, false);
+        view.setVisibility(View.GONE);
+        col.addView(view, Ui.block(this, 6));
+
+        ScrollView sv = new ScrollView(this);
+        sv.setBackgroundColor(Ui.BG);
+        sv.addView(col);
+        setContentView(sv);
+        getWindow().setStatusBarColor(Ui.BG);
+        getWindow().setNavigationBarColor(Ui.BG);
+        sv.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+        renderStatus();
+        renderPerms();
         handle(getIntent());
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (status != null) { renderStatus(); renderPerms(); }
+        overlay(false);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        overlay(true);
+    }
+
+    /** 앱 자기 화면이 앞에 있을 때는 서비스의 떠 있는 버튼을 숨긴다(서비스가 없으면 무시됨). */
+    private void overlay(boolean show) {
+        sendBroadcast(new Intent(LifeLogService.ACTION_OVERLAY).setPackage(getPackageName()).putExtra("show", show));
+    }
+
+    /** 상태 카드: 기록 상태 알약, 최근 추정(안쪽 상자·막대), 교사·학생 상태. 값은 LifeLogService가 prefs에 남긴 것. */
+    private void renderStatus() {
+        status.removeAllViews();
+        android.content.SharedPreferences pr = getSharedPreferences(AskAlarmReceiver.PREFS, MODE_PRIVATE);
+        boolean running = pr.getBoolean(AskAlarmReceiver.KEY_RUNNING, false);
+        LinearLayout head = new LinearLayout(this);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.addView(Ui.text(this, "일상 기록", 15, Ui.INK, true), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        head.addView(running ? Ui.pill(this, "기록 중", Ui.OK, Ui.OK_SOFT) : Ui.pill(this, "중지됨", Ui.MUTED, Ui.CHIP));
+        status.addView(head);
+
+        LinearLayout inner = Ui.inner(this);
+        long at = pr.getLong("ui_at", 0);
+        if (at > 0 && running) {
+            int min = pr.getInt("ui_min", 0);
+            boolean stu = pr.getBoolean("ui_student", false);
+            inner.addView(Ui.text(this, String.format(Locale.US, "최근 %d분의 움직임으로 본 지금%s", min, stu ? " · 학생 모델" : ""), 13, Ui.MUTED, false));
+            inner.addView(Ui.bar(this, "흥분", pr.getFloat("ui_pa", Float.NaN), Ui.PRIMARY), Ui.block(this, 8));
+            inner.addView(Ui.bar(this, "유쾌", pr.getFloat("ui_pv", Float.NaN), Ui.PRIMARY), Ui.block(this, 8));
+            inner.addView(Ui.text(this, java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(new java.util.Date(at)) + " 갱신", 12, Ui.MUTED, false), Ui.block(this, 6));
+        } else {
+            // 충전 중(USB 포함)이면 비접촉 보류 규칙으로 추정을 쉬므로 그 사실을 보여 준다.
+            android.content.Intent bat = registerReceiver(null, new android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED));
+            int plugged = bat == null ? 0 : bat.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0);
+            String msg = !running ? "기록을 시작하면 최근 30분의 추정이 여기에 보입니다"
+                    : plugged != 0 ? "충전 중이라 추정을 쉬고 기록만 합니다 · 폰을 들면 5분 뒤 표시"
+                    : "추정 준비 중 · 움직임이 5분 이상 쌓이면 표시";
+            inner.addView(Ui.text(this, msg, 13, Ui.MUTED, false));
+        }
+        status.addView(inner, Ui.block(this, 12));
+        status.addView(Ui.divider(this, 12));
+
+        File models = new File(getExternalFilesDir(null), ModelFiles.DIR);
+        boolean teacher = new File(models, "teacher_params.txt").exists();
+        boolean student = new File(models, "student_arousal.txt").exists();
+        status.addView(Ui.row(this, "표정 교사", teacher ? "켜짐" : "기준값 대기", teacher ? Ui.OK : Ui.MUTED));
+        status.addView(Ui.row(this, "학생 모델", student ? "폰에서 갱신 중" : "씨앗 가중치", student ? Ui.OK : Ui.MUTED));
+        if (toggle != null) {
+            toggle.setText(running ? "기록 중지" : "기록 시작");
+            toggle.setTextColor(running ? Ui.INK : Color.WHITE);
+            toggle.setBackground(running ? Ui.rounded(this, Ui.SURFACE, 999, Ui.LINE) : Ui.rounded(this, Ui.PRIMARY, 999, 0));
+        }
+    }
+
+    /** 권한 카드: 이름·설명 + 허용 여부. 누르면 설정으로. */
+    private void renderPerms() {
+        perm.removeAllViews();
+        perm.addView(Ui.text(this, "권한", 12, Ui.MUTED, true));
+        boolean cam = checkSelfPermission(Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        android.app.AppOpsManager ops = (android.app.AppOpsManager) getSystemService(APP_OPS_SERVICE);
+        boolean usage = ops.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), getPackageName())
+                == android.app.AppOpsManager.MODE_ALLOWED;
+        boolean notif = getSystemService(android.app.NotificationManager.class)
+                .isNotificationListenerAccessGranted(new android.content.ComponentName(this, MediaListener.class));
+        boolean overlay = Settings.canDrawOverlays(this);
+        perm.addView(permRow("카메라", "표정 계수만 추출, 영상 저장 없음", cam,
+                () -> requestPermissions(new String[]{Manifest.permission.CAMERA}, 1)));
+        perm.addView(Ui.divider(this, 0));
+        perm.addView(permRow("사용 기록", "어떤 앱을 쓰는지", usage,
+                () -> startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))));
+        perm.addView(Ui.divider(this, 0));
+        perm.addView(permRow("알림 접근", "재생 중인 곡·영상 제목", notif,
+                () -> startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))));
+        perm.addView(Ui.divider(this, 0));
+        perm.addView(permRow("다른 앱 위에 표시", "화면 가장자리 좋아/별로/기분 버튼", overlay,
+                () -> startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:" + getPackageName())))));
+    }
+
+    private LinearLayout permRow(String name, String desc, boolean granted, Runnable r) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 12));
+        LinearLayout txt = new LinearLayout(this);
+        txt.setOrientation(LinearLayout.VERTICAL);
+        txt.addView(Ui.text(this, name, 15, Ui.INK, true));
+        txt.addView(Ui.text(this, desc, 12, Ui.MUTED, false));
+        row.addView(txt, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(Ui.text(this, granted ? "허용됨" : "설정 ›", 13, granted ? Ui.OK : Ui.PRIMARY, true));
+        android.util.TypedValue tv = new android.util.TypedValue();
+        getTheme().resolveAttribute(android.R.attr.selectableItemBackground, tv, true);
+        row.setBackgroundResource(tv.resourceId);
+        row.setOnClickListener(v -> r.run());
+        return row;
     }
 
     @Override
@@ -133,16 +282,12 @@ public class MainActivity extends Activity {
         }
     }
 
-    private Button button(String label, Runnable r) {
-        Button b = new Button(this);
-        b.setText(label);
-        b.setOnClickListener(v -> r.run());
-        return b;
-    }
-
     private void show(String s) {
         Log.i(TAG, s);
-        runOnUiThread(() -> view.append(s + "\n"));
+        runOnUiThread(() -> {
+            view.setVisibility(View.VISIBLE);
+            view.append(s + "\n");
+        });
     }
 
     /** Python과 같은 WESAD 창을 넣어 특징·확률 일치를 확인하고, 반복 실행으로 지연시간을 잰다. */

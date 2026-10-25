@@ -264,6 +264,30 @@ def app_example():
     print("saved", FIG / "fig_app.png")
 
 
+def screens():
+    """그림(2번째 논문): 실제 단말 화면. paper/figures/shots/ 의 PNG(파일명 순)를 가로로 나란히 붙여 fig_screens.png.
+    예상 파일: 01_notification.png(추정 알림), 02_grid.png(감정 격자), 03_ask.png(질문 알림). 캡션 글자는 파일명의 번호 뒤 이름."""
+    from PIL import Image
+    shots = sorted((FIG / "shots").glob("*.png"))
+    if not shots:
+        print("no shots in", FIG / "shots")
+        return
+    # 왼쪽 엣지 패널 손잡이(14px)와 하단 내비게이션 바(y>2080)를 잘라낸다(1080x2220 기준)
+    ims = [Image.open(s).convert("RGB") for s in shots]
+    ims = [im.crop((14, 0, im.width, min(im.height, 2080))) for im in ims]
+    h = 1400
+    ims = [im.resize((int(im.width * h / im.height), h)) for im in ims]
+    gap = 40
+    w = sum(im.width for im in ims) + gap * (len(ims) - 1)
+    canvas = Image.new("RGB", (w, h), "white")
+    x = 0
+    for im in ims:
+        canvas.paste(im, (x, 0))
+        x += im.width + gap
+    canvas.save(FIG / "fig_screens.png")
+    print("saved", FIG / "fig_screens.png", [s.name for s in shots])
+
+
 if __name__ == "__main__":
     resolution_curve()
     wild_bars()

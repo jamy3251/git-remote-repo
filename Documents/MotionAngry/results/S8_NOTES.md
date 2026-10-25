@@ -66,3 +66,8 @@
 - 결함: OnDeviceTrainer가 저장 파일이 없으면 0 가중치로 시작하고 첫 저장이 0을 덮어써 p_student가 항상 0.5였음(affect v3 319행 전부 0.5). 수정: 저장 파일 없거나 손상이면 assets/student_<task>.txt 씨앗을 set_weights로 복원, student 이벤트에 source=files|assets|zero 기록. gradle testReleaseUnitTest+assembleRelease 통과(JUnit 31), APK 22.5MB 설치, 폰의 0 가중치 student_*.txt 삭제 → 재시작 로그 w0=0.1412 source=assets(씨앗과 일치).
 - 교사: s8_teacher.py 이틀 기록(얼굴 31분) → theta_v 0.0004 / theta_a 0.0235(70백분위, 격자 탭 <20이라 일치율 조정 불가) → results/models/teacher_params.txt를 폰 files/models/에 push, 재시작 로그 teacher theta_v=0.0004;theta_a=0.0235;conf_min=0.30. 이제 순환 전체가 폰에서 동작(학습은 1시간에 표본 50개 이상일 때만).
 - 참고문헌 6편 다운로드·해석 paper/refs/ (Aldenhoven ARKit, Hosseini 간호사 E4, LiteRT 가이드, MediaPipe, Affect Grid, K-EmoPhone). 원고 수정: LiteRT "마지막 층" 서술 삭제(공식 예제는 수만 파라미터 분류기 전체 학습), MediaPipe는 프레임워크 인용으로, Affect Grid는 변형임을 명시, K-EmoPhone 응답은 "설문 직전 순간"이며 평균 26분 지속 보고를 30분 창 근거로.
+
+## 2026-10-25 밤 — 앱 화면 다듬기(논문 그림 3용) + 디자인 리뷰 2건 반영
+- Ui.java 신설(바탕 #F6F7FB, 흰 카드 20dp, 알약 칩·버튼, 막대, 알약 상태, 안쪽 상자, 구분선). MainActivity: NoActionBar 테마, 제목·설명·"인터넷 권한 없음" 알약, 상태 카드(기록 중 알약·최근 추정 막대·표정 교사·학생 모델), 기록 토글 버튼 + "지금 기분 남기기", 권한 카드(허용 여부 표시). AffectGridActivity: 앱 안 이름 "기분 지도", 추정 카드 압축(막대 2개 한 줄), 격자 둥근 모서리·감정 이름 알약 배경·축 라벨 밝기 적응·선택 후광, 칩 가장자리 정렬. 오버레이(좋아/별로/기분)는 앱 화면이 앞에 있을 때 브로드캐스트(ACTION_OVERLAY)로 숨김. 알림 제목 "폰 안에서 기분을 읽는 중", 버튼 "기분 남기기". 서비스가 최근 추정을 prefs(ui_pa/ui_pv/ui_min/ui_at)에 남김.
+- 캡처: adb 데모 모드(상태바 정리) → paper/figures/shots/01_main.png·02_grid.png(기쁨 근처 탭 상태) → make_figures.screens() → fig_screens.png(그림 3). 이전 화면은 shots_before/.
+- 빌드·설치(JUnit 31 통과), 기록 재시작. 기록 형식·모델·규칙은 변경 없음.

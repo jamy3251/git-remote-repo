@@ -31,6 +31,7 @@ import android.provider.Settings;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -109,6 +110,8 @@ public class LifeLogService extends LifecycleService implements SensorEventListe
     private java.util.List<String> featKeys;  // affect.csv v2 열 순서(키 오름차순으로 고정)
     private long lastUsageQuery;
     private View overlay;
+    private android.content.BroadcastReceiver overlayReceiver;
+    static final String ACTION_OVERLAY = "kr.ac.seoil.motionaffect.OVERLAY";
     private MediaSessionManager msm;
     private final MediaController.Callback mediaCb = new MediaController.Callback() {
         @Override public void onMetadataChanged(MediaMetadata m) { logMedia(); }
@@ -366,6 +369,10 @@ public class LifeLogService extends LifecycleService implements SensorEventListe
         boolean useStudent = guard != null && guard.studentActive() && !Double.isNaN(student[0]);
         double ua = useStudent ? student[0] : p[0], uv = useStudent ? student[1] : p[1];
         lastEstimate = String.format(Locale.US, "최근 %d분: 각성 %.2f · 기분 %.2f%s", daily.minutes(), ua, uv, useStudent ? " (학생)" : "");
+        // 메인 화면 상태 카드용(2026-10-25): 최근 추정을 prefs에 남긴다.
+        getSharedPreferences(AskAlarmReceiver.PREFS, MODE_PRIVATE).edit()
+                .putFloat("ui_pa", (float) ua).putFloat("ui_pv", (float) uv).putInt("ui_min", daily.minutes())
+                .putBoolean("ui_student", useStudent).putLong("ui_at", System.currentTimeMillis()).apply();
         getSystemService(NotificationManager.class).notify(2, notification());
         if (asker != null) asker.onEstimate(ua, uv);
     }
@@ -615,9 +622,10 @@ public class LifeLogService extends LifecycleService implements SensorEventListe
         }
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.VERTICAL);
-        bar.addView(button("좋아", "like", Color.argb(150, 31, 95, 168)));
-        bar.addView(button("별로", "dislike", Color.argb(150, 120, 120, 120)));
-        TextView g = button("감정", "", Color.argb(150, 168, 95, 31));
+        bar.setPadding(0, 0, Ui.dp(this, 6), 0);
+        bar.addView(button("좋아", "like", Color.argb(215, 47, 107, 255)));
+        bar.addView(button("별로", "dislike", Color.argb(215, 75, 85, 99)));
+        TextView g = button("기분", "", Color.argb(215, 20, 22, 28));
         g.setOnClickListener(v -> {
             try { gridIntent("overlay", 5).send(); } catch (Exception ignored) {}
         });
@@ -629,6 +637,13 @@ public class LifeLogService extends LifecycleService implements SensorEventListe
         lp.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
         ((WindowManager) getSystemService(WINDOW_SERVICE)).addView(bar, lp);
         overlay = bar;
+        // 앱 자기 화면이 앞에 있을 때는 숨긴다(MainActivity가 브로드캐스트). 2026-10-25
+        overlayReceiver = new android.content.BroadcastReceiver() {
+            @Override public void onReceive(android.content.Context c, Intent i) {
+                if (overlay != null) overlay.setVisibility(i.getBooleanExtra("show", true) ? View.VISIBLE : View.GONE);
+            }
+        };
+        registerReceiver(overlayReceiver, new android.content.IntentFilter(ACTION_OVERLAY));
     }
 
     private TextView button(String label, String value, int bg) {
@@ -636,8 +651,12 @@ public class LifeLogService extends LifecycleService implements SensorEventListe
         b.setText(label);
         b.setTextColor(Color.WHITE);
         b.setTextSize(13);
-        b.setPadding(24, 28, 24, 28);
-        b.setBackgroundColor(bg);
+        b.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        b.setPadding(Ui.dp(this, 14), Ui.dp(this, 10), Ui.dp(this, 14), Ui.dp(this, 10));
+        b.setBackground(Ui.rounded(this, bg, 999, 0));
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        blp.topMargin = Ui.dp(this, 6);
+        b.setLayoutParams(blp);
         b.setOnClickListener(v -> {
             rate(value);
             v.setAlpha(0.3f);
@@ -662,12 +681,12 @@ public class LifeLogService extends LifecycleService implements SensorEventListe
         NotificationManager nm = getSystemService(NotificationManager.class);
         nm.createNotificationChannel(new NotificationChannel("life", "일상 기록", NotificationManager.IMPORTANCE_LOW));
         return new Notification.Builder(this, "life")
-                .setContentTitle("MotionAffect 일상 기록 중")
+                .setContentTitle("MotionAffect · 폰 안에서 기분을 읽는 중")
                 .setContentText(lastEstimate + " · 외부 전송 없음")
                 .setSmallIcon(android.R.drawable.ic_menu_compass)
                 .addAction(new Notification.Action.Builder(null, "좋아", rateIntent("like", 1)).build())
                 .addAction(new Notification.Action.Builder(null, "별로", rateIntent("dislike", 2)).build())
-                .addAction(new Notification.Action.Builder(null, "감정", gridIntent("notification", 3)).build())
+                .addAction(new Notification.Action.Builder(null, "기분 남기기", gridIntent("notification", 3)).build())
                 .build();
     }
 
@@ -701,6 +720,7 @@ public class LifeLogService extends LifecycleService implements SensorEventListe
         try { if (trainA != null) { trainA.save(this); trainV.save(this); trainA.close(); trainV.close(); } } catch (Exception ignored) {}
         if (sm != null) sm.unregisterListener(this);
         if (controllers != null) for (MediaController c : controllers) c.unregisterCallback(mediaCb);
+        if (overlayReceiver != null) { try { unregisterReceiver(overlayReceiver); } catch (Exception ignored) {} overlayReceiver = null; }
         if (overlay != null) ((WindowManager) getSystemService(WINDOW_SERVICE)).removeView(overlay);
         if (face != null) face.stop();
         if (h != null) h.removeCallbacksAndMessages(null);
