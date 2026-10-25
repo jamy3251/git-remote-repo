@@ -129,17 +129,17 @@ def loop_diagram():
     ax.set_xlim(0, 100)
     ax.set_ylim(0, 206)
     ax.axis("off")
-    GREEN, GFILL = "#2a7f3f", "#e8f3ea"
-    AFILL, PFILL = "#eaf1f9", "#f8ece4"
+    GREEN, GFILL = ACCENT, "#ffffff"
+    AFILL, PFILL = "#ffffff", "#ffffff"
 
     def band(y0, y1, n, title, c):
-        ax.add_patch(FancyBboxPatch((2, y0), 96, y1 - y0, boxstyle="round,pad=0,rounding_size=2", fc="#fafafa", ec="#d9d9d9", lw=0.7))
+        ax.add_patch(FancyBboxPatch((2, y0), 96, y1 - y0, boxstyle="round,pad=0,rounding_size=2", fc="#f7f7f7", ec="none", lw=0))
         ax.add_patch(Circle((8, y1 - 5), 3.1, fc=c, ec="none"))
         ax.text(8, y1 - 5, str(n), ha="center", va="center", fontsize=7.5, color="white", fontweight="bold")
         ax.text(13, y1 - 5, title, ha="left", va="center", fontsize=8.2, color=INK, fontweight="bold")
 
-    def box(x, y, w, h, s, c=ACCENT, fill=AFILL, fs=6.6):
-        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=1.2", fc=fill, ec=c, lw=0.9))
+    def box(x, y, w, h, s, c="#8a8a8a", fill="#ffffff", fs=6.6):
+        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=1.2", fc="#ffffff", ec="#8a8a8a", lw=0.8))
         ax.text(x + w / 2, y + h / 2, s, ha="center", va="center", fontsize=fs, color=INK, linespacing=1.25)
 
     def arrow(x0, y0, x1, y1, c=INK, lw=0.9, label=None, lx=None, ly=None):
@@ -166,20 +166,20 @@ def loop_diagram():
     box(16, 148, 68, 7, "적용 모델 선택 → 각성·정서가 추정 → 알림 표시", fs=6.3)
 
     # 2 피드백 수집
-    band(100, 140, 2, "정서 피드백 수집", PHYS)
+    band(100, 140, 2, "정서 피드백 수집", ACCENT)
     arrow(50, 146, 50, 140.5, label="사용 중", lx=57, ly=143.4)
     box(6, 112, 42, 16, "앞카메라 표정 계수 52개\n(영상은 저장하지 않음)\n웃음·입 벌림이 기준을 넘으면\n분 단위 임시 정답", PHYS, PFILL, 6.2)
     box(52, 112, 42, 16, "질문 알림 두 경로\n급변 질문 A: 추정이 크게 바뀔 때\n무작위 질문 B: 하루 3회 난수 시각\n→ 기분 지도 응답", PHYS, PFILL, 6.2)
-    ax.text(27, 106, "학습 재료(교사)", ha="center", fontsize=6.0, color=PHYS, style="italic")
-    ax.text(73, 106, "A: 학습 재료 · B: 평가 기준", ha="center", fontsize=6.0, color=PHYS, style="italic")
+    ax.text(27, 106, "학습 재료(교사)", ha="center", fontsize=6.0, color=MUTED, style="italic")
+    ax.text(73, 106, "A: 학습 재료 · B: 평가 기준", ha="center", fontsize=6.0, color=MUTED, style="italic")
 
     # 3 학생 모델 갱신
-    band(62, 92, 3, "학생 모델 갱신", GREEN)
+    band(62, 92, 3, "학생 모델 갱신", ACCENT)
     arrow(27, 112, 27, 92.5)
     box(8, 66, 44, 14, "임시 정답이 50개 이상 모이면\n1시간마다 100스텝 경사하강\n→ 학생 모델 가중치 저장", GREEN, GFILL, 6.3)
 
     # 4 성능 가드
-    band(6, 56, 4, "성능 가드", GREEN)
+    band(6, 56, 4, "성능 가드", ACCENT)
     arrow(73, 112, 73, 56.5)
     box(50, 16, 44, 28, "무작위 질문 B의 응답으로\n기본·학생 모델을 같은 기준에서 채점\n\n학생이 10%p 넘게 뒤지면\n→ 기본 모델로 복귀\n5%p 넘게 앞서면 → 학생 모델 재적용", GREEN, GFILL, 6.0)
     ax.text(27, 30, "복귀와 재적용의 문턱을\n다르게 두어 경계에서\n모델이 번갈아 바뀌지 않게 함", ha="center", va="center", fontsize=5.8, color=MUTED, linespacing=1.3)
