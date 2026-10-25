@@ -123,20 +123,20 @@ def system_diagram():
 
 
 def loop_diagram():
-    """그림 1(2번째 논문): 단말 내 재귀 학습 회로 — 세로 4단, 글자 최소, 색은 파랑 하나. 1단 폭."""
+    """그림 1(2번째 논문): 단말 내 재귀 학습 회로 — 세로 4단, 상자당 한두 줄, 회색 보조 글자 없음, 파랑 하나. 1단 폭."""
     from matplotlib.patches import FancyBboxPatch, Circle
-    fig, ax = plt.subplots(figsize=(3.4, 6.2))
+    fig, ax = plt.subplots(figsize=(3.2, 5.2))
     ax.set_xlim(0, 100)
-    ax.set_ylim(0, 176)
+    ax.set_ylim(0, 150)
     ax.axis("off")
 
     def band(y0, y1, n, title):
-        ax.add_patch(FancyBboxPatch((2, y0), 96, y1 - y0, boxstyle="round,pad=0,rounding_size=2", fc="#f6f6f6", ec="none"))
+        ax.add_patch(FancyBboxPatch((2, y0), 96, y1 - y0, boxstyle="round,pad=0,rounding_size=2", fc="#f4f4f4", ec="none"))
         ax.add_patch(Circle((8, y1 - 5), 3.0, fc=ACCENT, ec="none"))
         ax.text(8, y1 - 5, str(n), ha="center", va="center", fontsize=7.5, color="white", fontweight="bold")
         ax.text(13, y1 - 5, title, ha="left", va="center", fontsize=8.5, color=INK, fontweight="bold")
 
-    def box(x, y, w, h, s, fs=7.0):
+    def box(x, y, w, h, s, fs=7.2):
         ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=1.2", fc="white", ec="#8a8a8a", lw=0.8))
         ax.text(x + w / 2, y + h / 2, s, ha="center", va="center", fontsize=fs, color=INK, linespacing=1.3)
 
@@ -146,46 +146,43 @@ def loop_diagram():
     def elbow(points, c=ACCENT):
         for (x0, y0), (x1, y1) in zip(points[:-1], points[1:]):
             last = (x1, y1) == points[-1]
-            ax.annotate("", (x1, y1), (x0, y0), arrowprops=dict(arrowstyle="-|>" if last else "-", lw=0.9, color=c, shrinkA=0, shrinkB=0, mutation_scale=8))
+            ax.annotate("", (x1, y1), (x0, y0), arrowprops=dict(arrowstyle="-|>" if last else "-", lw=1.0, color=c, shrinkA=0, shrinkB=0, mutation_scale=8))
 
     def side(x, y, s):
-        ax.text(x, y, s, rotation=90, fontsize=6.3, color=ACCENT, ha="center", va="center",
+        ax.text(x, y, s, rotation=90, fontsize=6.5, color=ACCENT, ha="center", va="center",
                 bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none"))
 
-    ax.text(50, 173, "스마트폰 안에서만 실행 · 인터넷 권한 없음", ha="center", va="center", fontsize=6.8, color=MUTED)
+    # 1 추정 (104~148)
+    band(104, 148, 1, "추정")
+    box(18, 131, 64, 8, "가속도 → 30분 움직임 요약 32개")
+    arrow(50, 131, 50, 126)
+    box(10, 117, 36, 9, "학생 모델\n개인 기준")
+    box(54, 117, 36, 9, "기본 모델\n공통 기준")
+    arrow(28, 117, 44, 112)
+    box(26, 106, 48, 6.5, "적용 모델 → 추정·알림", fs=7.0)
+    arrow(72, 117, 56, 112)
 
-    # 1 추정 (124~168)
-    band(118, 168, 1, "추정")
-    box(18, 150, 64, 9, "가속도 → 1분 특징 → 30분 요약 32개")
-    arrow(50, 150, 50, 144)
-    box(10, 136, 36, 9, "학생 모델\n개인 기준")
-    box(54, 136, 36, 9, "기본 모델\n공통 기준")
-    arrow(28, 136, 44, 128)
-    arrow(72, 136, 56, 128)
-    box(26, 121, 48, 7, "적용 모델 선택 → 추정·알림", fs=6.8)
+    # 2 피드백 (72~100)
+    arrow(50, 106, 50, 100.5)
+    band(72, 100, 2, "정서 피드백 수집")
+    box(8, 76, 40, 13, "앞카메라 표정\n→ 임시 정답")
+    box(52, 76, 40, 13, "기분 지도 응답\n급변 A · 무작위 B")
 
-    # 2 피드백 (86~118)
-    arrow(50, 121, 50, 114.5)
-    band(84, 114, 2, "정서 피드백 수집")
-    box(8, 88, 40, 16, "앞카메라 표정\n→ 분 단위 임시 정답\n(교사)")
-    box(52, 88, 40, 16, "기분 지도 응답\n급변 때 A\n무작위 시각 B")
+    # 3 갱신 (46~66)
+    arrow(28, 76, 28, 66.5)
+    band(46, 66, 3, "학생 모델 갱신")
+    box(8, 48.5, 40, 10, "1시간마다 100스텝")
 
-    # 3 갱신 (56~80)
-    arrow(28, 88, 28, 80.5)
-    band(56, 80, 3, "학생 모델 갱신")
-    box(8, 59, 40, 13, "1시간마다\n100스텝 학습")
-
-    # 4 가드 (6~50)
-    arrow(72, 88, 72, 50.5)
-    band(6, 50, 4, "성능 가드")
-    box(52, 14, 40, 27, "B 응답으로\n기본·학생 모델 채점\n\n뒤지면 기본 모델로 복귀\n앞서면 학생 모델 적용", fs=6.8)
-    ax.text(28, 27, "평가는 모델이 고르지 않은\n무작위 응답으로만", ha="center", va="center", fontsize=6.2, color=MUTED, linespacing=1.3)
+    # 4 가드 (6~40)
+    arrow(72, 76, 72, 40.5)
+    band(6, 40, 4, "성능 가드")
+    box(52, 10, 40, 21, "B 응답으로 채점\n\n뒤지면 기본 모델\n앞서면 학생 모델", fs=7.0)
 
     # 되돌림
-    elbow([(8, 65.5), (0.8, 65.5), (0.8, 140.5), (10, 140.5)])
-    side(1.0, 104, "가중치 갱신")
-    elbow([(92, 27.5), (99.2, 27.5), (99.2, 124.5), (74, 124.5)])
-    side(99.0, 80, "적용 모델 결정")
+    elbow([(8, 53.5), (0.8, 53.5), (0.8, 121.5), (10, 121.5)])
+    side(1.0, 88, "가중치 갱신")
+    elbow([(92, 20.5), (99.2, 20.5), (99.2, 109.25), (74, 109.25)])
+    side(99.0, 60, "적용 모델 결정")
 
     fig.tight_layout(pad=0.15)
     fig.savefig(FIG / "fig_loop.png", dpi=300)
