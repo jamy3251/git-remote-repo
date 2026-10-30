@@ -41,21 +41,23 @@ MIN_EVAL = 10
 TASKS = ("arousal", "valence")
 GRID = dict(p=(0.6, 0.7, 0.8, 0.9), d=(0.2, 0.5), b=(0.0, 0.2), seed=(0, 1, 2))
 ANCHORS = (0.1, 0.3, 1.0)   # 2.7 학생 개선: 씨앗으로 향하는 L2 앵커 λ
-COND = ("base", "seed_model", "esm_ft", "esm_sk", "platt", "student", "guard") + tuple(f"student_a{l}" for l in ANCHORS) + tuple(f"esm_a{l}" for l in ANCHORS)
+COND = ("base", "seed_model", "esm_ft", "esm_sk", "platt", "student", "guard") + tuple(f"student_a{l}" for l in ANCHORS) + tuple(f"esm_a{l}" for l in ANCHORS) + ("student_bias", "esm_bias")
+# student_bias / esm_bias: 2.7 '수준만 배우는 학생' — 가중치 w는 씨앗에 고정, 편향 b만 갱신(사용자 안 순위는 씨앗 그대로, 수준만 보정)
 
 
 # ---------- 학생(단말 학습식의 numpy 재구현) ----------
-def gd_steps(w, b, Z, y, steps=STEPS, lr=LR, lam=0.0, w0=None):
+def gd_steps(w, b, Z, y, steps=STEPS, lr=LR, lam=0.0, w0=None, bias_only=False):
     """head.tflite train 시그니처와 같은 전체 배치 경사하강(Z는 이미 표준화됨).
     lam>0이면 씨앗 가중치 w0로 향하는 L2 앵커(2.7 학생 개선안; 단말에서도 닫힌 식으로 추가 가능): grad += lam·(w − w0)."""
     n = len(y)
     for _ in range(steps):
         p = 1 / (1 + np.exp(-(Z @ w + b)))
         g = p - y
-        gw = (Z.T @ g) / n
-        if lam > 0:
-            gw = gw + lam * (w - w0)
-        w = w - lr * gw
+        if not bias_only:
+            gw = (Z.T @ g) / n
+            if lam > 0:
+                gw = gw + lam * (w - w0)
+            w = w - lr * gw
         b = b - lr * g.sum() / n
     return w, b
 
@@ -157,6 +159,7 @@ def replay_user(args):
     w_stu, b_stu = w_seed.copy(), b_seed
     w_esm, b_esm = w_seed.copy(), b_seed
     anc = {l: [w_seed.copy(), b_seed, w_seed.copy(), b_seed] for l in ANCHORS}   # λ → [w_stu, b_stu, w_esm, b_esm]
+    b_stu_only, b_esm_only = b_seed, b_seed
     buf_x, buf_y = [], []          # 교사 표본(표준화된 32특징, 의사 라벨)
     esm_x, esm_y, esm_pb = [], [], []   # ESM 표본(offset 1 요약, 진실, base 확률)
     guard = Guard(active=False)
@@ -174,12 +177,14 @@ def replay_user(args):
                 w_stu, b_stu = gd_steps(w_stu, b_stu, X, Y)
                 for l in ANCHORS:
                     anc[l][0], anc[l][1] = gd_steps(anc[l][0], anc[l][1], X, Y, lam=l, w0=w_seed)
+                _, b_stu_only = gd_steps(w_seed, b_stu_only, X, Y, bias_only=True)
                 n_train_calls += 1
             if len(esm_y) >= 2 and len(set(esm_y)) == 2:
                 EX, EY = np.array(esm_x), np.array(esm_y, float)
                 w_esm, b_esm = gd_steps(w_esm, b_esm, EX, EY)
                 for l in ANCHORS:
                     anc[l][2], anc[l][3] = gd_steps(anc[l][2], anc[l][3], EX, EY, lam=l, w0=w_seed)
+                _, b_esm_only = gd_steps(w_seed, b_esm_only, EX, EY, bias_only=True)
             hi += 1
         # 2) 예측(이 응답의 교사 표본을 넣기 전 가중치)
         Z, offs = z_by_t.get(t, (None, None))
@@ -193,6 +198,8 @@ def replay_user(args):
         for l in ANCHORS:
             extra[f"student_a{l}"] = float(sigmoid_logit(z1, anc[l][0], anc[l][1])) if n_train_calls > 0 else np.nan
             extra[f"esm_a{l}"] = float(sigmoid_logit(z1, anc[l][2], anc[l][3])) if len(esm_y) >= 2 else np.nan
+        extra["student_bias"] = float(sigmoid_logit(z1, w_seed, b_stu_only)) if n_train_calls > 0 else np.nan
+        extra["esm_bias"] = float(sigmoid_logit(z1, w_seed, b_esm_only)) if len(esm_y) >= 2 else np.nan
         p_esm = float(sigmoid_logit(z1, w_esm, b_esm)) if len(esm_y) >= 2 else np.nan
         p_sk = np.nan
         p_platt = p_base
@@ -277,8 +284,9 @@ def summarize(allp):
     rows = []
     ev = allp[allp["eval"]]
     for (task, p, d, b, seed, oracle), g in ev.groupby(["task", "p", "d", "b", "seed", "oracle"]):
-        uas = {c: user_auc(g, "y", c, min_n=MIN_EVAL) for c in COND}
-        for c in COND:
+        conds = [c for c in COND if c in g.columns and g[c].notna().any()]
+        uas = {c: user_auc(g, "y", c, min_n=MIN_EVAL) for c in conds}
+        for c in conds:
             ua = uas[c].dropna()
             pw, r, n = wilcoxon_paired(uas[c], uas["base"]) if c != "base" else (np.nan, np.nan, 0)
             pw2, r2, _ = wilcoxon_paired(uas[c], uas["esm_ft"]) if c not in ("base", "esm_ft") else (np.nan, np.nan, 0)
