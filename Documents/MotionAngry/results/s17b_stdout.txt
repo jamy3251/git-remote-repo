@@ -1,0 +1,2 @@
+[arousal] zero=0.161 n=3165 pooled=0.634 user-mean=0.632 users=67 pos=0.46
+[valence] zero=0.217 n=2953 pooled=0.570 user-mean=0.579 users=65 pos=0.74

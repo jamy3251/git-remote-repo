@@ -1,0 +1,6 @@
+[arousal] k=10 base 0.618/0.640 | prior 0.617/nan | carry 0.650/0.581 | hour 0.509/0.507 | offset 0.655/0.640 | feat1 0.568/0.555 | own32 0.592/0.555 | blend 0.618/0.604 | base+hour 0.549/0.551
+[arousal] k=20 base 0.628/0.664 | prior 0.627/nan | carry 0.660/0.581 | hour 0.543/0.536 | offset 0.672/0.665 | feat1 0.603/0.602 | own32 0.610/0.558 | blend 0.637/0.614 | base+hour 0.611/0.585
+[arousal] k=30 base 0.640/0.624 | prior 0.647/nan | carry 0.667/0.569 | hour 0.546/0.519 | offset 0.694/0.624 | feat1 0.635/0.583 | own32 0.613/0.596 | blend 0.640/0.609 | base+hour 0.622/0.591
+[valence] k=10 base 0.595/0.616 | prior 0.663/nan | carry 0.677/0.587 | hour 0.548/0.521 | offset 0.684/0.616 | feat1 0.540/0.559 | own32 0.578/0.558 | blend 0.599/0.590 | base+hour 0.568/0.561
+[valence] k=20 base 0.596/0.633 | prior 0.684/nan | carry 0.701/0.579 | hour 0.544/0.516 | offset 0.709/0.635 | feat1 0.603/0.595 | own32 0.612/0.562 | blend 0.627/0.603 | base+hour 0.580/0.571
+[valence] k=30 base 0.595/0.572 | prior 0.698/nan | carry 0.726/0.582 | hour 0.558/0.545 | offset 0.718/0.576 | feat1 0.600/0.580 | own32 0.620/0.580 | blend 0.632/0.597 | base+hour 0.617/0.599
