@@ -32,3 +32,7 @@
 ## 2026-10-30 21:40 — Phase 7 영문 초안 v0.2
 - paper/sci/main.md 전 절 작성(Abstract~Conclusion, 표 3개, 그림 참조 6개, 모든 수치에 results 파일 주석). Related Work 삽입. 스케일링(results/system/scaling_pc.csv: 33파라미터 100스텝 0.4~4.3ms, 3,300파라미터 2,000배치 1.47s) 반영.
 - 한국어 수정본(paper/kr/manuscript_revised.md) 에이전트 진행 중. 다음: Phase 8 자체 심사(3인 관점) → 즉시 수정 → FINAL_REPORT.md.
+
+## 2026-10-30 22:50 — Phase 8 완료, 1차 종료
+- 자체 심사(docs/SELF_REVIEW.md): 3인 모두 Major Revision. 수치 감사에서 6.4의 인용 파일이 다른 정의(consecutive)였음을 발견 → rq4 재실행·그림 재생성, consecutive 결과는 _consecutive 파일로 분리. 그 외 23건 즉시 반영(H2 '기각'→'지지 안 됨', 오라클 명칭, 절편만 갱신 조건 추가, 전체 AUROC 범위를 축별로, 단말 환산 비용, 실제 교사 라벨로 학습한 기록 없음 명시, 검정력 보정/비보정 n, 그림 캡션).
+- FINAL_REPORT.md 작성. 총 소요 약 6시간(48시간 예산 중). 남은 예산은 세션 지속 시 BACKLOG에 쓴다.

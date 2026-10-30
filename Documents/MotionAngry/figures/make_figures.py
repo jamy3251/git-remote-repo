@@ -121,8 +121,8 @@ def fig_timecourse():
         ax.set_title(task, fontsize=9)
         ax.set_ylim(0.45, 0.70)
     axes[0].set_ylabel("within-user AUROC (mean over users)")
-    axes[0].legend(fontsize=6.5, frameon=False, loc="lower left")
-    fig.supxlabel("days since first response (cumulative prequential evaluation, p=0.8, d=0.5, 3 seeds)", fontsize=9)
+    axes[0].legend(fontsize=6.5, frameon=False, loc="upper center", bbox_to_anchor=(1.1, -0.22), ncol=3)
+    fig.supxlabel("days since first response (cumulative prequential evaluation, p=0.8, d=0.5, 3 seeds)", fontsize=9, y=-0.02)
     save(fig, "fig_timecourse")
 
 
@@ -169,23 +169,27 @@ def fig_selection():
         ax.set_title(task, fontsize=9)
     axes[0].set_ylabel("AUROC of the population model")
     axes[1].legend(fontsize=6, frameon=False, loc="upper left")
-    fig.supxlabel("arm-A trigger threshold on |estimate − estimate at last prompt| (value)", fontsize=9)
+    fig.subplots_adjust(bottom=0.28)
+    fig.supxlabel("arm-A trigger threshold on |estimate − estimate at last prompt| (value)", fontsize=9, y=0.0)
     save(fig, "fig_selection_bias")
 
 
 # ---------- RQ1 창 길이 (S13 + S14 CI) ----------
 def fig_window():
-    w = pd.read_csv(RES / "s13_window.csv")
-    fig, ax = plt.subplots(figsize=(3.6, 2.6))
-    for task, col in (("arousal", "#d62728"), ("valence", "#1f77b4")):
-        q = w[w.task == task].sort_values("window_min")
-        ycol = "auroc_user_mean"
-        ax.plot(q.window_min, q[ycol], marker="o", ms=3, color=col, label=task)
+    """창 길이: Phase 1 벤치마크(results/benchmark/summary.csv, s14 OOF 3,160건)의 사용자별 AUROC + 참가자 부트스트랩 95% CI."""
+    b = pd.read_csv(RES / "benchmark" / "summary.csv")
+    w = b[b.model.str.startswith("window ")].copy()
+    w["win"] = w.model.str.extract(r"window (\d+)").astype(int)
+    fig, ax = plt.subplots(figsize=(3.8, 2.8))
+    for task, col, off in (("arousal", "#d62728", 0.97), ("valence", "#1f77b4", 1.03)):
+        q = w[w.task == task].sort_values("win")
+        ax.errorbar(q.win * off, q.user_mean_auc, yerr=[q.user_mean_auc - q.user_ci_lo, q.user_ci_hi - q.user_mean_auc],
+                    fmt="o-", ms=3, lw=1, capsize=2, color=col, label=task)
     ax.set_xscale("log")
     ax.set_xticks([1, 5, 10, 15, 30, 60], ["1", "5", "10", "15", "30", "60"])
     ax.set_xlabel("summary window before response (min)")
-    ax.set_ylabel("within-user AUROC (mean over users)")
-    ax.legend(frameon=False, fontsize=8)
+    ax.set_ylabel("within-user AUROC (mean over users, 95% CI)", fontsize=8)
+    ax.legend(frameon=False, fontsize=8, loc="lower right")
     save(fig, "fig_window_ablation")
 
 

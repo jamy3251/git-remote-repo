@@ -1,5 +1,7 @@
 # Gaps this paper fills (tied to the cited works)
 
+> 실험 뒤 상태(2026-10-30 22:30, docs/SELF_REVIEW.md 반영): 항목 2의 '이기는 영역'은 비어 있고(p*는 없음), 항목 3의 '사용자 안 판별 불변'은 실제로는 '저하'로 읽어야 하며, 항목 6의 '대체 응답 수'는 산출하지 않았고(백로그), 항목 7의 가중치 분석은 멤버십 추론이 아니라 최근접 재식별(82%)로 수행했다. 본문(paper/sci/main.md)이 기준이다.
+
 Each bullet names what prior work did, what it did not do, and what our paper contributes. Keys match `references.bib`.
 
 1. **Cross-modal face-to-movement self-training, running on the phone.** Albanie et al. distilled a facial-expression teacher into a speech student offline on a large video corpus [Albanie2018]; Ni et al. distilled video into accelerometer for action recognition [Ni2022]; Onim et al. used facial-expression software as labels for a wearable physiological model trained offline in a lab [Onim2025]. None of these (a) uses smartphone movement features as the student, (b) performs the update on the device, hourly, from the user's own data, or (c) evaluates against a ground truth that is independent of the teacher. Our system does all three, with a 33-parameter LiteRT student and a random-time Affect Grid arm as the only ground truth.

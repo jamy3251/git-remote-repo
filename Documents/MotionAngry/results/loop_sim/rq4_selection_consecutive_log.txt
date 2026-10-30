@@ -1,0 +1,8 @@
+[arousal] thresh=0.15: A=6 (too few)
+[arousal] thresh=0.25: A=1 (too few)
+[arousal] thresh=q75(0.056): A=943 (25.0%) pooled A 0.563 vs all 0.623 | user-mean A 0.593 (47) vs all 0.614 (77) | extremity A 0.078 vs all 0.085 | A−all user AUROC -0.054 [-0.091, -0.016] | IPW pooled 0.565 | fires/h(unlimited) 0.66
+[arousal] thresh=q90(0.071): A=377 (10.0%) pooled A 0.596 vs all 0.623 | user-mean A 0.567 (5) vs all 0.614 (77) | extremity A 0.082 vs all 0.085 | A−all user AUROC -0.120 [-0.218, -0.024] | IPW pooled 0.614 | fires/h(unlimited) 0.23
+[valence] thresh=0.15: A=2 (too few)
+[valence] thresh=0.25: A=0 (too few)
+[valence] thresh=q75(0.051): A=943 (25.0%) pooled A 0.581 vs all 0.587 | user-mean A 0.587 (42) vs all 0.594 (76) | extremity A 0.058 vs all 0.062 | A−all user AUROC -0.024 [-0.079, +0.028] | IPW pooled 0.596 | fires/h(unlimited) 0.69
+[valence] thresh=q90(0.065): A=377 (10.0%) pooled A 0.585 vs all 0.587 | user-mean A 0.666 (6) vs all 0.594 (76) | extremity A 0.058 vs all 0.062 | A−all user AUROC +0.028 [-0.134, +0.185] | IPW pooled 0.567 | fires/h(unlimited) 0.24
