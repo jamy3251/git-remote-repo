@@ -1,0 +1,6 @@
+[arousal] k=10 users=71 pooled base/blend/offset = 0.618/0.618/0.655 | user-mean base/blend/offset = 0.634/0.598/0.634
+[arousal] k=20 users=71 pooled base/blend/offset = 0.628/0.637/0.672 | user-mean base/blend/offset = 0.653/0.617/0.654
+[arousal] k=30 users=63 pooled base/blend/offset = 0.640/0.640/0.694 | user-mean base/blend/offset = 0.635/0.603/0.635
+[valence] k=10 users=68 pooled base/blend/offset = 0.595/0.599/0.684 | user-mean base/blend/offset = 0.614/0.588/0.614
+[valence] k=20 users=69 pooled base/blend/offset = 0.596/0.627/0.709 | user-mean base/blend/offset = 0.651/0.608/0.652
+[valence] k=30 users=62 pooled base/blend/offset = 0.595/0.632/0.718 | user-mean base/blend/offset = 0.611/0.585/0.613

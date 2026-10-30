@@ -1,0 +1,2 @@
+[arousal] gt0: pooled 0.623 user-mean 0.623 (users 72, pos 0.39) | user-median label (n=2659): pooled 0.607 user-mean 0.630 (users 60) | gt0-model on median-label: pooled 0.616 user-mean 0.639
+[valence] gt0: pooled 0.587 user-mean 0.597 (users 71, pos 0.58) | user-median label (n=2214): pooled 0.608 user-mean 0.615 (users 53) | gt0-model on median-label: pooled 0.616 user-mean 0.624

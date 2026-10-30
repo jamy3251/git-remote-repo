@@ -1,0 +1,10 @@
+[arousal] |dp| quantiles: q0.5=0.073, q0.75=0.139, q0.9=0.211
+[arousal] delta=0.10 A n=1404 (37.2%) pos A/B=0.402/0.391 extremity A/B=0.094/0.085 pooled A/B=0.613/0.621 user-mean A/B=0.646/0.629 diff=+0.028 [-0.001,+0.054] users=55 k30 gain A/B=-0.036/-0.018
+[arousal] delta=0.15 A n=808 (21.4%) pos A/B=0.380/0.391 extremity A/B=0.108/0.087 pooled A/B=0.623/0.620 user-mean A/B=0.636/0.641 diff=-0.008 [-0.064,+0.044] users=28 k30 gain A/B=-0.024/-0.019
+[arousal] delta=0.20 A n=443 (11.7%) pos A/B=0.386/0.386 extremity A/B=0.126/0.089 pooled A/B=0.627/0.624 user-mean A/B=0.724/0.674 diff=-0.000 [-0.117,+0.110] users=5 k30 gain A/B=+0.125/+0.062
+[arousal] delta=0.25 A n=183 (4.9%) pos A/B=0.443/0.388 extremity A/B=0.147/0.091 pooled A/B=0.672/0.624 user-mean A/B=0.579/0.680 diff=+nan [+nan,+nan] users=2 k30 gain A/B=+nan/+nan
+[valence] |dp| quantiles: q0.5=0.055, q0.75=0.105, q0.9=0.159
+[valence] delta=0.10 A n=1004 (26.6%) pos A/B=0.546/0.568 extremity A/B=0.080/0.064 pooled A/B=0.579/0.583 user-mean A/B=0.620/0.604 diff=+0.004 [-0.040,+0.045] users=36 k30 gain A/B=+0.032/+0.012
+[valence] delta=0.15 A n=455 (12.1%) pos A/B=0.556/0.576 extremity A/B=0.097/0.065 pooled A/B=0.550/0.579 user-mean A/B=0.515/0.579 diff=-0.082 [-0.184,+0.006] users=5 k30 gain A/B=-0.083/-0.028
+[valence] delta=0.20 A n=125 (3.3%) pos A/B=0.584/0.563 extremity A/B=0.117/0.068 pooled A/B=0.546/0.562 user-mean A/B=nan/nan diff=+nan [+nan,+nan] users=0 k30 gain A/B=+nan/+nan
+[valence] delta=0.25 A n=46 (1.2%) pos A/B=0.630/0.608 extremity A/B=0.137/0.068 pooled A/B=0.613/0.548 user-mean A/B=nan/nan diff=+nan [+nan,+nan] users=0 k30 gain A/B=+nan/+nan
