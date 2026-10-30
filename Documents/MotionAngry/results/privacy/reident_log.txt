@@ -1,0 +1,16 @@
+[77] raw32     logistic top1 0.070 (5.4x chance) top5 0.193 vote5 0.133 vote10 0.186
+[77] raw32     knn      top1 0.027 (2.1x chance) top5 0.123 vote5 0.083 vote10 0.124
+[77] raw32     lgbm     top1 0.052 (4.0x chance) top5 0.162 vote5 0.068 vote10 0.133
+[77] quant_1dp logistic top1 0.052 (4.0x chance) top5 0.159 vote5 0.083 vote10 0.159
+[77] quant_1dp knn      top1 0.022 (1.7x chance) top5 0.123 vote5 0.053 vote10 0.071
+[77] quant_1dp lgbm     top1 0.038 (2.9x chance) top5 0.141 vote5 0.045 vote10 0.080
+[77] quant_0dp logistic top1 0.037 (2.8x chance) top5 0.141 vote5 0.068 vote10 0.106
+[77] quant_0dp knn      top1 0.022 (1.7x chance) top5 0.075 vote5 0.027 vote10 0.018
+[77] quant_0dp lgbm     top1 0.038 (2.9x chance) top5 0.135 vote5 0.042 vote10 0.062
+[77] top8      logistic top1 0.047 (3.6x chance) top5 0.162 vote5 0.083 vote10 0.142
+[77] top8      knn      top1 0.028 (2.1x chance) top5 0.126 vote5 0.061 vote10 0.097
+[77] top8      lgbm     top1 0.040 (3.1x chance) top5 0.147 vote5 0.064 vote10 0.088
+[20] raw32 logistic top1 0.167 (3.3x chance) top5 0.488 vote5 0.256 vote10 0.320
+[20] raw32 lgbm     top1 0.138 (2.8x chance) top5 0.435 vote5 0.218 vote10 0.291
+[10] raw32 logistic top1 0.224 (2.2x chance) top5 0.719 vote5 0.339 vote10 0.408
+[10] raw32 lgbm     top1 0.210 (2.1x chance) top5 0.685 vote5 0.305 vote10 0.390

@@ -234,27 +234,36 @@ def replay_user(args):
     df = pd.DataFrame(out)
     df["switches"] = len(guard.switches)
     df["flip_rate"] = flips / max(n_teach, 1)
-    return df, [(pc, task, *s) for s in guard.switches]
+    # 최종 가중치(Phase 5 가중치 유출 공격용): student / student_a0.3 / esm_ft / seed_model
+    wrows = []
+    for cond, (w, bb) in (("student", (w_stu, b_stu)), ("student_a0.3", (anc[0.3][0], anc[0.3][1])),
+                          ("esm_ft", (w_esm, b_esm)), ("seed_model", (w_seed, b_seed))):
+        wrows.append({"pcode": pc, "task": task, "cond": cond, "seed": seed, "b": float(bb), **{f"w{i}": float(v) for i, v in enumerate(w)}})
+    return df, [(pc, task, *s) for s in guard.switches], wrows
 
 
 def cell_tag(p, d, b, oracle):
     return "oracle" if oracle else f"p{p}_d{d}_b{b}"
 
 
-def run_cell(p, d, b, seed, workers, oracle=False, resume=True):
+def run_cell(p, d, b, seed, workers, oracle=False, resume=True, save_weights=False):
     tag = cell_tag(p, d, b, oracle)
     out = RES / f"preds_{tag}_s{seed}.parquet"
-    if resume and out.exists():
+    wout = RES / f"weights_{tag}_s{seed}.parquet"
+    if resume and out.exists() and (not save_weights or wout.exists()):
         return pd.read_parquet(out)
     blk = pd.read_parquet(BLOCK, columns=["pcode"])
     jobs = [(pc, task, p, d, b, seed, oracle) for pc in sorted(blk.pcode.unique()) for task in TASKS]
     t0 = time.time()
-    parts, sw = [], []
+    parts, sw, wts = [], [], []
     with ProcessPoolExecutor(max_workers=workers) as ex:
-        for df, s in ex.map(replay_user, jobs, chunksize=2):
+        for df, s, wr in ex.map(replay_user, jobs, chunksize=2):
             parts.append(df)
             sw += s
+            wts += wr
     allp = pd.concat(parts, ignore_index=True)
+    if save_weights:
+        pd.DataFrame(wts).to_parquet(wout)
     for k, v in (("p", p), ("d", d), ("b", b), ("seed", seed), ("oracle", oracle)):
         allp[k] = v
     allp.to_parquet(out)
@@ -300,6 +309,7 @@ def main():
     ap.add_argument("--oracle", action="store_true")
     ap.add_argument("--no-resume", action="store_true")
     ap.add_argument("--summary-only", action="store_true")
+    ap.add_argument("--save-weights", action="store_true", help="사용자별 최종 가중치를 weights_<tag>_s<seed>.parquet 로 저장(Phase 5)")
     a = ap.parse_args()
     prepare()
     if not a.summary_only:
@@ -311,7 +321,7 @@ def main():
         elif a.oracle:
             run_cell(1.0, 1.0, 0.0, a.seed, a.workers, oracle=True, resume=not a.no_resume)
         else:
-            run_cell(a.p, a.d, a.b, a.seed, a.workers, resume=not a.no_resume)
+            run_cell(a.p, a.d, a.b, a.seed, a.workers, resume=not a.no_resume, save_weights=a.save_weights)
     files = sorted(RES.glob("preds_*.parquet"))
     allp = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
     s = summarize(allp)

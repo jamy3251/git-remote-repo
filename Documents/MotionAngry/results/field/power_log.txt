@@ -1,0 +1,43 @@
+[arousal] student: σ_d(sim, ~21 eval/user) = 0.239; field-adjusted (~59 responses) = 0.143
+[arousal] guard: σ_d(sim, ~21 eval/user) = 0.197; field-adjusted (~59 responses) = 0.118
+[arousal] student_a0.3: σ_d(sim, ~21 eval/user) = 0.177; field-adjusted (~59 responses) = 0.106
+[valence] student: σ_d(sim, ~21 eval/user) = 0.245; field-adjusted (~59 responses) = 0.147
+[valence] guard: σ_d(sim, ~21 eval/user) = 0.207; field-adjusted (~59 responses) = 0.123
+[valence] student_a0.3: σ_d(sim, ~21 eval/user) = 0.188; field-adjusted (~59 responses) = 0.113
+   task         cond  sd_diff_sim  n_eval_sim_median  sd_diff_field_adj  delta  power  n_paired_t  n_wilcoxon  n_paired_t_fieldadj  n_wilcoxon_fieldadj
+arousal      student     0.238862               21.0           0.142747   0.03    0.8         498         522                  178                  187
+arousal      student     0.238862               21.0           0.142747   0.03    0.9         667         698                  238                  250
+arousal      student     0.238862               21.0           0.142747   0.05    0.8         180         188                   64                   67
+arousal      student     0.238862               21.0           0.142747   0.05    0.9         240         252                   86                   90
+arousal      student     0.238862               21.0           0.142747   0.10    0.8          45          47                   16                   17
+arousal      student     0.238862               21.0           0.142747   0.10    0.9          60          63                   22                   23
+arousal        guard     0.197164               21.0           0.117828   0.03    0.8         340         355                  122                  127
+arousal        guard     0.197164               21.0           0.117828   0.03    0.9         454         476                  163                  170
+arousal        guard     0.197164               21.0           0.117828   0.05    0.8         123         128                   44                   46
+arousal        guard     0.197164               21.0           0.117828   0.05    0.9         164         172                   59                   62
+arousal        guard     0.197164               21.0           0.117828   0.10    0.8          31          32                   11                   12
+arousal        guard     0.197164               21.0           0.117828   0.10    0.9          41          43                   15                   16
+arousal student_a0.3     0.176973               21.0           0.105762   0.03    0.8         274         287                   98                  103
+arousal student_a0.3     0.176973               21.0           0.105762   0.03    0.9         366         383                  131                  137
+arousal student_a0.3     0.176973               21.0           0.105762   0.05    0.8          99         103                   36                   37
+arousal student_a0.3     0.176973               21.0           0.105762   0.05    0.9         132         138                   48                   50
+arousal student_a0.3     0.176973               21.0           0.105762   0.10    0.8          25          26                    9                   10
+arousal student_a0.3     0.176973               21.0           0.105762   0.10    0.9          33          35                   12                   13
+valence      student     0.245393               21.0           0.146650   0.03    0.8         526         550                  188                  197
+valence      student     0.245393               21.0           0.146650   0.03    0.9         704         737                  252                  263
+valence      student     0.245393               21.0           0.146650   0.05    0.8         190         198                   68                   71
+valence      student     0.245393               21.0           0.146650   0.05    0.9         254         266                   91                   95
+valence      student     0.245393               21.0           0.146650   0.10    0.8          48          50                   17                   18
+valence      student     0.245393               21.0           0.146650   0.10    0.9          64          67                   23                   24
+valence        guard     0.206509               21.0           0.123413   0.03    0.8         372         390                  133                  140
+valence        guard     0.206509               21.0           0.123413   0.03    0.9         498         522                  178                  187
+valence        guard     0.206509               21.0           0.123413   0.05    0.8         134         141                   48                   51
+valence        guard     0.206509               21.0           0.123413   0.05    0.9         180         188                   65                   68
+valence        guard     0.206509               21.0           0.123413   0.10    0.8          34          36                   12                   13
+valence        guard     0.206509               21.0           0.123413   0.10    0.9          45          47                   17                   17
+valence student_a0.3     0.188310               21.0           0.112537   0.03    0.8         310         324                  111                  116
+valence student_a0.3     0.188310               21.0           0.112537   0.03    0.9         415         434                  148                  155
+valence student_a0.3     0.188310               21.0           0.112537   0.05    0.8         112         117                   40                   42
+valence student_a0.3     0.188310               21.0           0.112537   0.05    0.9         150         157                   54                   56
+valence student_a0.3     0.188310               21.0           0.112537   0.10    0.8          28          30                   10                   11
+valence student_a0.3     0.188310               21.0           0.112537   0.10    0.9          38          40                   14                   14
