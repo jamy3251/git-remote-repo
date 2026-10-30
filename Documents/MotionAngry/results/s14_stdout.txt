@@ -1,0 +1,95 @@
+[     0s] N_BOOT=1000 seed=0
+[     0s] A window sweep: load
+[     0s] A: reuse cached OOF s14_window_oof.parquet
+  A window W=1 pooled                        arousal   0.5943 [ 0.5701,  0.6202] users=77 n=3160
+  A window W=1 user-mean(n>=20)              arousal   0.6034 [ 0.5725,  0.6369] users=66 n=3010
+  A window W=5 pooled                        arousal   0.6194 [ 0.5926,  0.6475] users=77 n=3160
+  A window W=5 user-mean(n>=20)              arousal   0.6213 [ 0.5907,  0.6525] users=66 n=3010
+  A window W=10 pooled                       arousal   0.6218 [ 0.5950,  0.6488] users=77 n=3160
+  A window W=10 user-mean(n>=20)             arousal   0.6317 [ 0.6003,  0.6644] users=66 n=3010
+  A window W=15 pooled                       arousal   0.6250 [ 0.5988,  0.6520] users=77 n=3160
+  A window W=15 user-mean(n>=20)             arousal   0.6385 [ 0.6091,  0.6673] users=66 n=3010
+  A window W=30 pooled                       arousal   0.6213 [ 0.5954,  0.6474] users=77 n=3160
+  A window W=30 user-mean(n>=20)             arousal   0.6305 [ 0.6036,  0.6621] users=66 n=3010
+  A window W=60 pooled                       arousal   0.6138 [ 0.5885,  0.6401] users=77 n=3160
+  A window W=60 user-mean(n>=20)             arousal   0.6223 [ 0.5918,  0.6554] users=66 n=3010
+  A diff W=30-W=1 pooled                     arousal   0.0270 [ 0.0078,  0.0470] users=77 n=3160
+  A diff W=30-W=1 user-mean                  arousal   0.0272 [ 0.0043,  0.0521] users=66 n=3160
+  A diff W=15-W=1 pooled                     arousal   0.0307 [ 0.0118,  0.0500] users=77 n=3160
+  A diff W=15-W=1 user-mean                  arousal   0.0351 [ 0.0116,  0.0590] users=66 n=3160
+  A diff W=30-W=15 pooled                    arousal  -0.0037 [-0.0136,  0.0059] users=77 n=3160
+  A diff W=30-W=15 user-mean                 arousal  -0.0079 [-0.0235,  0.0077] users=66 n=3160
+  A diff W=30-W=60 pooled                    arousal   0.0075 [-0.0051,  0.0218] users=77 n=3160
+  A diff W=30-W=60 user-mean                 arousal   0.0083 [-0.0110,  0.0266] users=66 n=3160
+  A window W=1 pooled                        valence   0.5581 [ 0.5296,  0.5854] users=77 n=3160
+  A window W=1 user-mean(n>=20)              valence   0.5721 [ 0.5345,  0.6067] users=65 n=2962
+  A window W=5 pooled                        valence   0.5508 [ 0.5223,  0.5801] users=77 n=3160
+  A window W=5 user-mean(n>=20)              valence   0.5465 [ 0.5132,  0.5782] users=65 n=2962
+  A window W=10 pooled                       valence   0.5700 [ 0.5443,  0.5981] users=77 n=3160
+  A window W=10 user-mean(n>=20)             valence   0.5773 [ 0.5438,  0.6088] users=65 n=2962
+  A window W=15 pooled                       valence   0.5796 [ 0.5542,  0.6069] users=77 n=3160
+  A window W=15 user-mean(n>=20)             valence   0.5910 [ 0.5597,  0.6199] users=65 n=2962
+  A window W=30 pooled                       valence   0.5845 [ 0.5563,  0.6143] users=77 n=3160
+  A window W=30 user-mean(n>=20)             valence   0.6069 [ 0.5712,  0.6375] users=65 n=2962
+  A window W=60 pooled                       valence   0.5691 [ 0.5401,  0.6012] users=77 n=3160
+  A window W=60 user-mean(n>=20)             valence   0.6046 [ 0.5750,  0.6344] users=65 n=2962
+  A diff W=30-W=1 pooled                     valence   0.0264 [ 0.0014,  0.0494] users=77 n=3160
+  A diff W=30-W=1 user-mean                  valence   0.0348 [-0.0066,  0.0763] users=65 n=3160
+  A diff W=15-W=1 pooled                     valence   0.0215 [-0.0018,  0.0412] users=77 n=3160
+  A diff W=15-W=1 user-mean                  valence   0.0190 [-0.0146,  0.0552] users=65 n=3160
+  A diff W=30-W=15 pooled                    valence   0.0049 [-0.0093,  0.0190] users=77 n=3160
+  A diff W=30-W=15 user-mean                 valence   0.0158 [-0.0030,  0.0356] users=65 n=3160
+  A diff W=30-W=60 pooled                    valence   0.0154 [ 0.0014,  0.0300] users=77 n=3160
+  A diff W=30-W=60 user-mean                 valence   0.0023 [-0.0207,  0.0268] users=65 n=3160
+[     2s] B cumulative k=30: load
+[     2s] B: reuse cached OOF s14_cumulative_oof.parquet
+  B k=30 base pooled                         arousal   0.6404 [ 0.6065,  0.6751] users=63 n=1549
+  B k=30 base user-mean(n>=5)                arousal   0.6349 [ 0.5782,  0.6895] users=54 n=1549
+  B k=30 own pooled                          arousal   0.6134 [ 0.5586,  0.6650] users=63 n=1549
+  B k=30 own user-mean(n>=5)                 arousal   0.5737 [ 0.5191,  0.6316] users=54 n=1549
+  B k=30 blend pooled                        arousal   0.6401 [ 0.5905,  0.6897] users=63 n=1549
+  B k=30 blend user-mean(n>=5)               arousal   0.6032 [ 0.5513,  0.6530] users=54 n=1549
+  B k=30 diff blend-base pooled              arousal  -0.0002 [-0.0398,  0.0363] users=63 n=1549
+  B k=30 diff blend-base user-mean           arousal  -0.0317 [-0.0784,  0.0156] users=54 n=1549
+  B k=30 diff own-base pooled                arousal  -0.0270 [-0.0766,  0.0224] users=63 n=1549
+  B k=30 diff own-base user-mean             arousal  -0.0612 [-0.1294,  0.0121] users=54 n=1549
+  B k=30 base pooled                         valence   0.5952 [ 0.5488,  0.6444] users=62 n=1523
+  B k=30 base user-mean(n>=5)                valence   0.6112 [ 0.5533,  0.6714] users=50 n=1523
+  B k=30 own pooled                          valence   0.6197 [ 0.5631,  0.6813] users=62 n=1523
+  B k=30 own user-mean(n>=5)                 valence   0.5486 [ 0.4904,  0.6037] users=50 n=1523
+  B k=30 blend pooled                        valence   0.6319 [ 0.5741,  0.6914] users=62 n=1523
+  B k=30 blend user-mean(n>=5)               valence   0.5854 [ 0.5338,  0.6348] users=50 n=1523
+  B k=30 diff blend-base pooled              valence   0.0367 [-0.0211,  0.0942] users=62 n=1523
+  B k=30 diff blend-base user-mean           valence  -0.0258 [-0.0815,  0.0298] users=50 n=1523
+  B k=30 diff own-base pooled                valence   0.0245 [-0.0433,  0.0908] users=62 n=1523
+  B k=30 diff own-base user-mean             valence  -0.0625 [-0.1431,  0.0139] users=50 n=1523
+[     2s] C contact gate: load
+[     2s] C: reuse cached context s14_contact_ctx.parquet
+[     2s] C: reuse cached OOF s14_contact_oof.parquet
+  C contact=1 pooled                         arousal   0.6227 [ 0.5966,  0.6503] users=77 n=3080
+  C contact=0 pooled                         arousal   0.5952 [ 0.5464,  0.6433] users=72 n=691
+  C diff contact=1 - contact=0 pooled        arousal   0.0275 [-0.0212,  0.0796] users=77 n=3771
+  C contact=1 pooled                         valence   0.5833 [ 0.5538,  0.6135] users=77 n=3080
+  C contact=0 pooled                         valence   0.5736 [ 0.5242,  0.6214] users=72 n=691
+  C diff contact=1 - contact=0 pooled        valence   0.0096 [-0.0367,  0.0583] users=77 n=3771
+[     3s] D identity Wilson
+  D identity top1 logistic                   identity  0.0696 [ 0.0578,  0.0838] users=77 n=1479
+  D identity top5 logistic                   identity  0.1934 [ 0.1741,  0.2143] users=77 n=1479
+  D identity top1 shuffled-control logistic  identity  0.0216 [ 0.0154,  0.0304] users=77 n=1479
+  D identity top5 shuffled-control logistic  identity  0.0947 [ 0.0808,  0.1106] users=77 n=1479
+  D identity top1 vote10 logistic            identity  0.1858 [ 0.1249,  0.2675] users=77 n=113
+  D chance 1/77                              identity  0.0130 [ 0.0130,  0.0130] users=77 n=0
+[     3s] E seed stability
+[     5s] E arousal seed=0 pooled=0.6228
+[     7s] E arousal seed=1 pooled=0.6228
+[     8s] E arousal seed=2 pooled=0.6225
+[    10s] E arousal seed=3 pooled=0.6232
+[    12s] E arousal seed=4 pooled=0.6214
+  E DEPLOY LOSO pooled seeds 0-4             arousal   0.6226 [ 0.6219,  0.6233] users=77 n=3771
+[    13s] E valence seed=0 pooled=0.5865
+[    15s] E valence seed=1 pooled=0.5868
+[    17s] E valence seed=2 pooled=0.5855
+[    19s] E valence seed=3 pooled=0.5911
+[    21s] E valence seed=4 pooled=0.5852
+  E DEPLOY LOSO pooled seeds 0-4             valence   0.5870 [ 0.5846,  0.5894] users=77 n=3771
+[    21s] done rows= 74
