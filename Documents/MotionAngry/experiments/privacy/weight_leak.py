@@ -53,6 +53,15 @@ def main():
         sys.exit(1)
     W = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
     wcols = [c for c in W.columns if c.startswith("w")] + ["b"]
+    # 씨앗 성분 제거: 사용자 데이터로 '배운' 부분만(student − seed_model). seed_model·esm_ft는 seed 간 결정적이라 교차 식별이 자명(100%) → 보고에서 제외
+    seed_w = W[W.cond == "seed_model"].set_index(["pcode", "task", "seed"])[wcols]
+    deltas = []
+    for cond in ("student", "student_a0.3"):
+        sub = W[W.cond == cond].set_index(["pcode", "task", "seed"])
+        d = sub[wcols] - seed_w.reindex(sub.index)
+        d = d.reset_index(); d["cond"] = cond + "_delta"
+        deltas.append(d)
+    W = pd.concat([W[W.cond.isin(["student", "student_a0.3"])]] + deltas, ignore_index=True)
     rng = np.random.default_rng(a.seed)
     rows, log = [], []
     for task in sorted(W.task.unique()):

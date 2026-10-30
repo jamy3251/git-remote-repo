@@ -96,8 +96,8 @@ def fig_conditions():
         ax.set_yticks(range(len(conds)), [LBL[c] for c in conds])
         ax.set_xlim(0.45, 0.70)
         ax.set_title(f"{task} (p=0.8, d=0.5, b=0)", fontsize=9)
-        ax.set_xlabel("within-user AUROC, mean over users (range over 3 seeds)")
         ax.legend(loc="lower right", fontsize=7, frameon=False)
+    fig.supxlabel("within-user AUROC, mean over users (error bars: range over 3 seeds)", fontsize=9)
     save(fig, "fig_conditions")
 
 
@@ -118,11 +118,11 @@ def fig_timecourse():
                 ua = sub.groupby("seed").apply(lambda q: user_auc(q, "y", c, min_n=10).mean(), include_groups=False)
                 ys.append(ua.mean())
             ax.plot([d_ + 1 for d_ in days], ys, marker="o", ms=3, color=C[c], label=LBL[c])
-        ax.set_xlabel("days since first response (cumulative prequential)")
         ax.set_title(task, fontsize=9)
         ax.set_ylim(0.45, 0.70)
     axes[0].set_ylabel("within-user AUROC (mean over users)")
-    axes[1].legend(fontsize=6.5, frameon=False, loc="lower right")
+    axes[0].legend(fontsize=6.5, frameon=False, loc="lower left")
+    fig.supxlabel("days since first response (cumulative prequential evaluation, p=0.8, d=0.5, 3 seeds)", fontsize=9)
     save(fig, "fig_timecourse")
 
 
@@ -144,7 +144,7 @@ def fig_guard():
     for ax in axes:
         ax.set_xlabel("student − base accuracy (Δ)")
         ax.axvline(0, color="#bbbbbb", lw=0.8)
-    axes[0].legend(fontsize=6, frameon=False, loc="upper right")
+    axes[0].legend(fontsize=6, frameon=False, loc="upper center", bbox_to_anchor=(1.7, -0.25), ncol=4)
     fig.suptitle("Guard behaviour, base accuracy 0.60, 3 random probes/day (10,000 runs)", fontsize=9)
     save(fig, "fig_guard")
 
@@ -152,15 +152,24 @@ def fig_guard():
 # ---------- RQ4 선택 편향 ----------
 def fig_selection():
     r = pd.read_csv(RES / "loop_sim" / "rq4_selection.csv")
-    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.8), sharey=True)
+    r["thresh"] = r["thresh"].astype(str)
+    order = ["0.15", "0.25", "q75", "q90"]
+    fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.9))
     for ax, task in zip(axes, ("arousal", "valence")):
-        for sub, mk in (("A", "o"), ("notA", "s"), ("all", "^")):
-            q = r[(r.task == task) & (r.subset == sub)].sort_values("thresh")
-            ax.plot(q.thresh, q.user_mean_auc, marker=mk, label={"A": "A: rapid-change-triggered", "notA": "not A", "all": "all (random B)"}[sub])
-        ax.set_xlabel("trigger threshold on 1-min change of arousal estimate")
+        x = np.arange(len(order))
+        for sub, mk, off, lbl in (("A", "o", -0.15, "A: triggered by change since last prompt"), ("all", "^", 0.15, "all responses (random B)")):
+            q = r[(r.task == task) & (r.subset == sub)].set_index("thresh").reindex(order)
+            ax.errorbar(x + off, q.pooled_auc, fmt=mk + "-", ms=4, label=lbl + ", pooled")
+            ax.plot(x + off, q.user_mean_auc, mk, mfc="none", ms=6, label=lbl + ", within-user")
+            if sub == "A":
+                for xi, (n, nu, fr) in enumerate(zip(q.n, q.n_users, q.frac)):
+                    ax.text(xi - 0.15, 0.50, "n=%d\n(%.0f%%)\nusers=%d" % (int(n), 100 * fr, int(nu)), ha="center", fontsize=6)
+        ax.set_xticks(x, ["%s\n(%.2f)" % (t, v) for t, v in zip(order, r[(r.task == task) & (r.subset == "A")].set_index("thresh").reindex(order).thresh_value)])
+        ax.set_ylim(0.48, 0.72)
         ax.set_title(task, fontsize=9)
-    axes[0].set_ylabel("within-user AUROC (mean over users)")
-    axes[1].legend(fontsize=7, frameon=False)
+    axes[0].set_ylabel("AUROC of the population model")
+    axes[1].legend(fontsize=6, frameon=False, loc="upper left")
+    fig.supxlabel("arm-A trigger threshold on |estimate − estimate at last prompt| (value)", fontsize=9)
     save(fig, "fig_selection_bias")
 
 

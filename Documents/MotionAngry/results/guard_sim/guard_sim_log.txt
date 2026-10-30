@@ -1,0 +1,12 @@
+q0=0.55 fixed    power(Δ=-0.10,14d)=0.763 power(Δ=-0.20,14d)=0.938 false_revert(Δ=0,14d)=0.480 (28d)=0.685 delay_med(Δ=-0.10)=4.7d switches(Δ=0)=1.05
+q0=0.55 sprt     power(Δ=-0.10,14d)=0.003 power(Δ=-0.20,14d)=0.032 false_revert(Δ=0,14d)=0.000 (28d)=0.004 delay_med(Δ=-0.10)=22.7d switches(Δ=0)=0.00
+q0=0.55 bayes    power(Δ=-0.10,14d)=0.254 power(Δ=-0.20,14d)=0.571 false_revert(Δ=0,14d)=0.077 (28d)=0.146 delay_med(Δ=-0.10)=13.7d switches(Δ=0)=0.16
+q0=0.55 pairedci power(Δ=-0.10,14d)=0.307 power(Δ=-0.20,14d)=0.634 false_revert(Δ=0,14d)=0.102 (28d)=0.195 delay_med(Δ=-0.10)=12.7d switches(Δ=0)=0.21
+q0=0.6 fixed    power(Δ=-0.10,14d)=0.756 power(Δ=-0.20,14d)=0.938 false_revert(Δ=0,14d)=0.480 (28d)=0.681 delay_med(Δ=-0.10)=4.7d switches(Δ=0)=1.03
+q0=0.6 sprt     power(Δ=-0.10,14d)=0.003 power(Δ=-0.20,14d)=0.031 false_revert(Δ=0,14d)=0.000 (28d)=0.003 delay_med(Δ=-0.10)=22.7d switches(Δ=0)=0.00
+q0=0.6 bayes    power(Δ=-0.10,14d)=0.251 power(Δ=-0.20,14d)=0.569 false_revert(Δ=0,14d)=0.079 (28d)=0.152 delay_med(Δ=-0.10)=13.7d switches(Δ=0)=0.16
+q0=0.6 pairedci power(Δ=-0.10,14d)=0.304 power(Δ=-0.20,14d)=0.627 false_revert(Δ=0,14d)=0.107 (28d)=0.211 delay_med(Δ=-0.10)=12.7d switches(Δ=0)=0.22
+q0=0.65 fixed    power(Δ=-0.10,14d)=0.763 power(Δ=-0.20,14d)=0.938 false_revert(Δ=0,14d)=0.475 (28d)=0.669 delay_med(Δ=-0.10)=4.7d switches(Δ=0)=1.01
+q0=0.65 sprt     power(Δ=-0.10,14d)=0.002 power(Δ=-0.20,14d)=0.041 false_revert(Δ=0,14d)=0.000 (28d)=0.003 delay_med(Δ=-0.10)=22.7d switches(Δ=0)=0.00
+q0=0.65 bayes    power(Δ=-0.10,14d)=0.250 power(Δ=-0.20,14d)=0.563 false_revert(Δ=0,14d)=0.075 (28d)=0.141 delay_med(Δ=-0.10)=13.3d switches(Δ=0)=0.15
+q0=0.65 pairedci power(Δ=-0.10,14d)=0.308 power(Δ=-0.20,14d)=0.626 false_revert(Δ=0,14d)=0.108 (28d)=0.206 delay_med(Δ=-0.10)=12.7d switches(Δ=0)=0.21
