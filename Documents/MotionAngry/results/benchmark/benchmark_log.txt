@@ -1,0 +1,44 @@
+[arousal] movement32 lgbm gt0              pooled 0.623 | user-mean 0.623 [0.594, 0.650] (n=72) | Δbase +nan [+nan, +nan] p=nan | AUPRC 0.504 MCC 0.169 Brier 0.238 ECE 0.105
+[arousal] hour lgbm gt0                    pooled 0.510 | user-mean 0.526 [0.496, 0.555] (n=72) | Δbase -0.097 [-0.130, -0.064] p=1.43e-06 | AUPRC 0.394 MCC -0.021 Brier 0.250 ECE 0.111
+[arousal] activity lgbm gt0                pooled 0.547 | user-mean 0.567 [0.541, 0.594] (n=72) | Δbase -0.055 [-0.081, -0.027] p=3.9e-05 | AUPRC 0.440 MCC 0.098 Brier 0.247 ECE 0.112
+[arousal] coarse lgbm gt0                  pooled 0.628 | user-mean 0.636 [0.609, 0.660] (n=72) | Δbase +0.013 [-0.003, +0.033] p=0.132 | AUPRC 0.503 MCC 0.194 Brier 0.237 ECE 0.105
+[arousal] movement32+hour lgbm gt0         pooled 0.622 | user-mean 0.622 [0.593, 0.649] (n=72) | Δbase -0.001 [-0.004, +0.003] p=0.612 | AUPRC 0.505 MCC 0.162 Brier 0.238 ECE 0.105
+[arousal] magnitude lgbm gt0               pooled 0.620 | user-mean 0.618 [0.588, 0.646] (n=72) | Δbase -0.004 [-0.012, +0.002] p=0.352 | AUPRC 0.493 MCC 0.179 Brier 0.239 ECE 0.106
+[arousal] abruptness lgbm gt0              pooled 0.620 | user-mean 0.619 [0.590, 0.647] (n=72) | Δbase -0.003 [-0.010, +0.003] p=0.343 | AUPRC 0.503 MCC 0.163 Brier 0.238 ECE 0.105
+[arousal] stillness lgbm gt0               pooled 0.619 | user-mean 0.625 [0.596, 0.651] (n=72) | Δbase +0.002 [-0.006, +0.012] p=0.841 | AUPRC 0.497 MCC 0.163 Brier 0.239 ECE 0.106
+[arousal] median16 lgbm gt0                pooled 0.621 | user-mean 0.621 [0.591, 0.649] (n=72) | Δbase -0.002 [-0.007, +0.004] p=0.862 | AUPRC 0.500 MCC 0.166 Brier 0.238 ECE 0.105
+[arousal] iqr16 lgbm gt0                   pooled 0.615 | user-mean 0.612 [0.582, 0.637] (n=72) | Δbase -0.011 [-0.021, +0.001] p=0.01 | AUPRC 0.502 MCC 0.161 Brier 0.239 ECE 0.106
+[arousal] movement32 logit gt0             pooled 0.618 | user-mean 0.617 [0.582, 0.648] (n=72) | Δbase -0.005 [-0.020, +0.008] p=0.788 | AUPRC 0.513 MCC 0.182 Brier 0.238 ECE 0.107
+[arousal] movement32 mlp gt0               pooled 0.583 | user-mean 0.587 [0.562, 0.611] (n=72) | Δbase -0.035 [-0.056, -0.016] p=0.000582 | AUPRC 0.481 MCC 0.115 Brier 0.241 ECE 0.081
+[arousal] movement32 lgbm umed             pooled 0.591 | user-mean 0.603 [0.573, 0.634] (n=70) | Δbase -0.009 [-0.017, -0.002] p=0.0122 | AUPRC 0.446 MCC 0.141 Brier 0.243 ECE 0.130
+[arousal] movement32 lgbm gt0 scored on umed pooled 0.599 | user-mean 0.612 [0.584, 0.641] (n=70) | Δbase +0.000 [+0.000, +0.000] p=nan | AUPRC 0.455 MCC 0.143 Brier 0.242 ECE 0.129
+[arousal] majority (constant)              pooled nan
+[arousal] user_mean label (between-user ceiling) pooled 0.731
+[arousal] window  1 min pooled 0.594 | user-mean 0.603 [0.571, 0.636] | Δ30 -0.027 [-0.050, -0.005] p=0.0635
+[arousal] window  5 min pooled 0.619 | user-mean 0.621 [0.589, 0.656] | Δ30 -0.009 [-0.032, +0.012] p=0.603
+[arousal] window 10 min pooled 0.622 | user-mean 0.632 [0.598, 0.664] | Δ30 +0.001 [-0.019, +0.021] p=0.836
+[arousal] window 15 min pooled 0.625 | user-mean 0.638 [0.609, 0.669] | Δ30 +0.008 [-0.008, +0.024] p=0.308
+[arousal] window 30 min pooled 0.621 | user-mean 0.631 [0.599, 0.662] | Δ30 +0.000 [+0.000, +0.000] p=nan
+[arousal] window 60 min pooled 0.614 | user-mean 0.622 [0.590, 0.654] | Δ30 -0.008 [-0.027, +0.011] p=0.408
+[valence] movement32 lgbm gt0              pooled 0.587 | user-mean 0.597 [0.562, 0.628] (n=71) | Δbase +nan [+nan, +nan] p=nan | AUPRC 0.645 MCC 0.125 Brier 0.244 ECE 0.077
+[valence] hour lgbm gt0                    pooled 0.523 | user-mean 0.520 [0.489, 0.551] (n=71) | Δbase -0.076 [-0.118, -0.036] p=0.00133 | AUPRC 0.590 MCC 0.047 Brier 0.249 ECE 0.079
+[valence] activity lgbm gt0                pooled 0.526 | user-mean 0.540 [0.505, 0.573] (n=71) | Δbase -0.056 [-0.094, -0.024] p=0.00159 | AUPRC 0.617 MCC 0.058 Brier 0.248 ECE 0.077
+[valence] coarse lgbm gt0                  pooled 0.589 | user-mean 0.592 [0.557, 0.625] (n=71) | Δbase -0.005 [-0.019, +0.010] p=0.122 | AUPRC 0.645 MCC 0.135 Brier 0.244 ECE 0.079
+[valence] movement32+hour lgbm gt0         pooled 0.588 | user-mean 0.595 [0.558, 0.628] (n=71) | Δbase -0.002 [-0.008, +0.004] p=0.622 | AUPRC 0.646 MCC 0.134 Brier 0.244 ECE 0.076
+[valence] magnitude lgbm gt0               pooled 0.586 | user-mean 0.588 [0.552, 0.622] (n=71) | Δbase -0.008 [-0.021, +0.004] p=0.193 | AUPRC 0.644 MCC 0.133 Brier 0.244 ECE 0.077
+[valence] abruptness lgbm gt0              pooled 0.578 | user-mean 0.591 [0.555, 0.624] (n=71) | Δbase -0.006 [-0.018, +0.006] p=0.257 | AUPRC 0.634 MCC 0.108 Brier 0.244 ECE 0.077
+[valence] stillness lgbm gt0               pooled 0.577 | user-mean 0.596 [0.564, 0.628] (n=71) | Δbase -0.001 [-0.016, +0.016] p=0.584 | AUPRC 0.627 MCC 0.109 Brier 0.245 ECE 0.077
+[valence] median16 lgbm gt0                pooled 0.579 | user-mean 0.586 [0.548, 0.621] (n=71) | Δbase -0.010 [-0.027, +0.005] p=0.233 | AUPRC 0.642 MCC 0.132 Brier 0.245 ECE 0.077
+[valence] iqr16 lgbm gt0                   pooled 0.585 | user-mean 0.600 [0.567, 0.632] (n=71) | Δbase +0.004 [-0.014, +0.022] p=0.986 | AUPRC 0.643 MCC 0.118 Brier 0.244 ECE 0.077
+[valence] movement32 logit gt0             pooled 0.573 | user-mean 0.586 [0.549, 0.620] (n=71) | Δbase -0.010 [-0.027, +0.006] p=0.359 | AUPRC 0.652 MCC 0.115 Brier 0.246 ECE 0.078
+[valence] movement32 mlp gt0               pooled 0.546 | user-mean 0.565 [0.531, 0.594] (n=71) | Δbase -0.032 [-0.061, -0.004] p=0.0524 | AUPRC 0.630 MCC 0.044 Brier 0.254 ECE 0.085
+[valence] movement32 lgbm umed             pooled 0.588 | user-mean 0.605 [0.576, 0.635] (n=68) | Δbase +0.004 [-0.007, +0.017] p=0.915 | AUPRC 0.357 MCC 0.116 Brier 0.242 ECE 0.203
+[valence] movement32 lgbm gt0 scored on umed pooled 0.595 | user-mean 0.601 [0.571, 0.631] (n=68) | Δbase +0.000 [+0.000, +0.000] p=nan | AUPRC 0.361 MCC 0.122 Brier 0.247 ECE 0.215
+[valence] majority (constant)              pooled nan
+[valence] user_mean label (between-user ceiling) pooled 0.778
+[valence] window  1 min pooled 0.558 | user-mean 0.572 [0.533, 0.609] | Δ30 -0.035 [-0.076, +0.006] p=0.0585
+[valence] window  5 min pooled 0.551 | user-mean 0.546 [0.515, 0.580] | Δ30 -0.060 [-0.092, -0.026] p=0.000458
+[valence] window 10 min pooled 0.570 | user-mean 0.577 [0.548, 0.609] | Δ30 -0.030 [-0.053, -0.006] p=0.0283
+[valence] window 15 min pooled 0.580 | user-mean 0.591 [0.559, 0.621] | Δ30 -0.016 [-0.035, +0.003] p=0.241
+[valence] window 30 min pooled 0.585 | user-mean 0.607 [0.574, 0.639] | Δ30 +0.000 [+0.000, +0.000] p=nan
+[valence] window 60 min pooled 0.569 | user-mean 0.605 [0.572, 0.636] | Δ30 -0.002 [-0.027, +0.021] p=0.956

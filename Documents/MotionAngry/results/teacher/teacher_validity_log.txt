@@ -1,0 +1,2 @@
+affect minutes=360 (face_rate>=0.3: 31), taps=3 (A=0, B=0, manual=3), teacher_params={'theta_v': 0.0004, 'theta_a': 0.0235, 'conf_min': 0.3}
+taps with affect row within 5 min: 1; with face detected (face_rate>=0.3): 0

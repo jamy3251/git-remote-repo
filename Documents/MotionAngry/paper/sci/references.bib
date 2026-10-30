@@ -1,0 +1,415 @@
+% References for paper/sci/related_work.md
+% Verification policy: every entry marked "verified 2026-10-30" was resolved on
+% 2026-10-30 through its DOI record (api.crossref.org/works/<doi>), its arXiv
+% abstract page/API record, or the stable URL given, and title/author/venue were
+% checked against that record. Entries that could not be opened carry
+% note = {TO VERIFY}. None of the entries below are in that state.
+%
+% Corrections against docs/lit_review_2026-10-30.md found during verification:
+%   Wampfler2022  last author is Christian Holz (not Kowatsch).
+%   Klasnja2015   author list includes Ambuj Tewari (not Rabbi).
+%   Reiter        appears in Behav. Res. Methods vol. 56(4), 2024 (online 2023).
+%   Eisele        Assessment 29(2), 2022 (online 2020).
+%   Tan           TNNLS 34(12), 2023 (online 2022).
+
+%% ---- 2.1 On-device and continual learning ----
+
+@misc{TensorFlow2021,
+  author       = {{TensorFlow Lite Team}},
+  title        = {On-device training in {TensorFlow Lite}},
+  howpublished = {TensorFlow Blog},
+  year         = {2021},
+  month        = nov,
+  url          = {https://blog.tensorflow.org/2021/11/on-device-training-in-tensorflow-lite.html},
+  note         = {verified 2026-10-30}
+}
+
+@inproceedings{Cai2020,
+  author    = {Cai, Han and Gan, Chuang and Zhu, Ligeng and Han, Song},
+  title     = {{TinyTL}: Reduce Memory, Not Parameters for Efficient On-Device Learning},
+  booktitle = {Advances in Neural Information Processing Systems 33 (NeurIPS 2020)},
+  year      = {2020},
+  url       = {https://proceedings.neurips.cc/paper/2020/hash/81f7acabd411274fcf65ce2070ed568a-Abstract.html},
+  note      = {verified 2026-10-30; arXiv:2007.11622}
+}
+
+@inproceedings{Kwon2023,
+  author    = {Kwon, Young D. and Chauhan, Jagmohan and Jia, Hong and Venieris, Stylianos I. and Mascolo, Cecilia},
+  title     = {{LifeLearner}: Hardware-Aware Meta Continual Learning System for Embedded Computing Platforms},
+  booktitle = {Proceedings of the 21st ACM Conference on Embedded Networked Sensor Systems (SenSys '23)},
+  pages     = {138--151},
+  year      = {2023},
+  publisher = {ACM},
+  doi       = {10.1145/3625687.3625804},
+  note      = {verified 2026-10-30}
+}
+
+@inproceedings{McMahan2017,
+  author    = {McMahan, H. Brendan and Moore, Eider and Ramage, Daniel and Hampson, Seth and Ag{\"u}era y Arcas, Blaise},
+  title     = {Communication-Efficient Learning of Deep Networks from Decentralized Data},
+  booktitle = {Proceedings of the 20th International Conference on Artificial Intelligence and Statistics (AISTATS)},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {54},
+  pages     = {1273--1282},
+  year      = {2017},
+  url       = {https://proceedings.mlr.press/v54/mcmahan17a.html},
+  note      = {verified 2026-10-30}
+}
+
+@article{Tan2023,
+  author  = {Tan, Alysa Ziying and Yu, Han and Cui, Lizhen and Yang, Qiang},
+  title   = {Towards Personalized Federated Learning},
+  journal = {IEEE Transactions on Neural Networks and Learning Systems},
+  volume  = {34},
+  number  = {12},
+  pages   = {9587--9603},
+  year    = {2023},
+  doi     = {10.1109/TNNLS.2022.3160699},
+  note    = {verified 2026-10-30}
+}
+
+%% ---- 2.2 Mobile sensing for affect estimation ----
+
+@article{Kang2023,
+  author  = {Kang, Soowon and Choi, Woohyeok and Park, Cheul Young and Cha, Narae and Kim, Auk and Khandoker, Ahsan Habib and Hadjileontiadis, Leontios and Kim, Heepyung and Jeong, Yong and Lee, Uichin},
+  title   = {{K-EmoPhone}: A Mobile and Wearable Dataset with In-Situ Emotion, Stress, and Attention Labels},
+  journal = {Scientific Data},
+  volume  = {10},
+  pages   = {351},
+  year    = {2023},
+  doi     = {10.1038/s41597-023-02248-2},
+  note    = {verified 2026-10-30}
+}
+
+@misc{Zhang2026,
+  author        = {Zhang, Panyu and Park, Minseo and Kang, Soowon and Ismatzoda, Tomiris and Mustafakulov, Azizbek and Najimov, Otabek and Choi, Woohyeok and Alikhanov, Jumabek and Ghosh, Surjya and Lee, Uichin},
+  title         = {{EmoPhone}: A Multi-Wave Dataset for In-the-Wild Mobile and Wearable Affect Sensing},
+  year          = {2026},
+  eprint        = {2609.16581},
+  archivePrefix = {arXiv},
+  url           = {https://arxiv.org/abs/2609.16581},
+  note          = {verified 2026-10-30; preprint, not peer reviewed}
+}
+
+@article{Meegahapola2022,
+  author  = {Meegahapola, Lakmal and Droz, William and Kun, Peter and de G{\"o}tzen, Amalia and Nutakki, Chaitanya and Diwakar, Shyam and Correa, Salvador Ruiz and Song, Donglei and Xu, Hao and Bidoglia, Miriam and Gaskell, George and Chagnaa, Altangerel and Ganbold, Amarsanaa and Zundui, Tsolmon and Caprini, Carlo and Miorandi, Daniele and Hume, Alethia and Zarza, Jose Luis and Cernuzzi, Luca and Bison, Ivano and Britez, Marcelo Rodas and Busso, Matteo and Chenu-Abente, Ronald and G{\"u}nel, Can and Giunchiglia, Fausto and Schelenz, Laura and Gatica-Perez, Daniel},
+  title   = {Generalization and Personalization of Mobile Sensing-Based Mood Inference Models: An Analysis of College Students in Eight Countries},
+  journal = {Proceedings of the ACM on Interactive, Mobile, Wearable and Ubiquitous Technologies},
+  volume  = {6},
+  number  = {4},
+  pages   = {176:1--176:32},
+  year    = {2022},
+  doi     = {10.1145/3569483},
+  note    = {verified 2026-10-30}
+}
+
+@inproceedings{Wampfler2022,
+  author    = {Wampfler, Rafael and Klingler, Severin and Solenthaler, Barbara and Schinazi, Victor R. and Gross, Markus and Holz, Christian},
+  title     = {Affective State Prediction from Smartphone Touch and Sensor Data in the Wild},
+  booktitle = {Proceedings of the 2022 CHI Conference on Human Factors in Computing Systems},
+  pages     = {1--14},
+  year      = {2022},
+  publisher = {ACM},
+  doi       = {10.1145/3491102.3501835},
+  note      = {verified 2026-10-30}
+}
+
+@article{Woll2026,
+  author  = {Woll, Simon and M{\"u}ther, Julius and Birkenmaier, Dennis and Biri, Gergely and Ebner-Priemer, Ulrich W. and Giurgiu, Marco},
+  title   = {Predicting Momentary Mood in Daily Life from Accelerometer Data: Evaluating Single vs. Multiple Sensor Locations Using Machine Learning},
+  journal = {Sensors},
+  volume  = {26},
+  number  = {12},
+  pages   = {3688},
+  year    = {2026},
+  doi     = {10.3390/s26123688},
+  note    = {verified 2026-10-30}
+}
+
+@article{Taylor2020,
+  author  = {Taylor, Sara and Jaques, Natasha and Nosakhare, Ehimwenma and Sano, Akane and Picard, Rosalind},
+  title   = {Personalized Multitask Learning for Predicting Tomorrow's Mood, Stress, and Health},
+  journal = {IEEE Transactions on Affective Computing},
+  volume  = {11},
+  number  = {2},
+  pages   = {200--213},
+  year    = {2020},
+  doi     = {10.1109/TAFFC.2017.2784832},
+  note    = {verified 2026-10-30}
+}
+
+@article{Fisher2018,
+  author  = {Fisher, Aaron J. and Medaglia, John D. and Jeronimus, Bertus F.},
+  title   = {Lack of group-to-individual generalizability is a threat to human subjects research},
+  journal = {Proceedings of the National Academy of Sciences},
+  volume  = {115},
+  number  = {27},
+  pages   = {E6106--E6115},
+  year    = {2018},
+  doi     = {10.1073/pnas.1711978115},
+  note    = {verified 2026-10-30}
+}
+
+%% ---- 2.3 Self-training, cross-modal teacher-student, noisy labels ----
+
+@inproceedings{Albanie2018,
+  author    = {Albanie, Samuel and Nagrani, Arsha and Vedaldi, Andrea and Zisserman, Andrew},
+  title     = {Emotion Recognition in Speech using Cross-Modal Transfer in the Wild},
+  booktitle = {Proceedings of the 26th ACM International Conference on Multimedia (MM '18)},
+  pages     = {292--301},
+  year      = {2018},
+  publisher = {ACM},
+  doi       = {10.1145/3240508.3240578},
+  note      = {verified 2026-10-30; arXiv:1808.05561}
+}
+
+@inproceedings{Ni2022,
+  author    = {Ni, Jianyuan and Sarbajna, Raunak and Liu, Yang and Ngu, Anne H. H. and Yan, Yan},
+  title     = {Cross-Modal Knowledge Distillation for Vision-to-Sensor Action Recognition},
+  booktitle = {ICASSP 2022 - 2022 IEEE International Conference on Acoustics, Speech and Signal Processing},
+  pages     = {4448--4452},
+  year      = {2022},
+  doi       = {10.1109/ICASSP43922.2022.9746752},
+  note      = {verified 2026-10-30; arXiv:2112.01849}
+}
+
+@article{Tang2021,
+  author  = {Tang, Chi Ian and Perez-Pozuelo, Ignacio and Spathis, Dimitris and Brage, Soren and Wareham, Nick and Mascolo, Cecilia},
+  title   = {{SelfHAR}: Improving Human Activity Recognition through Self-training with Unlabeled Data},
+  journal = {Proceedings of the ACM on Interactive, Mobile, Wearable and Ubiquitous Technologies},
+  volume  = {5},
+  number  = {1},
+  pages   = {36:1--36:30},
+  year    = {2021},
+  doi     = {10.1145/3448112},
+  note    = {verified 2026-10-30}
+}
+
+@misc{Onim2025,
+  author        = {Onim, Md. Saif Hassan and Kiselica, Andrew M. and Thapliyal, Himanshu},
+  title         = {Emotion Detection in Older Adults Using Physiological Signals from Wearable Sensors},
+  year          = {2025},
+  eprint        = {2507.08167},
+  archivePrefix = {arXiv},
+  url           = {https://arxiv.org/abs/2507.08167},
+  note          = {verified 2026-10-30; preprint, not peer reviewed. Full text confirms iMotions facial-expression analysis was used as ground-truth labels for the wearable EDA/BVP/IBI regression model}
+}
+
+@article{Yu2023,
+  author  = {Yu, Han and Sano, Akane},
+  title   = {Semi-Supervised Learning for Wearable-based Momentary Stress Detection in the Wild},
+  journal = {Proceedings of the ACM on Interactive, Mobile, Wearable and Ubiquitous Technologies},
+  volume  = {7},
+  number  = {2},
+  pages   = {83:1--83:23},
+  year    = {2023},
+  doi     = {10.1145/3596246},
+  note    = {verified 2026-10-30}
+}
+
+@inproceedings{Xie2020,
+  author    = {Xie, Qizhe and Luong, Minh-Thang and Hovy, Eduard and Le, Quoc V.},
+  title     = {Self-Training with Noisy Student Improves {ImageNet} Classification},
+  booktitle = {2020 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {10684--10695},
+  year      = {2020},
+  doi       = {10.1109/CVPR42600.2020.01070},
+  note      = {verified 2026-10-30}
+}
+
+@inproceedings{Blum1998,
+  author    = {Blum, Avrim and Mitchell, Tom},
+  title     = {Combining Labeled and Unlabeled Data with Co-Training},
+  booktitle = {Proceedings of the Eleventh Annual Conference on Computational Learning Theory (COLT '98)},
+  pages     = {92--100},
+  year      = {1998},
+  publisher = {ACM},
+  doi       = {10.1145/279943.279962},
+  note      = {verified 2026-10-30}
+}
+
+@article{Angluin1988,
+  author  = {Angluin, Dana and Laird, Philip},
+  title   = {Learning from Noisy Examples},
+  journal = {Machine Learning},
+  volume  = {2},
+  number  = {4},
+  pages   = {343--370},
+  year    = {1988},
+  doi     = {10.1007/BF00116829},
+  note    = {verified 2026-10-30}
+}
+
+@article{Frenay2014,
+  author  = {Fr{\'e}nay, Beno{\^i}t and Verleysen, Michel},
+  title   = {Classification in the Presence of Label Noise: A Survey},
+  journal = {IEEE Transactions on Neural Networks and Learning Systems},
+  volume  = {25},
+  number  = {5},
+  pages   = {845--869},
+  year    = {2014},
+  doi     = {10.1109/TNNLS.2013.2292894},
+  note    = {verified 2026-10-30}
+}
+
+%% ---- 2.4 ESM burden and selection bias ----
+
+@inproceedings{Lathia2013,
+  author    = {Lathia, Neal and Rachuri, Kiran K. and Mascolo, Cecilia and Rentfrow, Peter J.},
+  title     = {Contextual Dissonance: Design Bias in Sensor-Based Experience Sampling Methods},
+  booktitle = {Proceedings of the 2013 ACM International Joint Conference on Pervasive and Ubiquitous Computing (UbiComp '13)},
+  pages     = {183--192},
+  year      = {2013},
+  publisher = {ACM},
+  doi       = {10.1145/2493432.2493452},
+  note      = {verified 2026-10-30}
+}
+
+@article{vanBerkel2017,
+  author  = {van Berkel, Niels and Ferreira, Denzil and Kostakos, Vassilis},
+  title   = {The Experience Sampling Method on Mobile Devices},
+  journal = {ACM Computing Surveys},
+  volume  = {50},
+  number  = {6},
+  pages   = {93:1--93:40},
+  year    = {2017},
+  doi     = {10.1145/3123988},
+  note    = {verified 2026-10-30}
+}
+
+@article{Eisele2022,
+  author  = {Eisele, Gudrun and Vachon, Hugo and Lafit, Ginette and Kuppens, Peter and Houben, Marlies and Myin-Germeys, Inez and Viechtbauer, Wolfgang},
+  title   = {The Effects of Sampling Frequency and Questionnaire Length on Perceived Burden, Compliance, and Careless Responding in Experience Sampling Data in a Student Population},
+  journal = {Assessment},
+  volume  = {29},
+  number  = {2},
+  pages   = {136--151},
+  year    = {2022},
+  doi     = {10.1177/1073191120957102},
+  note    = {verified 2026-10-30; published online 2020}
+}
+
+@article{Reiter2024,
+  author  = {Reiter, Thomas and Schoedel, Ramona},
+  title   = {Never miss a beep: Using mobile sensing to investigate (non-)compliance in experience sampling studies},
+  journal = {Behavior Research Methods},
+  volume  = {56},
+  number  = {4},
+  pages   = {4038--4060},
+  year    = {2024},
+  doi     = {10.3758/s13428-023-02252-9},
+  note    = {verified 2026-10-30; published online 2023}
+}
+
+@article{Klasnja2015,
+  author  = {Klasnja, Predrag and Hekler, Eric B. and Shiffman, Saul and Boruvka, Audrey and Almirall, Daniel and Tewari, Ambuj and Murphy, Susan A.},
+  title   = {Microrandomized Trials: An Experimental Design for Developing Just-in-Time Adaptive Interventions},
+  journal = {Health Psychology},
+  volume  = {34},
+  number  = {Suppl},
+  pages   = {1220--1228},
+  year    = {2015},
+  doi     = {10.1037/hea0000305},
+  note    = {verified 2026-10-30}
+}
+
+@article{Horvitz1952,
+  author  = {Horvitz, D. G. and Thompson, D. J.},
+  title   = {A Generalization of Sampling Without Replacement from a Finite Universe},
+  journal = {Journal of the American Statistical Association},
+  volume  = {47},
+  number  = {260},
+  pages   = {663--685},
+  year    = {1952},
+  doi     = {10.1080/01621459.1952.10483446},
+  note    = {verified 2026-10-30}
+}
+
+%% ---- 2.5 Privacy of movement features and model parameters ----
+
+@article{Na2018,
+  author  = {Na, Liangyuan and Yang, Cong and Lo, Chi-Cheng and Zhao, Fangyuan and Fukuoka, Yoshimi and Aswani, Anil},
+  title   = {Feasibility of Reidentifying Individuals in Large National Physical Activity Data Sets From Which Protected Health Information Has Been Removed With Use of Machine Learning},
+  journal = {JAMA Network Open},
+  volume  = {1},
+  number  = {8},
+  pages   = {e186040},
+  year    = {2018},
+  doi     = {10.1001/jamanetworkopen.2018.6040},
+  note    = {verified 2026-10-30}
+}
+
+@article{Neverova2016,
+  author  = {Neverova, Natalia and Wolf, Christian and Lacey, Griffin and Fridman, Lex and Chandra, Deepak and Barbello, Brandon and Taylor, Graham},
+  title   = {Learning Human Identity From Motion Patterns},
+  journal = {IEEE Access},
+  volume  = {4},
+  pages   = {1810--1820},
+  year    = {2016},
+  doi     = {10.1109/ACCESS.2016.2557846},
+  note    = {verified 2026-10-30}
+}
+
+@inproceedings{Kroger2019,
+  author    = {Kr{\"o}ger, Jacob Leon and Raschke, Philip and Bhuiyan, Towhidur Rahman},
+  title     = {Privacy Implications of Accelerometer Data: A Review of Possible Inferences},
+  booktitle = {Proceedings of the 3rd International Conference on Cryptography, Security and Privacy (ICCSP 2019)},
+  pages     = {81--87},
+  year      = {2019},
+  publisher = {ACM},
+  doi       = {10.1145/3309074.3309076},
+  note      = {verified 2026-10-30}
+}
+
+@inproceedings{Malekzadeh2019,
+  author    = {Malekzadeh, Mohammad and Clegg, Richard G. and Cavallaro, Andrea and Haddadi, Hamed},
+  title     = {Mobile Sensor Data Anonymization},
+  booktitle = {Proceedings of the International Conference on Internet of Things Design and Implementation (IoTDI '19)},
+  pages     = {49--58},
+  year      = {2019},
+  publisher = {ACM},
+  doi       = {10.1145/3302505.3310068},
+  note      = {verified 2026-10-30}
+}
+
+@inproceedings{Shokri2017,
+  author    = {Shokri, Reza and Stronati, Marco and Song, Congzheng and Shmatikov, Vitaly},
+  title     = {Membership Inference Attacks Against Machine Learning Models},
+  booktitle = {2017 IEEE Symposium on Security and Privacy (SP)},
+  pages     = {3--18},
+  year      = {2017},
+  doi       = {10.1109/SP.2017.41},
+  note      = {verified 2026-10-30}
+}
+
+@inproceedings{Melis2019,
+  author    = {Melis, Luca and Song, Congzheng and De Cristofaro, Emiliano and Shmatikov, Vitaly},
+  title     = {Exploiting Unintended Feature Leakage in Collaborative Learning},
+  booktitle = {2019 IEEE Symposium on Security and Privacy (SP)},
+  pages     = {691--706},
+  year      = {2019},
+  doi       = {10.1109/SP.2019.00029},
+  note      = {verified 2026-10-30}
+}
+
+@inproceedings{Abadi2016,
+  author    = {Abadi, Martin and Chu, Andy and Goodfellow, Ian and McMahan, H. Brendan and Mironov, Ilya and Talwar, Kunal and Zhang, Li},
+  title     = {Deep Learning with Differential Privacy},
+  booktitle = {Proceedings of the 2016 ACM SIGSAC Conference on Computer and Communications Security (CCS '16)},
+  pages     = {308--318},
+  year      = {2016},
+  publisher = {ACM},
+  doi       = {10.1145/2976749.2978318},
+  note      = {verified 2026-10-30}
+}
+
+@article{Benouis2024,
+  author  = {Benouis, Mohamed and Andr{\'e}, Elisabeth and Can, Yekta Said},
+  title   = {Balancing Between Privacy and Utility for Affect Recognition Using Multitask Learning in Differential Privacy-Added Federated Learning Settings: Quantitative Study},
+  journal = {JMIR Mental Health},
+  volume  = {11},
+  pages   = {e60003},
+  year    = {2024},
+  doi     = {10.2196/60003},
+  note    = {verified 2026-10-30}
+}
