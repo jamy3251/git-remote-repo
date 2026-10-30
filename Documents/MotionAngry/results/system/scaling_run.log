@@ -1,0 +1,145 @@
+2026-10-30 18:28:25.736115: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-10-30 18:28:26.537177: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\google\api_core\_python_version_support.py:275: FutureWarning: You are using a Python version (3.11.9) which Google will stop supporting in new releases of google.api_core once it reaches its end of life (2027-10-24). Please upgrade to the latest Python version, or at least Python 3.12, to continue receiving updates for google.api_core past that date.
+  warnings.warn(message, FutureWarning)
+2026-10-30 18:28:28.720678: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+W0000 00:00:1793352508.991794   10400 tf_tfl_flatbuffer_helpers.cc:365] Ignored output_format.
+W0000 00:00:1793352508.992048   10400 tf_tfl_flatbuffer_helpers.cc:368] Ignored drop_control_dependency.
+2026-10-30 18:28:28.992922: I tensorflow/cc/saved_model/reader.cc:83] Reading SavedModel from: C:\Users\User\AppData\Local\Temp\tmp2bgkipe0
+2026-10-30 18:28:28.993818: I tensorflow/cc/saved_model/reader.cc:52] Reading meta graph with tags { serve }
+2026-10-30 18:28:28.993843: I tensorflow/cc/saved_model/reader.cc:147] Reading SavedModel debug info (if present) from: C:\Users\User\AppData\Local\Temp\tmp2bgkipe0
+I0000 00:00:1793352508.997132   10400 mlir_graph_optimization_pass.cc:425] MLIR V1 optimization pass is not enabled
+2026-10-30 18:28:28.997408: I tensorflow/cc/saved_model/loader.cc:236] Restoring SavedModel bundle.
+2026-10-30 18:28:29.031830: I tensorflow/cc/saved_model/loader.cc:220] Running initialization op on SavedModel bundle at path: C:\Users\User\AppData\Local\Temp\tmp2bgkipe0
+2026-10-30 18:28:29.034698: I tensorflow/cc/saved_model/loader.cc:471] SavedModel load for tags { serve }; Status: success: OK. Took 42010 microseconds.
+2026-10-30 18:28:29.062822: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\tensorflow\lite\python\interpreter.py:457: UserWarning:     Warning: tf.lite.Interpreter is deprecated and is scheduled for deletion in
+    TF 2.20. Please use the LiteRT interpreter from the ai_edge_litert package.
+    See the [migration guide](https://ai.google.dev/edge/litert/migration)
+    for details.
+    
+  warnings.warn(_INTERPRETER_DELETION_WARNING)
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+params=   33 batch=   64: numpy      0.6 ms | tflite(PC,1 thread)      0.4 ms  tflite 6808 bytes
+W0000 00:00:1793352509.268841   10400 tf_tfl_flatbuffer_helpers.cc:365] Ignored output_format.
+W0000 00:00:1793352509.268875   10400 tf_tfl_flatbuffer_helpers.cc:368] Ignored drop_control_dependency.
+2026-10-30 18:28:29.269187: I tensorflow/cc/saved_model/reader.cc:83] Reading SavedModel from: C:\Users\User\AppData\Local\Temp\tmpv4y58lom
+2026-10-30 18:28:29.269645: I tensorflow/cc/saved_model/reader.cc:52] Reading meta graph with tags { serve }
+2026-10-30 18:28:29.269655: I tensorflow/cc/saved_model/reader.cc:147] Reading SavedModel debug info (if present) from: C:\Users\User\AppData\Local\Temp\tmpv4y58lom
+2026-10-30 18:28:29.271152: I tensorflow/cc/saved_model/loader.cc:236] Restoring SavedModel bundle.
+2026-10-30 18:28:29.277980: I tensorflow/cc/saved_model/loader.cc:220] Running initialization op on SavedModel bundle at path: C:\Users\User\AppData\Local\Temp\tmpv4y58lom
+2026-10-30 18:28:29.280410: I tensorflow/cc/saved_model/loader.cc:471] SavedModel load for tags { serve }; Status: success: OK. Took 11223 microseconds.
+C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\tensorflow\lite\python\interpreter.py:457: UserWarning:     Warning: tf.lite.Interpreter is deprecated and is scheduled for deletion in
+    TF 2.20. Please use the LiteRT interpreter from the ai_edge_litert package.
+    See the [migration guide](https://ai.google.dev/edge/litert/migration)
+    for details.
+    
+  warnings.warn(_INTERPRETER_DELETION_WARNING)
+params=   33 batch=  640: numpy      1.1 ms | tflite(PC,1 thread)      1.5 ms  tflite 6808 bytes
+W0000 00:00:1793352509.425991   10400 tf_tfl_flatbuffer_helpers.cc:365] Ignored output_format.
+W0000 00:00:1793352509.426028   10400 tf_tfl_flatbuffer_helpers.cc:368] Ignored drop_control_dependency.
+2026-10-30 18:28:29.426355: I tensorflow/cc/saved_model/reader.cc:83] Reading SavedModel from: C:\Users\User\AppData\Local\Temp\tmp7kudu9t0
+2026-10-30 18:28:29.426776: I tensorflow/cc/saved_model/reader.cc:52] Reading meta graph with tags { serve }
+2026-10-30 18:28:29.426787: I tensorflow/cc/saved_model/reader.cc:147] Reading SavedModel debug info (if present) from: C:\Users\User\AppData\Local\Temp\tmp7kudu9t0
+2026-10-30 18:28:29.428185: I tensorflow/cc/saved_model/loader.cc:236] Restoring SavedModel bundle.
+2026-10-30 18:28:29.434843: I tensorflow/cc/saved_model/loader.cc:220] Running initialization op on SavedModel bundle at path: C:\Users\User\AppData\Local\Temp\tmp7kudu9t0
+2026-10-30 18:28:29.438051: I tensorflow/cc/saved_model/loader.cc:471] SavedModel load for tags { serve }; Status: success: OK. Took 11701 microseconds.
+C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\tensorflow\lite\python\interpreter.py:457: UserWarning:     Warning: tf.lite.Interpreter is deprecated and is scheduled for deletion in
+    TF 2.20. Please use the LiteRT interpreter from the ai_edge_litert package.
+    See the [migration guide](https://ai.google.dev/edge/litert/migration)
+    for details.
+    
+  warnings.warn(_INTERPRETER_DELETION_WARNING)
+params=   33 batch= 2000: numpy      2.5 ms | tflite(PC,1 thread)      4.3 ms  tflite 6808 bytes
+W0000 00:00:1793352509.589756   10400 tf_tfl_flatbuffer_helpers.cc:365] Ignored output_format.
+W0000 00:00:1793352509.589794   10400 tf_tfl_flatbuffer_helpers.cc:368] Ignored drop_control_dependency.
+2026-10-30 18:28:29.590101: I tensorflow/cc/saved_model/reader.cc:83] Reading SavedModel from: C:\Users\User\AppData\Local\Temp\tmpm0mt8a1u
+2026-10-30 18:28:29.590489: I tensorflow/cc/saved_model/reader.cc:52] Reading meta graph with tags { serve }
+2026-10-30 18:28:29.590500: I tensorflow/cc/saved_model/reader.cc:147] Reading SavedModel debug info (if present) from: C:\Users\User\AppData\Local\Temp\tmpm0mt8a1u
+2026-10-30 18:28:29.591899: I tensorflow/cc/saved_model/loader.cc:236] Restoring SavedModel bundle.
+2026-10-30 18:28:29.598565: I tensorflow/cc/saved_model/loader.cc:220] Running initialization op on SavedModel bundle at path: C:\Users\User\AppData\Local\Temp\tmpm0mt8a1u
+2026-10-30 18:28:29.601057: I tensorflow/cc/saved_model/loader.cc:471] SavedModel load for tags { serve }; Status: success: OK. Took 10949 microseconds.
+C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\tensorflow\lite\python\interpreter.py:457: UserWarning:     Warning: tf.lite.Interpreter is deprecated and is scheduled for deletion in
+    TF 2.20. Please use the LiteRT interpreter from the ai_edge_litert package.
+    See the [migration guide](https://ai.google.dev/edge/litert/migration)
+    for details.
+    
+  warnings.warn(_INTERPRETER_DELETION_WARNING)
+params=  330 batch=   64: numpy      0.9 ms | tflite(PC,1 thread)      1.2 ms  tflite 7996 bytes
+W0000 00:00:1793352509.751033   10400 tf_tfl_flatbuffer_helpers.cc:365] Ignored output_format.
+W0000 00:00:1793352509.751097   10400 tf_tfl_flatbuffer_helpers.cc:368] Ignored drop_control_dependency.
+2026-10-30 18:28:29.751404: I tensorflow/cc/saved_model/reader.cc:83] Reading SavedModel from: C:\Users\User\AppData\Local\Temp\tmp2odwknq3
+2026-10-30 18:28:29.751796: I tensorflow/cc/saved_model/reader.cc:52] Reading meta graph with tags { serve }
+2026-10-30 18:28:29.751807: I tensorflow/cc/saved_model/reader.cc:147] Reading SavedModel debug info (if present) from: C:\Users\User\AppData\Local\Temp\tmp2odwknq3
+2026-10-30 18:28:29.753252: I tensorflow/cc/saved_model/loader.cc:236] Restoring SavedModel bundle.
+2026-10-30 18:28:29.760128: I tensorflow/cc/saved_model/loader.cc:220] Running initialization op on SavedModel bundle at path: C:\Users\User\AppData\Local\Temp\tmp2odwknq3
+2026-10-30 18:28:29.762829: I tensorflow/cc/saved_model/loader.cc:471] SavedModel load for tags { serve }; Status: success: OK. Took 11424 microseconds.
+C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\tensorflow\lite\python\interpreter.py:457: UserWarning:     Warning: tf.lite.Interpreter is deprecated and is scheduled for deletion in
+    TF 2.20. Please use the LiteRT interpreter from the ai_edge_litert package.
+    See the [migration guide](https://ai.google.dev/edge/litert/migration)
+    for details.
+    
+  warnings.warn(_INTERPRETER_DELETION_WARNING)
+params=  330 batch=  640: numpy      4.0 ms | tflite(PC,1 thread)     10.1 ms  tflite 7996 bytes
+W0000 00:00:1793352510.092633   10400 tf_tfl_flatbuffer_helpers.cc:365] Ignored output_format.
+W0000 00:00:1793352510.092670   10400 tf_tfl_flatbuffer_helpers.cc:368] Ignored drop_control_dependency.
+2026-10-30 18:28:30.093009: I tensorflow/cc/saved_model/reader.cc:83] Reading SavedModel from: C:\Users\User\AppData\Local\Temp\tmpa371zvfz
+2026-10-30 18:28:30.093410: I tensorflow/cc/saved_model/reader.cc:52] Reading meta graph with tags { serve }
+2026-10-30 18:28:30.093421: I tensorflow/cc/saved_model/reader.cc:147] Reading SavedModel debug info (if present) from: C:\Users\User\AppData\Local\Temp\tmpa371zvfz
+2026-10-30 18:28:30.094843: I tensorflow/cc/saved_model/loader.cc:236] Restoring SavedModel bundle.
+2026-10-30 18:28:30.101590: I tensorflow/cc/saved_model/loader.cc:220] Running initialization op on SavedModel bundle at path: C:\Users\User\AppData\Local\Temp\tmpa371zvfz
+2026-10-30 18:28:30.104200: I tensorflow/cc/saved_model/loader.cc:471] SavedModel load for tags { serve }; Status: success: OK. Took 11192 microseconds.
+C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\tensorflow\lite\python\interpreter.py:457: UserWarning:     Warning: tf.lite.Interpreter is deprecated and is scheduled for deletion in
+    TF 2.20. Please use the LiteRT interpreter from the ai_edge_litert package.
+    See the [migration guide](https://ai.google.dev/edge/litert/migration)
+    for details.
+    
+  warnings.warn(_INTERPRETER_DELETION_WARNING)
+params=  330 batch= 2000: numpy     26.5 ms | tflite(PC,1 thread)     46.5 ms  tflite 7996 bytes
+W0000 00:00:1793352510.487321   10400 tf_tfl_flatbuffer_helpers.cc:365] Ignored output_format.
+W0000 00:00:1793352510.487356   10400 tf_tfl_flatbuffer_helpers.cc:368] Ignored drop_control_dependency.
+2026-10-30 18:28:30.487663: I tensorflow/cc/saved_model/reader.cc:83] Reading SavedModel from: C:\Users\User\AppData\Local\Temp\tmpzd8zu0l1
+2026-10-30 18:28:30.488071: I tensorflow/cc/saved_model/reader.cc:52] Reading meta graph with tags { serve }
+2026-10-30 18:28:30.488082: I tensorflow/cc/saved_model/reader.cc:147] Reading SavedModel debug info (if present) from: C:\Users\User\AppData\Local\Temp\tmpzd8zu0l1
+2026-10-30 18:28:30.489528: I tensorflow/cc/saved_model/loader.cc:236] Restoring SavedModel bundle.
+2026-10-30 18:28:30.496200: I tensorflow/cc/saved_model/loader.cc:220] Running initialization op on SavedModel bundle at path: C:\Users\User\AppData\Local\Temp\tmpzd8zu0l1
+2026-10-30 18:28:30.499006: I tensorflow/cc/saved_model/loader.cc:471] SavedModel load for tags { serve }; Status: success: OK. Took 11342 microseconds.
+C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\tensorflow\lite\python\interpreter.py:457: UserWarning:     Warning: tf.lite.Interpreter is deprecated and is scheduled for deletion in
+    TF 2.20. Please use the LiteRT interpreter from the ai_edge_litert package.
+    See the [migration guide](https://ai.google.dev/edge/litert/migration)
+    for details.
+    
+  warnings.warn(_INTERPRETER_DELETION_WARNING)
+params= 3300 batch=   64: numpy      4.3 ms | tflite(PC,1 thread)     10.5 ms  tflite 19876 bytes
+W0000 00:00:1793352510.860681   10400 tf_tfl_flatbuffer_helpers.cc:365] Ignored output_format.
+W0000 00:00:1793352510.860715   10400 tf_tfl_flatbuffer_helpers.cc:368] Ignored drop_control_dependency.
+2026-10-30 18:28:30.861022: I tensorflow/cc/saved_model/reader.cc:83] Reading SavedModel from: C:\Users\User\AppData\Local\Temp\tmpbsswy5e3
+2026-10-30 18:28:30.861416: I tensorflow/cc/saved_model/reader.cc:52] Reading meta graph with tags { serve }
+2026-10-30 18:28:30.861427: I tensorflow/cc/saved_model/reader.cc:147] Reading SavedModel debug info (if present) from: C:\Users\User\AppData\Local\Temp\tmpbsswy5e3
+2026-10-30 18:28:30.862935: I tensorflow/cc/saved_model/loader.cc:236] Restoring SavedModel bundle.
+2026-10-30 18:28:30.869924: I tensorflow/cc/saved_model/loader.cc:220] Running initialization op on SavedModel bundle at path: C:\Users\User\AppData\Local\Temp\tmpbsswy5e3
+2026-10-30 18:28:30.872491: I tensorflow/cc/saved_model/loader.cc:471] SavedModel load for tags { serve }; Status: success: OK. Took 11468 microseconds.
+C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\tensorflow\lite\python\interpreter.py:457: UserWarning:     Warning: tf.lite.Interpreter is deprecated and is scheduled for deletion in
+    TF 2.20. Please use the LiteRT interpreter from the ai_edge_litert package.
+    See the [migration guide](https://ai.google.dev/edge/litert/migration)
+    for details.
+    
+  warnings.warn(_INTERPRETER_DELETION_WARNING)
+params= 3300 batch=  640: numpy     31.2 ms | tflite(PC,1 thread)    140.4 ms  tflite 19876 bytes
+W0000 00:00:1793352512.312742   10400 tf_tfl_flatbuffer_helpers.cc:365] Ignored output_format.
+W0000 00:00:1793352512.312778   10400 tf_tfl_flatbuffer_helpers.cc:368] Ignored drop_control_dependency.
+2026-10-30 18:28:32.313087: I tensorflow/cc/saved_model/reader.cc:83] Reading SavedModel from: C:\Users\User\AppData\Local\Temp\tmpbdxc6mlb
+2026-10-30 18:28:32.313491: I tensorflow/cc/saved_model/reader.cc:52] Reading meta graph with tags { serve }
+2026-10-30 18:28:32.313502: I tensorflow/cc/saved_model/reader.cc:147] Reading SavedModel debug info (if present) from: C:\Users\User\AppData\Local\Temp\tmpbdxc6mlb
+2026-10-30 18:28:32.314959: I tensorflow/cc/saved_model/loader.cc:236] Restoring SavedModel bundle.
+2026-10-30 18:28:32.321996: I tensorflow/cc/saved_model/loader.cc:220] Running initialization op on SavedModel bundle at path: C:\Users\User\AppData\Local\Temp\tmpbdxc6mlb
+2026-10-30 18:28:32.324563: I tensorflow/cc/saved_model/loader.cc:471] SavedModel load for tags { serve }; Status: success: OK. Took 11475 microseconds.
+C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\tensorflow\lite\python\interpreter.py:457: UserWarning:     Warning: tf.lite.Interpreter is deprecated and is scheduled for deletion in
+    TF 2.20. Please use the LiteRT interpreter from the ai_edge_litert package.
+    See the [migration guide](https://ai.google.dev/edge/litert/migration)
+    for details.
+    
+  warnings.warn(_INTERPRETER_DELETION_WARNING)
+params= 3300 batch= 2000: numpy    102.1 ms | tflite(PC,1 thread)   1471.5 ms  tflite 19876 bytes
