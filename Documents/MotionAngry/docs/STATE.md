@@ -2,7 +2,7 @@
 
 - 시작: 2026-10-30 17:00
 - 종료 예정: 2026-11-01 17:00 (48h)
-- 마지막 갱신: 2026-10-30 22:50
+- 마지막 갱신: 2026-11-02 (IEEE Access 양식 PDF 빌드)
 - 현재 Phase: 8 완료(1차 종료 22:50). 남은 시간은 SELF_REVIEW 잔여 항목·그림 다듬기·백로그에 쓴다. Phase 0 17:25 완료, Phase 2 20:50 완료(3.5h), Phase 1 19:20 완료, Phase 5 20:45 완료, Phase 6 문서 완료, Phase 3/4 가능한 범위 완료
 
 ## Phase 순서와 상태
@@ -15,13 +15,13 @@
 | 5 | 3 교사 타당성 | 권장/선택 | 3h | 3.1 완료(표본 0: 얼굴 검출된 탭 없음, results/teacher/) · 3.2 DATASETS 에이전트 · 3.3 대기 |
 | 6 | 4 시스템 비용 | 선택 | 2h | 완료(절차서 + results/system/scaling_pc.csv + minute_timing.csv; 단말 측정은 사용자 할 일) |
 | 7 | 6 필드 스터디 설계 | 권장 | 2h | 문서 7개 완료(docs/field_study/), 검정력 분석 [PENDING: 격자 효과 크기] |
-| 8 | 7 논문 초안 | 필수 | 8h | 완료: paper/sci/main.md v0.3(심사 반영) + paper/kr/manuscript_revised.md |
+| 8 | 7 논문 초안 | 필수 | 8h | 완료: paper/sci/main.md v0.4(심사 반영, 초록 249단어) + paper/sci/main.pdf(IEEE Access 양식, build_html.py) + paper/kr/manuscript_revised.md |
 | 9 | 8 자체 심사·보고 | 필수 | 2h | 완료: docs/SELF_REVIEW.md(3인 Major Revision) → 즉시 수정 23건 반영, FINAL_REPORT.md |
 
 ## [선택] 항목 실행/생략 (Phase 0.1 결과)
 - 단말 연결: 없음(adb devices 빈 목록) → Phase 4는 스크립트·절차만, PC 스케일링은 수행
 - 웹 접근: 가능(doi.org 302) → 참고문헌 DOI 확인·저널 조사 수행
-- LaTeX/pandoc: 없음 → paper/sci/main.md 마크다운 초안
+- LaTeX/pandoc: 없음 → paper/sci/main.md 마크다운 초안; 2026-11-02 build_html.py로 IEEE Access 2단 HTML→PDF(헤드리스 Chrome) 생성, 페이지 이미지 시각 점검 완료
 - 저자 앱 로그: 있음(data/raw/life/2026-10-25 affect.csv 331행) → Phase 3.1 수행
 - 외부 데이터셋: WESAD 로컬 보유(data/raw/WESAD), 나머지는 절차만
 
@@ -35,4 +35,4 @@
 - Phase 2(부분): experiments/common/eval.py, experiments/loop_sim/build_minutes.py(→ data/processed/loop_minutes.parquet·loop_summaries.parquet, offset-1 요약 = 기본 모델 입력과 완전 일치), experiments/loop_sim/sim.py(단말 학습식 일치 테스트 tests/test_loop_sim.py 통과), experiments/guard_sim/guard_sim.py(→ results/guard_sim/guard_sim.csv 완료)
 
 ## 다음 할 일 한 줄
-(1차 종료) 사용자 할 일은 FINAL_REPORT.md §4. 세션이 이어지면: SELF_REVIEW 잔여(다중비교 문장, seed 통합 CI, Fig 1 CI는 반영됨) → BACKLOG(양자화 정확도 손실, IPW 확장, p 스케줄).
+(1차 종료) 사용자 할 일은 FINAL_REPORT.md §4(PDF의 TO FILL 9곳 포함). 세션이 이어지면: SELF_REVIEW 잔여(다중비교 문장, seed 통합 CI) → BACKLOG(IPW 확장, p 스케줄). PDF 재생성: `python paper/sci/build_html.py`.

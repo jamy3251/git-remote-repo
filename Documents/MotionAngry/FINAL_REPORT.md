@@ -37,7 +37,7 @@
 - 단말 학습이 실제 교사 라벨로 돌아간 기록 없음(31분 < 50표본) — 논문에 명시.
 - RQ4 IPW는 사용자별 발화율만으로 보정(시각대·움직임 수준 확장은 BACKLOG). 양자화 완화책의 정확도 손실 【미실시】.
 - 격자 다중비교 보정·seed 통합 CI·10응답 사용자별 AUROC 잡음은 서술로만 다룸(SELF_REVIEW 통계 심사 지적).
-- LaTeX·pandoc 없음 → paper/sci/main.md 마크다운(pandoc 호환).
+- LaTeX·pandoc 없음 → paper/sci/main.md 마크다운(pandoc 호환) + build_html.py로 IEEE Access 양식 PDF(2026-11-02).
 
 ## 4. 사용자가 해야 할 일
 1. **투고 판단**: docs/VENUE.md — 1순위 IEEE Access(SCIE, 쪽수 무제한, Negative Result 유형), 대안 Pervasive and Mobile Computing. TAFFC·IMWUT은 현장 연구 뒤.
@@ -46,7 +46,7 @@
 4. **IRB·현장 연구**: docs/field_study/ (PROTOCOL, CONSENT_FORM, DMP, 체크리스트, 사전등록). 참가자 기본값 20명·4주(δ=0.10 검출; 보정 없이면 50명). 앱 변경 필요 항목: 동의 화면·참가자 코드·기준선 모드(APP_READINESS_CHECKLIST).
 5. **데이터셋 등록(선택)**: DAPPER(Synapse), K-EmoCon(Zenodo 요청), Emognition(EULA) — docs/DATASETS.md §3.
 6. **HWP 반영**: paper/kr/manuscript_revised.md의 '수정 내역' 35건(활동 범주 0.546→0.547/0.567, 10⁻⁸→6.0×10⁻⁸ 등)을 HWP에 옮기고, HWP에만 있는 "저크 시간변화율" 문구·로마자 혼용 확인.
-7. **영문 초안 마무리**: docs/SELF_REVIEW.md의 '즉시 고칠 것' 중 남은 항목(그림 캡션 번호 정리, 다중비교 문장, seed 통합 CI 표) 확인 후 Abstract 최종화. 추천 저널 템플릿(IEEEtran)으로 변환.
+7. **영문 초안 마무리**: paper/sci/main.pdf(IEEE Access 양식, 10쪽; `python paper/sci/build_html.py`로 재생성)의 [TO FILL] 9곳(접수일·DOI·ORCID·교신 이메일·펀딩·저자 약력 2건) 채우기. docs/SELF_REVIEW.md 잔여(다중비교 문장, seed 통합 CI 표) 확인. 투고 시 IEEE Access는 Word/LaTeX 원고를 받으므로 main.md를 IEEEtran 또는 Word 템플릿으로 옮긴다(PDF는 검토용).
 
 ## 5. 추천 저널
 IEEE Access(1순위; 현 증거 수준·Negative Result 허용·4~6주 판정). 현장 연구(20명·4주) 결과가 나오면 Pervasive and Mobile Computing 또는 IEEE TAFFC로 상향.

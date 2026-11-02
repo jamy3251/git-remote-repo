@@ -24,7 +24,7 @@ TAB.mkdir(exist_ok=True, parents=True)
 plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 9, "axes.spines.top": False, "axes.spines.right": False})
 C = {"base": "#444444", "seed_model": "#999999", "student": "#d62728", "student_a0.3": "#ff7f0e", "esm_ft": "#1f77b4",
      "esm_sk": "#17becf", "guard": "#2ca02c", "platt": "#9467bd", "oracle": "#8c564b"}
-LBL = {"base": "Global base (LightGBM)", "seed_model": "Seed logistic (no update)", "student": "Self-training student (teacher labels)",
+LBL = {"base": "Population model (LightGBM)", "seed_model": "Seed logistic (no update)", "student": "Self-training student (teacher labels)",
        "student_a0.3": "Student + L2 anchor (λ=0.3)", "esm_ft": "ESM fine-tune (same learner)", "esm_sk": "ESM logistic (L2, C=0.1)",
        "guard": "Student + performance guard", "platt": "Base + per-user Platt"}
 
@@ -91,13 +91,14 @@ def fig_conditions():
         hi = [g[g.cond == c].user_mean_auc.max() for c in conds]
         ax.barh(range(len(conds)), vals, color=[C.get(c, "#777") for c in conds], xerr=[np.array(vals) - np.array(lo), np.array(hi) - np.array(vals)],
                 error_kw=dict(lw=0.8))
-        ax.axvline(o[o.cond == "student"].user_mean_auc.mean(), color=C["oracle"], ls="--", lw=1, label="oracle student (p=1, d=1)")
+        ax.axvline(o[o.cond == "student"].user_mean_auc.mean(), color=C["oracle"], ls="--", lw=1, label="oracle (p=1, d=1)")
         ax.axvline(0.5, color="#bbbbbb", lw=0.8)
         ax.set_yticks(range(len(conds)), [LBL[c] for c in conds])
         ax.set_xlim(0.45, 0.70)
         ax.set_title(f"{task} (p=0.8, d=0.5, b=0)", fontsize=9)
-        ax.legend(loc="lower right", fontsize=7, frameon=False)
-    fig.supxlabel("within-user AUROC, mean over users (error bars: range over 3 seeds)", fontsize=9)
+        ax.legend(loc="center right", fontsize=7, frameon=False)
+    fig.subplots_adjust(bottom=0.2)
+    fig.supxlabel("within-user AUROC, mean over users (error bars: range over 3 seeds)", fontsize=9, y=0.02)
     save(fig, "fig_conditions")
 
 
@@ -169,8 +170,8 @@ def fig_selection():
         ax.set_title(task, fontsize=9)
     axes[0].set_ylabel("AUROC of the population model")
     axes[1].legend(fontsize=6, frameon=False, loc="upper left")
-    fig.subplots_adjust(bottom=0.28)
-    fig.supxlabel("arm-A trigger threshold on |estimate − estimate at last prompt| (value)", fontsize=9, y=0.0)
+    fig.subplots_adjust(bottom=0.26)
+    fig.supxlabel("arm-A trigger threshold on |estimate − estimate at last prompt| (value)", fontsize=9, y=0.03)
     save(fig, "fig_selection_bias")
 
 
@@ -180,7 +181,7 @@ def fig_window():
     b = pd.read_csv(RES / "benchmark" / "summary.csv")
     w = b[b.model.str.startswith("window ")].copy()
     w["win"] = w.model.str.extract(r"window (\d+)").astype(int)
-    fig, ax = plt.subplots(figsize=(3.8, 2.8))
+    fig, ax = plt.subplots(figsize=(3.8, 3.0))
     for task, col, off in (("arousal", "#d62728", 0.97), ("valence", "#1f77b4", 1.03)):
         q = w[w.task == task].sort_values("win")
         ax.errorbar(q.win * off, q.user_mean_auc, yerr=[q.user_mean_auc - q.user_ci_lo, q.user_ci_hi - q.user_mean_auc],
@@ -188,7 +189,8 @@ def fig_window():
     ax.set_xscale("log")
     ax.set_xticks([1, 5, 10, 15, 30, 60], ["1", "5", "10", "15", "30", "60"])
     ax.set_xlabel("summary window before response (min)")
-    ax.set_ylabel("within-user AUROC (mean over users, 95% CI)", fontsize=8)
+    ax.set_ylabel("within-user AUROC (mean, 95% CI)", fontsize=8)
+    fig.subplots_adjust(left=0.18, bottom=0.16)
     ax.legend(frameon=False, fontsize=8, loc="lower right")
     save(fig, "fig_window_ablation")
 

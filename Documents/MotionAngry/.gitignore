@@ -10,3 +10,6 @@ android/local.properties
 /*.pdf
 paper/refs/*.pdf
 paper/refs/*.html
+
+# paper/sci PDF 빌드 산출물(그림 PNG·페이지 이미지·HTML; build_html.py로 재생성)
+paper/sci/build/

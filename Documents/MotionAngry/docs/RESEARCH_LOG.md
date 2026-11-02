@@ -39,3 +39,10 @@
 
 ## 2026-10-30 23:00 — 백로그 1건(양자화 비용) 완료 후 종료
 - 소수 1자리 양자화: 식별 5.4×→4.0×, AUROC 손실 0 포함; 정수 반올림은 AUROC 0.55/0.52로 붕괴. main.md 6.5·PRIVACY_NOTES 반영. 전체 push 완료.
+
+## 2026-11-02 — IEEE Access 양식 PDF(HTML→Chrome) 빌드 + 시각 점검
+- paper/sci/build_html.py 작성: main.md + references.bib + figures/*.pdf → build/main.html(2단, Times 9.5pt, 절 번호 로마자·소절 A/B, 상호참조 Section VI-B, 인용 등장순 [n], IEEE 참고문헌 형식 35건, FIGURE/TABLE 캡션) → main.pdf(헤드리스 Chrome; 머리글·쪽번호는 PyMuPDF로 삽입) → build/page-*.png. 수치 감사(본문 숫자 토큰 md↔html 집합 비교) 통과: 누락 0.
+- 페이지 이미지 10장을 직접 보고 고친 것: 고정 머리글이 본문 아래로 떨어짐→PDF 후처리로 교체; 구현 표 번호 없음·중앙정렬→표 1로 번호 부여(이후 표 2~4 재번호, 본문 참조 7곳 수정)·1단 배치; 'F. IMPLEMENTATION' 고아 제목 해소; 그림 4 빈 단 문제→2단 폭 60%; 코드 경로 줄바꿈(wbr).
+- 그림 수정(figures/make_figures.py): fig_conditions x축 라벨이 눈금과 겹침·범례가 막대와 겹침, fig_window_ablation y축 라벨 잘림, fig_selection_bias 아래 여백; 'Global base'→'Population model'로 통일.
+- main.md v0.4: 초록 390→249단어(IEEE Access 250 제한), §2.3 평문 수식($R^2$, $1/(1-2\eta)^2$, $(2p-1)$)·6.5×/178.7× 표기, 표 1 캡션 추가. 숫자 변경 없음.
+- 남은 TO FILL 9곳(접수일·DOI·ORCID·이메일·펀딩·약력 2건)은 사용자 입력 사항.
