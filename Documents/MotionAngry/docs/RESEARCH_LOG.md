@@ -46,3 +46,10 @@
 - 그림 수정(figures/make_figures.py): fig_conditions x축 라벨이 눈금과 겹침·범례가 막대와 겹침, fig_window_ablation y축 라벨 잘림, fig_selection_bias 아래 여백; 'Global base'→'Population model'로 통일.
 - main.md v0.4: 초록 390→249단어(IEEE Access 250 제한), §2.3 평문 수식($R^2$, $1/(1-2\eta)^2$, $(2p-1)$)·6.5×/178.7× 표기, 표 1 캡션 추가. 숫자 변경 없음.
 - 남은 TO FILL 9곳(접수일·DOI·ORCID·이메일·펀딩·약력 2건)은 사용자 입력 사항.
+
+## 2026-11-02 — 한국어판 PDF(main_ko.md → main_ko.pdf), 같은 IEEE Access 양식
+- 사용자 요청: "main.pdf 한글 버전으로도", "양식은 똑같이". paper/sci/main_ko.md에 main.md v0.4 전문을 번역(수치·표·수식·인용 키 동일, 강조는 이탤릭 대신 작은따옴표). 참고문헌 목록은 영문 IEEE 형식 그대로.
+- build_html.py에 `--lang ko` 추가: 파일명(main_ko.*), 글꼴(본문 Times+바탕, 제목 Arial+맑은 고딕), 캡션 "그림/표 n.", 절 상호참조 "6.2절→VI-B절", 초록/색인어/참고문헌/저자 소개 라벨, 머리글(맑은 고딕 임베드), 한국어 그림 캡션(FIGURES_KO). 영문 빌드 출력은 변하지 않음(numeric audit none).
+- 교차 언어 감사(cross_language_audit): 본문 숫자 토큰 main.md ⊂ main_ko.md 확인 — 누락 0, 한국어판에만 있는 토큰 '30' 1개(영문 "Thirty minutes"를 숫자로 쓴 것).
+- 시각 점검(10쪽 전부): 표 2 아래 짧은 창 길이 단락+1단 그림 1이 4쪽 하단을 비우고 5쪽 왼쪽 단을 반쯤 비움 → 그림 1을 2단 폭 46 %로 배치(FIGURES_KO만; 영문판은 그대로). 남은 여백은 2단 폭 그림 앞의 단 균형(4쪽·7쪽 하단 약 1 in)뿐.
+- PDF 텍스트 검사: $·역슬래시 잔여 0, TO VERIFY/PENDING 0, TO FILL 9곳(영문판과 같은 항목), 인용 [1]~[35], 절 참조 IV-A·VI-A~F·VII.

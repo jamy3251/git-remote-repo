@@ -46,7 +46,7 @@
 4. **IRB·현장 연구**: docs/field_study/ (PROTOCOL, CONSENT_FORM, DMP, 체크리스트, 사전등록). 참가자 기본값 20명·4주(δ=0.10 검출; 보정 없이면 50명). 앱 변경 필요 항목: 동의 화면·참가자 코드·기준선 모드(APP_READINESS_CHECKLIST).
 5. **데이터셋 등록(선택)**: DAPPER(Synapse), K-EmoCon(Zenodo 요청), Emognition(EULA) — docs/DATASETS.md §3.
 6. **HWP 반영**: paper/kr/manuscript_revised.md의 '수정 내역' 35건(활동 범주 0.546→0.547/0.567, 10⁻⁸→6.0×10⁻⁸ 등)을 HWP에 옮기고, HWP에만 있는 "저크 시간변화율" 문구·로마자 혼용 확인.
-7. **영문 초안 마무리**: paper/sci/main.pdf(IEEE Access 양식, 10쪽; `python paper/sci/build_html.py`로 재생성)의 [TO FILL] 9곳(접수일·DOI·ORCID·교신 이메일·펀딩·저자 약력 2건) 채우기. docs/SELF_REVIEW.md 잔여(다중비교 문장, seed 통합 CI 표) 확인. 투고 시 IEEE Access는 Word/LaTeX 원고를 받으므로 main.md를 IEEEtran 또는 Word 템플릿으로 옮긴다(PDF는 검토용).
+7. **영문 초안 마무리**: paper/sci/main.pdf(IEEE Access 양식, 10쪽; `python paper/sci/build_html.py`로 재생성)의 [TO FILL] 9곳(접수일·DOI·ORCID·교신 이메일·펀딩·저자 약력 2건) 채우기. docs/SELF_REVIEW.md 잔여(다중비교 문장, seed 통합 CI 표) 확인. 투고 시 IEEE Access는 Word/LaTeX 원고를 받으므로 main.md를 IEEEtran 또는 Word 템플릿으로 옮긴다(PDF는 검토용). 한국어판 paper/sci/main_ko.pdf(같은 양식, `--lang ko`)는 공동저자·국내 검토용이며, 영문판을 고치면 main_ko.md에도 반영해야 한다(빌드가 두 파일의 숫자 집합 차이를 출력).
 
 ## 5. 추천 저널
 IEEE Access(1순위; 현 증거 수준·Negative Result 허용·4~6주 판정). 현장 연구(20명·4주) 결과가 나오면 Pervasive and Mobile Computing 또는 IEEE TAFFC로 상향.
