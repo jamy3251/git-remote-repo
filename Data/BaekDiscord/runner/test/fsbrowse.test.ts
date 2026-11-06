@@ -21,6 +21,8 @@ beforeAll(() => {
   fs.mkdirSync(path.join(root, "App", "node_modules"), { recursive: true });
   fs.mkdirSync(path.join(root, "App", ".cache"), { recursive: true });
   fs.writeFileSync(path.join(root, "App", "file.txt"), "not a folder");
+  fs.mkdirSync(path.join(root, "App", "AppData"), { recursive: true });
+  fs.mkdirSync(path.join(root, "Program Files", "x"), { recursive: true });
   try {
     fs.symlinkSync(outside, path.join(root, "escape"), "junction");
   } catch {
@@ -55,6 +57,12 @@ describe("listFolder", () => {
       expect(() => resolveInRoot(root, path.join(root, "escape"))).toThrow();
       expect(listFolder(root).entries.map((e) => e.name)).not.toContain("escape");
     }
+  });
+
+  it("hides OS folders (case-insensitive) and refuses to enter them", () => {
+    expect(listFolder(root).entries.map((e) => e.name)).toEqual(["App"]);
+    expect(listFolder(root, path.join(root, "App")).entries.map((e) => e.name)).toEqual(["tool", "web"]);
+    expect(() => resolveInRoot(root, path.join(root, "program files", "x"))).toThrow(/시스템 폴더/);
   });
 
   it("rejects missing folders and files", () => {

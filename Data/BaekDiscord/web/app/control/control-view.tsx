@@ -3,6 +3,8 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import type { PlaybookInput, Policy } from "@/lib/runner/protocol";
 import { useRunner, type RunnerApi } from "@/lib/runner/use-runner";
+import { useAttention } from "@/lib/runner/use-attention";
+import { NotifyBar } from "@/components/control/notify-bar";
 import { RunnerSettingsBar } from "@/components/runner-settings-bar";
 import { Overview } from "@/components/control/overview";
 import { RemotePanel } from "@/components/control/remote-panel";
@@ -36,6 +38,7 @@ function useIsDesktop(): boolean {
 
 export function ControlView() {
   const runner = useRunner();
+  const attention = useAttention(runner);
   const desktop = useIsDesktop();
   const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(window.location.search).get("cwd") ? "new" : "chat"));
   const [termId, setTermId] = useState<string | null>(null);
@@ -74,8 +77,9 @@ export function ControlView() {
               <SessionsSection runner={runner} />
               <AppPanel />
               <SupervisorBar runner={runner} />
+              <NotifyBar attention={attention} />
               <RemotePanel tunnel={runner.tunnel} runner={runner} defaultOpen={false} />
-              <RunnerSettingsBar settings={runner.settings} status={runner.status} onSave={runner.updateSettings} onConnect={runner.connect} error={runner.lastError} />
+              <RunnerSettingsBar settings={runner.settings} status={runner.status} nextRetryAt={runner.nextRetryAt} rttMs={runner.rttMs} onSave={runner.updateSettings} onConnect={runner.connect} error={runner.lastError} />
               <EventLog events={runner.events} sessions={runner.sessions} />
             </div>
           )}
@@ -114,8 +118,9 @@ export function ControlView() {
         </div>
       </div>
 
-      <RunnerSettingsBar settings={runner.settings} status={runner.status} onSave={runner.updateSettings} onConnect={runner.connect} error={runner.lastError} />
+      <RunnerSettingsBar settings={runner.settings} status={runner.status} nextRetryAt={runner.nextRetryAt} rttMs={runner.rttMs} onSave={runner.updateSettings} onConnect={runner.connect} error={runner.lastError} />
       <SupervisorBar runner={runner} />
+      <NotifyBar attention={attention} />
       <Overview sessions={runner.sessions} workspaces={runner.workspaces} />
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -156,9 +161,11 @@ function MobileShell({ runner, tab, setTab, children }: { runner: RunnerApi; tab
       ? { text: "연결됨", cls: "bg-ok" }
       : runner.status === "connecting"
         ? { text: "연결 중", cls: "bg-warn animate-pulse" }
-        : runner.status === "unauthorized"
-          ? { text: "토큰 오류", cls: "bg-danger" }
-          : { text: "끊김", cls: "bg-danger" };
+        : runner.status === "reconnecting"
+          ? { text: "다시 연결 중", cls: "bg-warn animate-pulse" }
+          : runner.status === "unauthorized"
+            ? { text: "토큰 오류", cls: "bg-danger" }
+            : { text: "끊김", cls: "bg-danger" };
   const tabs: Array<{ id: Tab; label: string; badge?: number; warn?: boolean }> = [
     { id: "chat", label: "대화" },
     { id: "sessions", label: "세션", badge: attention || running || undefined, warn: attention > 0 },
@@ -180,7 +187,7 @@ function MobileShell({ runner, tab, setTab, children }: { runner: RunnerApi; tab
         </span>
         {runner.status !== "open" && runner.status !== "connecting" && (
           <button className="btn min-h-9 px-2 text-xs" onClick={runner.connect}>
-            다시 연결
+            {runner.status === "reconnecting" ? "지금 연결" : "다시 연결"}
           </button>
         )}
       </header>

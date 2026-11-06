@@ -24,8 +24,10 @@ import type {
   WorkspaceInfo,
 } from "./protocol";
 import { loadRunnerSettings, saveRunnerSettings, wsUrl, type RunnerSettings } from "./settings";
+import { Backoff, PING_INTERVAL_MS, pongOverdue } from "./connection";
 
-export type ConnectionStatus = "idle" | "connecting" | "open" | "unauthorized" | "closed";
+/** reconnecting: dropped and a retry is scheduled (nextRetryAt); closed: stopped on purpose. */
+export type ConnectionStatus = "idle" | "connecting" | "open" | "reconnecting" | "unauthorized" | "closed";
 
 export interface RunnerInfo {
   version: string;
@@ -39,6 +41,10 @@ export interface RunnerApi {
   settings: RunnerSettings;
   updateSettings: (s: RunnerSettings) => void;
   status: ConnectionStatus;
+  /** When the next automatic reconnect fires (status "reconnecting"). */
+  nextRetryAt: number | null;
+  /** Last ping round-trip to the runner in ms; null until the first pong. */
+  rttMs: number | null;
   info: RunnerInfo | null;
   presets: PresetInfo[];
   sessions: SessionInfo[];
@@ -93,6 +99,8 @@ export interface RunnerApi {
 export function useRunner(): RunnerApi {
   const [settings, setSettings] = useState<RunnerSettings>(() => loadRunnerSettings());
   const [status, setStatus] = useState<ConnectionStatus>("idle");
+  const [nextRetryAt, setNextRetryAt] = useState<number | null>(null);
+  const [rttMs, setRttMs] = useState<number | null>(null);
   const [info, setInfo] = useState<RunnerInfo | null>(null);
   const [presets, setPresets] = useState<PresetInfo[]>([]);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
@@ -107,6 +115,10 @@ export function useRunner(): RunnerApi {
   const listeners = useRef(new Map<string, Set<OutputListener>>());
   const manualClose = useRef(false);
   const retry = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Exponential backoff between reconnects; reset once a socket opens. */
+  const backoff = useRef(new Backoff());
+  const pingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastAckAt = useRef(0);
   /** Latest connect() for the reconnect timer (avoids referencing the callback before its declaration). */
   const connectRef = useRef<() => void>(() => {});
   const pending = useRef(new Map<string, { resolve: (m: ServerMessage) => void; reject: (e: Error) => void }>());
@@ -118,20 +130,30 @@ export function useRunner(): RunnerApi {
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
   }, []);
 
+  const stopPing = () => {
+    if (pingTimer.current) clearInterval(pingTimer.current);
+    pingTimer.current = null;
+  };
+
   const disconnect = useCallback(() => {
     manualClose.current = true;
     if (retry.current) clearTimeout(retry.current);
+    stopPing();
     wsRef.current?.close();
     wsRef.current = null;
+    setNextRetryAt(null);
     setStatus("closed");
   }, []);
 
   const connect = useCallback(() => {
     const current = loadRunnerSettings();
     if (retry.current) clearTimeout(retry.current);
+    retry.current = null;
+    stopPing();
     wsRef.current?.close();
     manualClose.current = false;
     setLastError(null);
+    setNextRetryAt(null);
     setStatus("connecting");
     let ws: WebSocket;
     try {
@@ -144,18 +166,41 @@ export function useRunner(): RunnerApi {
     wsRef.current = ws;
     ws.onopen = () => {
       setStatus("open");
+      backoff.current.reset();
+      lastAckAt.current = Date.now();
+      // Liveness: ping on an interval; a socket that stops answering is closed so the backoff
+      // reconnect takes over (half-open sockets after a phone sleeps otherwise look "connected").
+      stopPing();
+      pingTimer.current = setInterval(() => {
+        if (wsRef.current !== ws || ws.readyState !== WebSocket.OPEN) return;
+        if (pongOverdue(lastAckAt.current, Date.now())) {
+          ws.close();
+          return;
+        }
+        ws.send(JSON.stringify({ type: "ping", t: Date.now() } satisfies ClientMessage));
+      }, PING_INTERVAL_MS);
       for (const id of listeners.current.keys()) ws.send(JSON.stringify({ type: "attach", id } satisfies ClientMessage));
       ws.send(JSON.stringify({ type: "chat_history" } satisfies ClientMessage));
       ws.send(JSON.stringify({ type: "worklog", limit: 100 } satisfies ClientMessage));
     };
     ws.onclose = (ev) => {
       if (wsRef.current !== ws) return;
+      stopPing();
+      setRttMs(null);
       const unauthorized = ev.code === 4001 || ev.code === 4029;
-      setStatus(unauthorized ? "unauthorized" : "closed");
       if (ev.code === 4001) setLastError("러너 토큰이 올바르지 않습니다.");
       if (ev.code === 4029) setLastError("인증 실패가 반복되어 잠시 잠겼습니다. 15분 뒤 다시 시도하세요.");
       // Auto-reconnect on network drops (phones sleep): not on auth failures or manual close.
-      if (!unauthorized && !manualClose.current) retry.current = setTimeout(() => connectRef.current(), 4000);
+      // Delay grows 1s → 30s with jitter and resets on the next successful open.
+      if (!unauthorized && !manualClose.current) {
+        const delay = backoff.current.next();
+        setStatus("reconnecting");
+        setNextRetryAt(Date.now() + delay);
+        retry.current = setTimeout(() => connectRef.current(), delay);
+      } else {
+        setNextRetryAt(null);
+        setStatus(unauthorized ? "unauthorized" : "closed");
+      }
     };
     ws.onerror = () => {
       if (wsRef.current === ws) setLastError("러너에 연결할 수 없습니다. 러너가 실행 중인지, URL과 토큰이 맞는지 확인하세요.");
@@ -165,6 +210,11 @@ export function useRunner(): RunnerApi {
       try {
         msg = JSON.parse(ev.data as string) as ServerMessage;
       } catch {
+        return;
+      }
+      if (msg.type === "pong") {
+        lastAckAt.current = Date.now();
+        setRttMs(Math.max(0, Date.now() - msg.t));
         return;
       }
       // Replies to request(): resolve the waiting promise instead of touching shared state.
@@ -261,9 +311,25 @@ export function useRunner(): RunnerApi {
     // connect() flips status to "connecting" as part of that.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (s.token) connect();
+    // Coming back to the tab or regaining the network reconnects at once instead of waiting out
+    // the backoff timer (what desktop apps do on power resume / visibility change).
+    const wake = () => {
+      if (manualClose.current || !loadRunnerSettings().token) return;
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      const ws = wsRef.current;
+      const dead = !ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING;
+      if (dead && retry.current) connectRef.current();
+    };
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("online", wake);
+    window.addEventListener("focus", wake);
     return () => {
       manualClose.current = true;
       if (retry.current) clearTimeout(retry.current);
+      stopPing();
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("online", wake);
+      window.removeEventListener("focus", wake);
       wsRef.current?.close();
     };
   }, [connect]);
@@ -393,6 +459,8 @@ export function useRunner(): RunnerApi {
       settings,
       updateSettings,
       status,
+      nextRetryAt,
+      rttMs,
       info,
       presets,
       sessions,
@@ -434,6 +502,6 @@ export function useRunner(): RunnerApi {
       productInsight,
       subscribe,
     }),
-    [settings, updateSettings, status, info, presets, sessions, events, supervisor, tunnel, chat, chatBusy, workspaces, lastError, connect, disconnect, send, subscribe, listFolder, refine, worklog, summarizeWork, crossReview, searchPlaybook, savePlaybook, draftPlaybook, products, loadProducts, updateProduct, pingProduct, productInsight],
+    [settings, updateSettings, status, nextRetryAt, rttMs, info, presets, sessions, events, supervisor, tunnel, chat, chatBusy, workspaces, lastError, connect, disconnect, send, subscribe, listFolder, refine, worklog, summarizeWork, crossReview, searchPlaybook, savePlaybook, draftPlaybook, products, loadProducts, updateProduct, pingProduct, productInsight],
   );
 }

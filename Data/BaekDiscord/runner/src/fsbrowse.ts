@@ -28,6 +28,16 @@ const MARKERS: Array<[marker: string, names: string[]]> = [
 ];
 
 export const SKIP = new Set(["node_modules", "$RECYCLE.BIN", "System Volume Information", "__pycache__"]);
+/**
+ * OS folders that are never project folders and must not be offered to an agent, compared
+ * case-insensitively (Windows file systems ignore case). Same list Notion's desktop MCP host
+ * refuses to share (clientMcpHost/policy/windows.js); Recovery/ProgramData/AppData hold
+ * credentials and installers, not code.
+ */
+export const PROTECTED = new Set(["windows", "program files", "program files (x86)", "programdata", "appdata", "recovery", "system volume information", "$recycle.bin"]);
+export function isProtectedName(name: string): boolean {
+  return PROTECTED.has(name.toLowerCase());
+}
 const MAX_ENTRIES = 300;
 
 function inside(root: string, target: string): boolean {
@@ -52,6 +62,7 @@ export function resolveInRoot(root: string, input?: string | null): string {
   const raw = typeof input === "string" && input.trim() ? input.trim() : realRoot;
   const target = path.resolve(realRoot, raw);
   if (!inside(realRoot, target)) throw new Error(`루트(${realRoot}) 밖의 경로는 열 수 없습니다`);
+  if (path.relative(realRoot, target).split(path.sep).some(isProtectedName)) throw new Error(`시스템 폴더는 열 수 없습니다: ${target}`);
   if (!fs.existsSync(target) || !fs.statSync(target).isDirectory()) throw new Error(`폴더가 없습니다: ${target}`);
   const real = fs.realpathSync(target);
   if (!inside(realRoot, real)) throw new Error(`루트(${realRoot}) 밖을 가리키는 링크입니다`);
@@ -92,7 +103,7 @@ function liveFolders(root: string, ctx: FolderContext): LiveFolder[] {
 export function listFolder(root: string, input?: string | null, ctx: FolderContext = { running: [], claude: [] }): FsListing {
   const realRoot = fs.realpathSync(root);
   const dir = resolveInRoot(realRoot, input);
-  const dirents = fs.readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.isSymbolicLink() && !d.name.startsWith(".") && !SKIP.has(d.name));
+  const dirents = fs.readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.isSymbolicLink() && !d.name.startsWith(".") && !SKIP.has(d.name) && !isProtectedName(d.name));
   const truncated = dirents.length > MAX_ENTRIES;
   const entries: FsEntry[] = [];
   for (const d of dirents.slice(0, MAX_ENTRIES)) {

@@ -162,6 +162,8 @@ export interface ChatTurn {
 
 export type ClientMessage =
   | { type: "hello"; token: string }
+  /** Liveness probe; the runner echoes `t` back in a pong (RTT = now - t). */
+  | { type: "ping"; t: number }
   | { type: "list" }
   | { type: "create"; req: CreateSessionRequest; reqId?: string }
   | { type: "attach"; id: string }
@@ -197,6 +199,7 @@ export type ClientMessage =
 
 export type ServerMessage =
   | { type: "welcome"; runner: { version: string; platform: string; cwdRoot: string } }
+  | { type: "pong"; t: number }
   | { type: "sessions"; sessions: SessionInfo[] }
   | { type: "presets"; presets: PresetInfo[] }
   | { type: "created"; session: SessionInfo; reqId?: string }
@@ -396,8 +399,10 @@ export interface Product {
     lastCommitAt: number | null;
     lastCommit: string;
     dirty: number;
-    /** Unpushed commits (own repo with an upstream only). */
+    /** Commits on local branches that no remote has, limited to this folder. */
     ahead: number;
+    /** Per-branch breakdown of `ahead`, largest first. */
+    unpushed?: Array<{ branch: string; count: number }>;
   } | null;
   claudeAt: number | null;
   /** Commits + Claude conversations per week, oldest first, aligned with the listing's `weeks`. */

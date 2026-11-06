@@ -2,8 +2,10 @@
  * - navigations: network first, offline fallback page
  * - /_next/static and /icons: cache first (immutable assets)
  * - never caches /runner/* (live API/WS) or /api/* (auth, cron, webhooks)
+ * - notification action buttons (y⏎ / ⏎ / Esc) are relayed to the open dashboard, which sends
+ *   them to the session as input (the page owns the runner socket, the worker does not)
  */
-const VERSION = "devhub-v2";
+const VERSION = "devhub-v3";
 const STATIC_CACHE = `${VERSION}-static`;
 const PAGE_CACHE = `${VERSION}-pages`;
 const OFFLINE_URL = "/offline.html";
@@ -71,4 +73,23 @@ self.addEventListener("fetch", (event) => {
       ),
     );
   }
+});
+
+self.addEventListener("notificationclick", (event) => {
+  const n = event.notification;
+  const data = n.data || {};
+  const action = event.action || "";
+  n.close();
+  event.waitUntil(
+    (async () => {
+      const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const dashboard = all.find((c) => new URL(c.url).pathname.startsWith("/control")) || all[0];
+      if (dashboard) {
+        if (action && data.sessionId) dashboard.postMessage({ type: "devhub:notification-action", sessionId: data.sessionId, action });
+        if ("focus" in dashboard && !action) await dashboard.focus();
+      } else if (!action) {
+        await self.clients.openWindow("/control");
+      }
+    })(),
+  );
 });

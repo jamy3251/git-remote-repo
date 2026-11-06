@@ -459,6 +459,8 @@ export function createRunnerServer(cfg: RunnerConfig) {
   async function handle(state: ClientState, msg: ClientMessage): Promise<void> {
     try {
       switch (msg.type) {
+        case "ping":
+          return send(state, { type: "pong", t: typeof msg.t === "number" ? msg.t : Date.now() });
         case "list":
           return send(state, { type: "sessions", sessions: sessions.list() });
         case "presets":
