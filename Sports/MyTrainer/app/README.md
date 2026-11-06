@@ -98,8 +98,7 @@ npm run emu      # 36개
 
 1. Firebase 콘솔에서 프로젝트 생성, Android 앱 추가(패키지 `com.mytrainer.mytrainer`)
 2. `google-services.json` 을 `android/app/` 에 넣기
-3. `android/settings.gradle` plugins 에 `id "com.google.gms.google-services" version "4.3.15" apply false`,
-   `android/app/build.gradle` plugins 에 `id "com.google.gms.google-services"` 추가
+3. gradle 연결은 되어 있다(`google-services.json` 이 있을 때만 플러그인이 적용되고, 없으면 로컬 모드로 빌드). 파일은 `.gitignore` 에 있다
 4. Authentication → 익명 로그인 켜기, Firestore 생성 후 `firestore.rules` 배포
    (규칙 배포: `firebase deploy --only firestore:rules`)
 5. AI Logic(Gemini Developer API)·App Check(Play Integrity) 켜기 — 영상 루틴 복사용
