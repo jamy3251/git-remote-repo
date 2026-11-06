@@ -132,14 +132,18 @@ class WorkoutController extends AsyncNotifier<WorkoutState> {
   }
 
   /// 루틴 한 줄로 시작. 무게는 내 지난 기록이 우선, 없으면 영상에 나온 무게.
-  /// 횟수는 오늘 이미 한 세트가 있으면 그대로, 아니면 루틴 목표(범위면 아래쪽부터, 이중 진행법).
-  void selectFromRoutine(Exercise ex, Variant variant, {required int targetReps, double? weightKg}) {
-    selectExercise(ex, variant: variant, method: 'routine');
+  /// 추천 루틴([recommended])은 지난 기록으로 계산한 다음 무게라 지난 세션 값보다 우선한다.
+  /// 오늘 이미 한 세트가 있으면 무게·횟수는 직전 세트 그대로, 아니면 루틴 목표(범위면 아래쪽부터, 이중 진행법).
+  void selectFromRoutine(Exercise ex, Variant variant,
+      {required int targetReps, double? weightKg, bool recommended = false}) {
+    selectExercise(ex, variant: variant, method: recommended ? 'recommended' : 'routine');
     final s = state.valueOrNull;
     if (s == null) return;
+    final useRoutineWeight = weightKg != null &&
+        (s.prefillSource == PrefillSource.none || (recommended && s.prefillSource == PrefillSource.lastSession));
     state = AsyncData(s.copyWith(
       reps: s.prefillSource == PrefillSource.previousSet ? s.reps : targetReps,
-      weightKg: s.prefillSource == PrefillSource.none && weightKg != null ? weightKg : s.weightKg,
+      weightKg: useRoutineWeight ? weightKg : s.weightKg,
     ));
   }
 

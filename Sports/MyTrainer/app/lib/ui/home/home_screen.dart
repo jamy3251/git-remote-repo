@@ -13,6 +13,7 @@ import '../../services/session_rules.dart';
 import '../../state/attendance.dart';
 import '../spotter/spot_confirm_screen.dart';
 import '../widgets/panel.dart';
+import 'recommend_card.dart';
 
 /// 출석 전용 모드(베이스라인) 홈.
 ///
@@ -126,6 +127,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
                     icon: const Icon(Icons.videocam_outlined),
                     label: const Text('스포터 모드 · 친구 스쿼트 세기'),
                   ),
+                  const SizedBox(height: Gap.sm),
+                ],
+                OutlinedButton.icon(
+                  onPressed: () => context.push('/diet'),
+                  icon: const Icon(Icons.restaurant_outlined),
+                  label: const Text('식단 기록 · 추천 끼니'),
+                ),
+                const SizedBox(height: Gap.md),
+                if (phase == StudyPhase.logging) ...[
+                  const RecommendCard(),
                   const SizedBox(height: Gap.md),
                 ],
                 if (access != null && access != LocationAccess.always) ...[

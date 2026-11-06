@@ -2,13 +2,14 @@ import 'dart:async';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../diet/diet_repository.dart';
 import '../machines/machine_repository.dart';
 import '../routines/routine_repository.dart';
 import 'repository.dart';
 
 /// 오프라인 준비의 한 부분. [prime] 은 서버에서 받아 로컬 캐시를 채운다(오프라인이면 실패).
 ///
-/// "내 기록", "기구"(T7), "루틴"(T9).
+/// "내 기록", "기구"(T7), "루틴"(T9), "식단"(추가 범위).
 /// 남이 쓴 데이터(파티원이 등록한 기구 등)는 이 단계를 거쳐야 지하에서 보인다.
 class OfflinePart {
   const OfflinePart(this.label, this.prime);
@@ -23,6 +24,7 @@ List<OfflinePart> offlineParts(
   AttendanceRepository repo, {
   MachineRepository? machines,
   RoutineRepository? routines,
+  DietRepository? diet,
   DateTime? now,
 }) {
   final t = now ?? DateTime.now();
@@ -36,6 +38,7 @@ List<OfflinePart> offlineParts(
     ),
     if (machines != null) OfflinePart('기구', machines.prime),
     if (routines != null) OfflinePart('루틴', routines.prime),
+    if (diet != null) OfflinePart('식단', diet.prime),
   ];
 }
 

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'bootstrap/firebase_bootstrap.dart';
 import 'core/updater.dart';
+import 'diet/diet_state.dart';
 import 'machines/machines_state.dart';
 import 'party/party_state.dart';
 import 'routines/routines_state.dart';
@@ -36,6 +37,9 @@ Future<void> main() async {
         machineRepositoryProvider.overrideWithValue(createMachineRepository(prefs, party)),
         routineRepositoryProvider.overrideWithValue(createRoutineRepository(prefs, mode)),
         routineExtractorProvider.overrideWithValue(createRoutineExtractor(mode)),
+        dietRepositoryProvider.overrideWithValue(createDietRepository(prefs, mode)),
+        foodPhotoAnalyzerProvider.overrideWithValue(createFoodPhotoAnalyzer(mode)),
+        coachProvider.overrideWithValue(createCoach(mode)),
       ],
       child: const MyTrainerApp(),
     ),

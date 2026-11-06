@@ -5,6 +5,11 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// google-services.json 이 있을 때만 Firebase 를 붙인다. 없으면 로컬 모드로 빌드된다(README "Firebase 연결").
+if (file("google-services.json").exists()) {
+    apply plugin: "com.google.gms.google-services"
+}
+
 android {
     namespace = "com.mytrainer.mytrainer"
     compileSdk = flutter.compileSdkVersion

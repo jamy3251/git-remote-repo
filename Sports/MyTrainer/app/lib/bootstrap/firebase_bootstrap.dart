@@ -8,8 +8,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/firestore_repository.dart';
 import '../data/local_repository.dart';
 import '../data/repository.dart';
+import '../diet/diet_repository.dart';
+import '../diet/food_photo.dart';
 import '../machines/machine_repository.dart';
 import '../party/party_repository.dart';
+import '../recommend/coach.dart';
 import '../routines/routine_extractor.dart';
 import '../routines/routine_repository.dart';
 
@@ -74,3 +77,16 @@ RoutineRepository createRoutineRepository(SharedPreferences prefs, SyncMode mode
 /// 영상 루틴 추출. Firebase 가 없으면 못 쓴다.
 RoutineExtractor createRoutineExtractor(SyncMode mode) =>
     mode == SyncMode.cloud ? GeminiRoutineExtractor() : UnavailableExtractor();
+
+/// 식단·몸 정보. 이 폰 전용 모드면 로컬.
+DietRepository createDietRepository(SharedPreferences prefs, SyncMode mode) {
+  final user = mode == SyncMode.cloud ? FirebaseAuth.instance.currentUser : null;
+  if (user == null) return LocalDietRepository(prefs);
+  return FirestoreDietRepository(FirebaseFirestore.instance, user.uid);
+}
+
+/// 사진 식단 인식과 추천 설명. Firebase 가 없으면 못 쓴다(수기 기록·규칙 근거로 대신).
+FoodPhotoAnalyzer createFoodPhotoAnalyzer(SyncMode mode) =>
+    mode == SyncMode.cloud ? GeminiFoodPhotoAnalyzer() : UnavailableFoodPhotoAnalyzer();
+
+Coach createCoach(SyncMode mode) => mode == SyncMode.cloud ? GeminiCoach() : NoCoach();
