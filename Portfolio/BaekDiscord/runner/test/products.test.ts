@@ -1,9 +1,10 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import type { ProductMeta } from "../src/protocol.js";
-import { bucket, discoverProducts, editTimes, flagsOf, healthOf, weekStarts } from "../src/products.js";
+import { bucket, discoverProducts, editTimes, flagsOf, healthOf, unpushedBranches, weekStarts } from "../src/products.js";
 
 const DAY = 24 * 3600_000;
 
@@ -88,5 +89,55 @@ describe("editTimes", () => {
     const out = editTimes(root, [" M src/a.ts", "?? new.ts", " D gone.ts", "R  old.ts -> src/a.ts", " M missing.ts"].join("\n"));
     expect(out).toHaveLength(3);
     expect(out[0]).toBe(t);
+  });
+});
+
+describe("unpushedBranches", () => {
+  const sh = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", ...args], { cwd, encoding: "utf8" });
+  const commit = (root: string, rel: string, msg: string) => {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, rel), msg + Math.random());
+    sh(root, "add", "-A");
+    sh(root, "commit", "-m", msg);
+  };
+
+  it("counts local-only commits per branch for a folder inside a monorepo, branches without upstream included", async () => {
+    const remote = fs.mkdtempSync(path.join(os.tmpdir(), "devhub-remote-"));
+    sh(remote, "init", "--bare", "-b", "main");
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "devhub-mono-")));
+    sh(root, "init", "-b", "main");
+    sh(root, "remote", "add", "origin", remote);
+    commit(root, "a/one.txt", "a1");
+    commit(root, "b/one.txt", "b1");
+    sh(root, "push", "-u", "origin", "main");
+    sh(root, "checkout", "-b", "feat/x"); // no upstream
+    commit(root, "a/two.txt", "a2");
+    commit(root, "a/three.txt", "a3");
+    commit(root, "b/two.txt", "b2");
+    sh(root, "checkout", "main");
+    commit(root, "a/four.txt", "a4");
+
+    const a = await unpushedBranches(path.join(root, "a"));
+    expect(a.total).toBe(3);
+    expect(a.branches).toEqual([
+      { branch: "feat/x", count: 2 },
+      { branch: "main", count: 1 },
+    ]);
+    expect((await unpushedBranches(path.join(root, "b"))).total).toBe(1);
+  });
+
+  it("reports nothing for a repo without a remote or with everything pushed", async () => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "devhub-local-")));
+    sh(root, "init", "-b", "main");
+    commit(root, "x.txt", "x1");
+    expect(await unpushedBranches(root)).toEqual({ total: 0, branches: [] });
+    expect(await unpushedBranches(path.join(os.tmpdir(), "devhub-not-a-repo-" + Date.now()))).toEqual({ total: 0, branches: [] });
+  });
+
+  it("names the branches in the unpushed flag", () => {
+    const now = Date.now();
+    const g = { ownRepo: false, branch: "main", lastCommitAt: now, lastCommit: "x", dirty: 0, ahead: 3, unpushed: [{ branch: "feat/x", count: 2 }, { branch: "main", count: 1 }] };
+    const f = flagsOf({ git: g, work: { count: 0, lastAt: null, lastOutcome: null, lastReview: null }, meta: meta() }, now);
+    expect(f[0].text).toBe("푸시 안 한 커밋 3개 (feat/x 2, main 1)");
   });
 });

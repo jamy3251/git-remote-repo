@@ -117,7 +117,10 @@ export function flagsOf(p: Pick<Product, "git" | "work" | "meta">, now: number):
     const since = g.lastCommitAt ? now - g.lastCommitAt : null;
     if (since === null || since > 3 * DAY_MS) flags.push({ kind: "dirty", text: `미커밋 변경 ${g.dirty}개${since !== null ? ` · 마지막 커밋 ${days(since)} 전` : ""}` });
   }
-  if (g && g.ahead > 0) flags.push({ kind: "unpushed", text: `푸시 안 한 커밋 ${g.ahead}개` });
+  if (g && g.ahead > 0) {
+    const by = (g.unpushed ?? []).slice(0, 3).map((u) => `${u.branch} ${u.count}`);
+    flags.push({ kind: "unpushed", text: `푸시 안 한 커밋 ${g.ahead}개${by.length ? ` (${by.join(", ")})` : ""}` });
+  }
   if (p.meta.ping && !p.meta.ping.ok) flags.push({ kind: "down", text: `배포 응답 없음${p.meta.ping.status ? ` (${p.meta.ping.status})` : ""}` });
   if (p.work.lastOutcome === "failed") flags.push({ kind: "failed", text: "마지막 작업 실패" });
   if (p.work.lastReview === "fail") flags.push({ kind: "review", text: "교차검증 수정 필요" });
@@ -172,6 +175,26 @@ export function editTimes(repoRoot: string, porcelain: string, limit = 200): num
   return out;
 }
 
+/**
+ * Commits that exist only on this machine, limited to `dir`: reachable from a local branch but
+ * from no remote-tracking ref. Works in a monorepo and for branches without an upstream, which
+ * `@{upstream}..HEAD` cannot. A repo without any remote reports nothing instead of "everything".
+ */
+export async function unpushedBranches(dir: string): Promise<{ total: number; branches: Array<{ branch: string; count: number }> }> {
+  const none = { total: 0, branches: [] };
+  if (!(await git(dir, ["remote"]).catch(() => "")).trim()) return none;
+  const count = async (...revs: string[]) => Number((await git(dir, ["rev-list", "--count", ...revs, "--not", "--remotes", "--", "."]).catch(() => "0")).trim()) || 0;
+  const total = await count("--branches");
+  if (!total) return none;
+  const refs = (await git(dir, ["for-each-ref", "--format=%(refname:short)", "refs/heads"]).catch(() => ""))
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 40);
+  const per = await pool(refs, 4, async (branch) => ({ branch, count: await count(branch) }));
+  return { total, branches: per.filter((b) => b.count > 0).sort((a, b) => b.count - a.count) };
+}
+
 async function gitInfo(dir: string, since: number): Promise<{ info: Product["git"]; commits: number[]; edits: number[] }> {
   try {
     const top = (await git(dir, ["rev-parse", "--show-toplevel"])).trim();
@@ -182,8 +205,7 @@ async function gitInfo(dir: string, since: number): Promise<{ info: Product["git
       git(dir, ["status", "--porcelain", "--untracked-files=normal", "--", "."]).catch(() => ""),
     ]);
     const ownRepo = norm(top) === norm(dir);
-    let ahead = 0;
-    if (ownRepo) ahead = Number((await git(dir, ["rev-list", "--count", "@{upstream}..HEAD"]).catch(() => "0")).trim()) || 0;
+    const unpushed = await unpushedBranches(dir);
     const [ct, subject] = last.trim().split("\x1f");
     return {
       info: {
@@ -192,7 +214,8 @@ async function gitInfo(dir: string, since: number): Promise<{ info: Product["git
         lastCommitAt: ct ? Number(ct) * 1000 : null,
         lastCommit: (subject ?? "").slice(0, 120),
         dirty: status.split("\n").filter((l) => l.trim()).length,
-        ahead,
+        ahead: unpushed.total,
+        unpushed: unpushed.branches,
       },
       commits: log
         .split("\n")
