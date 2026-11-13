@@ -9,7 +9,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: "DevHub",
-  description: "개발자 활동 프로필 + 팀 다이제스트 + CLI 다중 제어 콘솔 + 컴파일러 + 관제",
+  description: "AI 코딩 에이전트 관제: 여러 Claude Code·Codex 세션을 PC와 폰에서 보고 지시",
   applicationName: "DevHub 관제",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "DevHub" },

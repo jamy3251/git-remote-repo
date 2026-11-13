@@ -33,6 +33,8 @@ export interface RunnerInfo {
   version: string;
   platform: string;
   cwdRoot: string;
+  /** Set by `npm run demo`: fake sessions, nothing runs on the PC. */
+  demo?: boolean;
 }
 
 type OutputListener = (data: string) => void;

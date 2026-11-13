@@ -7,9 +7,10 @@ const links = [
   { href: "/", label: "홈" },
   { href: "/control", label: "관제" },
   { href: "/products", label: "프로덕트" },
-  { href: "/teams", label: "팀 다이제스트" },
   { href: "/console", label: "CLI 콘솔" },
   { href: "/compile", label: "컴파일러" },
+  // Kept until 2026-12-31 (design gate UC2); archived then unless M0 opens.
+  { href: "/teams", label: "팀 다이제스트" },
 ];
 
 export function Nav() {
@@ -34,7 +35,7 @@ export function Nav() {
             );
           })}
         </nav>
-        <div className="ml-auto hidden shrink-0 text-xs text-muted sm:block">v0.4 · 로컬 러너 · M1</div>
+        <div className="ml-auto hidden shrink-0 text-xs text-muted sm:block">v0.4 · 로컬 러너</div>
       </div>
     </header>
   );

@@ -1,27 +1,56 @@
-# DevHub (가칭 BaekDiscord)
+# DevHub 관제
 
-개발자 활동 프로필(스팀식) + 팀 다이제스트(디스코드) 웹앱에, 개인 작업 도구인 **CLI 다중 제어 콘솔**, **컴파일러**, 그리고 CLI·AI 에이전트를 지켜보고 스스로 판단하는 **관제 시스템**을 얹은 모노레포입니다. 휴대폰에서도 터널+QR로 같은 대시보드를 씁니다.
+여러 AI 코딩 에이전트(Claude Code, Codex)를 PC에서 돌려 두고, 어느 세션이 답을 기다리는지 한 화면에서 보고, 폰에서도 답하는 관제 도구입니다. 슈퍼바이저가 입력 대기와 오류를 읽어 답을 제안하거나 정해 둔 범위 안에서 직접 답합니다.
 
-설계 문서: [`docs/designs/devhub.md`](docs/designs/devhub.md) (APPROVED, 2026-09-22), 구현 변경·추가 기능: [`docs/designs/devhub-addendum-20260926.md`](docs/designs/devhub-addendum-20260926.md), [`devhub-addendum-20261004.md`](docs/designs/devhub-addendum-20261004.md).
+![데모 관제 화면: 작업 중, 입력 대기(제안 카드), 오류, 완료 세션과 터널 표시줄](docs/images/demo-control.jpg)
+
+## 시작하기
+
+명령은 모두 이 프로젝트 폴더(`Portfolio/BaekDiscord`)에서 실행합니다. PowerShell과 bash 어느 쪽에서도 그대로 됩니다. Node 22가 필요합니다(`.nvmrc`).
+
+**1. 데모: 아무것도 필요 없음**
 
 ```
-web/      Next.js 16 앱 — 팀 다이제스트(M1) · 관제(/control) · CLI 콘솔 · 컴파일러. PWA.
-runner/   로컬 러너 — PTY 세션 관리, 슈퍼바이저(자율 판단), 관제 AI, 컴파일, 터널, 웹 프록시.
+npm install
+npm run demo
+```
+
+가짜 세션 네 개(작업 중, 입력 대기, 오류, 완료)와 열린 터널 표시로 관제 화면이 브라우저에 뜹니다. Claude Code, API 키, 토큰이 없어도 되고 PC에서 실제로 실행되는 것은 없습니다. 화면 위쪽에 "데모" 표시가 늘 보입니다. 첫 실행은 화면 컴파일에 30초쯤 걸립니다. 끝내려면 Ctrl+C.
+
+**2. 로컬: Claude Code 필요**
+
+```
+npm run dev
+```
+
+러너(127.0.0.1:7331)와 웹(3000)이 같이 뜹니다. 러너 로그의 `dashboard: http://127.0.0.1:7331/control#rt=...` 링크를 열면 토큰이 저장되고, 거기서 새 작업을 시작합니다.
+
+**3. 원격: ngrok 또는 cloudflared 필요**
+
+관제 화면의 "원격 접속"에서 터널을 열고 QR을 폰으로 찍습니다. 터널은 관제 화면과 러너 API만 열고, 연결된 기기 없이 60분이 지나면 저절로 닫힙니다. 자세한 내용은 아래 [보안 모델](#보안-모델).
+
+**스크립트와 에이전트에서 쓰기 (`devhubctl`)**
+
+```
+npm run ctl -w runner -- sessions
+npm run ctl -w runner -- create --preset claude-print --cwd D:/Projects/my-app --prompt "테스트 돌리고 실패 원인 정리"
+npm run ctl -w runner -- output <세션 id> --lines 60
+```
+
+## 구조
+
+```
+web/      Next.js 16 앱: 관제(/control), 프로덕트, CLI 콘솔, 컴파일러, 팀 다이제스트(/teams, 2026-12-31 보관 예정). PWA.
+runner/   로컬 러너: PTY 세션, 슈퍼바이저, 관제 AI, 컴파일, 터널, 웹 프록시. runner/src/demo 는 데모용 가짜 러너.
 runner/bin/devhubctl.mjs   러너 제어 CLI (Claude Code 스킬 `devhub-runner`가 사용)
+android/  Kotlin WebView 셸 + 알림 서비스
+scripts/  dev.mjs(러너+웹 동시 실행), demo.mjs, check-protocol.mjs
 docs/     설계 문서
 ```
 
-## 빠른 시작
+설계 문서: 현재 계획 [`docs/designs/devhub-next-20261113.md`](docs/designs/devhub-next-20261113.md)(2026-11-14 승인), 이력 [`devhub.md`](docs/designs/devhub.md)(팀 다이제스트, 2026-09-22), [`devhub-addendum-20260926.md`](docs/designs/devhub-addendum-20260926.md), [`devhub-addendum-20261004.md`](docs/designs/devhub-addendum-20261004.md).
 
-```bash
-npm install                 # 루트에서 한 번 (workspaces: web, runner)
-npm run dev:runner          # 러너: http://127.0.0.1:7331, 로그에 토큰과 대시보드 링크 출력
-npm run dev:web             # 웹:   http://localhost:3000 (러너가 7331로 프록시도 해줌)
-```
-
-러너 로그의 `dashboard: http://127.0.0.1:7331/control#rt=<토큰>` 링크를 열면 토큰이 자동 저장됩니다. 3000 포트로 직접 열 때는 `/control`이나 `/console`의 **설정**에 토큰을 넣으세요.
-
-팀 다이제스트(`/teams`)는 GitHub OAuth가 필요합니다. `web/.env.example` → `web/.env.local`. OAuth 없이 화면만 보려면 `DEV_LOGIN=1 npm run dev:web`.
+팀 다이제스트(`/teams`)는 GitHub OAuth가 필요합니다. `web/.env.example`을 `web/.env.local`로 복사해 채우세요. OAuth 없이 화면만 보려면 `DEV_LOGIN=1`로 웹을 띄웁니다(bash: `DEV_LOGIN=1 npm run dev:web`, PowerShell: `$env:DEV_LOGIN=1; npm run dev:web`). 2026-12-31까지 실사용 팀(M0)이 생기지 않으면 보관 처리합니다.
 
 ## 기능
 
@@ -131,7 +160,11 @@ Claude Code에서 이 러너를 쓰려면 `/devhub-runner` 스킬(`D:\Projects\.
 
 | 명령 | 설명 |
 | --- | --- |
-| `npm test` | 러너(118) + 웹(51) vitest |
+| `npm run demo` | 데모 (가짜 러너 + 웹, 브라우저 열기). `--check`는 /control 200 확인 후 종료(CI용) |
+| `npm run dev` | 러너 + 웹 동시 실행 (Windows 포함, Ctrl+C로 둘 다 종료) |
+| `npm test` | 러너(123) + 웹(51) vitest |
+| `npm run typecheck` | 러너 + 웹 `tsc --noEmit` |
+| `npm run check:protocol` | `runner/src/protocol.ts`와 `web/lib/runner/protocol.ts` 사본 일치 검사 |
 | `npm run build` | 러너 `tsc` + 웹 `next build` |
 | `npm run lint` | 웹 eslint |
 | `npm run ctl -w runner -- sessions` | devhubctl (health · sessions · create · send · output · kill · workspace · events · chat · tunnel · fs · claude · attach · worklog · review) |

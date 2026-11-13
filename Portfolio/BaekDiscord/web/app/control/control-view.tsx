@@ -9,6 +9,7 @@ import { RunnerSettingsBar } from "@/components/runner-settings-bar";
 import { Overview } from "@/components/control/overview";
 import { RemotePanel } from "@/components/control/remote-panel";
 import { TunnelBanner } from "@/components/control/tunnel-banner";
+import { DemoBanner } from "@/components/control/demo-banner";
 import { NewTaskForm, type TaskDraft } from "@/components/control/new-task-form";
 import { SessionCard } from "@/components/control/session-card";
 import { Feed } from "@/components/control/feed";
@@ -112,6 +113,11 @@ export function ControlView() {
 
   return (
     <div className="space-y-3 pb-6">
+      {runner.info?.demo && (
+        <div className="card overflow-hidden">
+          <DemoBanner demo />
+        </div>
+      )}
       {runner.tunnel?.state === "running" && (
         <div className="card overflow-hidden">
           <TunnelBanner tunnel={runner.tunnel} runner={runner} />
@@ -197,6 +203,7 @@ function MobileShell({ runner, tab, setTab, children }: { runner: RunnerApi; tab
           </button>
         )}
       </header>
+      <DemoBanner demo={runner.info?.demo} />
       <TunnelBanner tunnel={runner.tunnel} runner={runner} />
       <div className="min-h-0 flex-1">{children}</div>
       <nav className="grid grid-cols-5 border-t border-border bg-surface" style={{ paddingBottom: "env(safe-area-inset-bottom)" }} aria-label="관제 메뉴">

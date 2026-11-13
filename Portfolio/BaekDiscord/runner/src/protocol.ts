@@ -202,7 +202,7 @@ export type ClientMessage =
   | { type: "product_ping"; path: string; reqId?: string };
 
 export type ServerMessage =
-  | { type: "welcome"; runner: { version: string; platform: string; cwdRoot: string } }
+  | { type: "welcome"; runner: { version: string; platform: string; cwdRoot: string; demo?: boolean } }
   | { type: "pong"; t: number }
   | { type: "sessions"; sessions: SessionInfo[] }
   | { type: "presets"; presets: PresetInfo[] }

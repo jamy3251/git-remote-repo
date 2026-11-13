@@ -1,0 +1,66 @@
+name: devhub
+
+# DevHub lives in Portfolio/BaekDiscord inside this monorepo; only changes there run this.
+on:
+  push:
+    paths:
+      - "Portfolio/BaekDiscord/**"
+      - ".github/workflows/devhub.yml"
+  pull_request:
+    paths:
+      - "Portfolio/BaekDiscord/**"
+      - ".github/workflows/devhub.yml"
+
+concurrency:
+  group: devhub-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: Portfolio/BaekDiscord
+
+jobs:
+  # The runner is used on Windows (PTY, taskkill, paths), so its tests run there.
+  runner:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: Portfolio/BaekDiscord/.nvmrc
+          cache: npm
+          cache-dependency-path: Portfolio/BaekDiscord/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck -w runner
+      - run: npm test -w runner
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: Portfolio/BaekDiscord/.nvmrc
+          cache: npm
+          cache-dependency-path: Portfolio/BaekDiscord/package-lock.json
+      - run: npm ci
+      - run: npm run check:protocol
+      - run: npm run typecheck -w web
+      - run: npm run lint -w web
+      - run: npm test -w web
+
+  # `npm run demo` must come up with nothing but npm ci: /control answers 200 through the fake runner.
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: Portfolio/BaekDiscord/.nvmrc
+          cache: npm
+          cache-dependency-path: Portfolio/BaekDiscord/package-lock.json
+      - run: npm ci
+      - run: node scripts/demo.mjs --check
