@@ -26,11 +26,15 @@ function consumeHashToken(): string | null {
   const m = window.location.hash.match(/(?:^#|&)rt=([^&]+)/);
   if (!m) return null;
   const token = decodeURIComponent(m[1]);
-  try {
-    window.history.replaceState(null, "", window.location.pathname + window.location.search);
-  } catch {
-    /* ignore */
-  }
+  // Called from a useState initializer, i.e. during render. Next's router patches replaceState and
+  // updates its own state from it, which React rejects mid-render, so strip the hash afterwards.
+  setTimeout(() => {
+    try {
+      window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+    } catch {
+      /* ignore */
+    }
+  }, 0);
   return token;
 }
 
