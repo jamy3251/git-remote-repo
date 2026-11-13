@@ -9,6 +9,9 @@ import type { ServerMessage } from "../src/protocol.js";
 const cfg: RunnerConfig = {
   host: "127.0.0.1",
   port: 0,
+  tunnelPort: 0,
+  tunnelIdleMs: 60 * 60_000,
+  tunnelMaxMs: 0,
   token: "test-token",
   cwdRoot: path.resolve(os.tmpdir()),
   maxSessions: 4,

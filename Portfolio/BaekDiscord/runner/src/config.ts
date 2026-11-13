@@ -6,6 +6,15 @@ import path from "node:path";
 export interface RunnerConfig {
   host: string;
   port: number;
+  /**
+   * Port of the tunnel-only listener (always 127.0.0.1). The tunnel process connects here, never to
+   * `port`, so the runner can tell remote traffic apart from local. 0 picks a free port.
+   */
+  tunnelPort: number;
+  /** Close the tunnel after this long with no remote device connected; 0 never closes on idle. */
+  tunnelIdleMs: number;
+  /** Close the tunnel this long after it opened, devices or not; 0 means no cap. */
+  tunnelMaxMs: number;
   token: string;
   /** Sessions may only start inside this directory tree. */
   cwdRoot: string;
@@ -49,10 +58,15 @@ function loadToken(): string {
 
 export function loadConfig(): RunnerConfig {
   const port = Number(process.env.RUNNER_PORT ?? 7331);
+  const safePort = Number.isFinite(port) ? port : 7331;
+  const tunnelPort = Number(process.env.RUNNER_TUNNEL_PORT ?? (safePort === 0 ? 0 : safePort + 1));
   const cwdRoot = path.resolve(process.env.RUNNER_CWD_ROOT ?? path.resolve(process.cwd(), "..", "..", ".."));
   return {
     host: process.env.RUNNER_HOST ?? "127.0.0.1",
-    port: Number.isFinite(port) ? port : 7331,
+    port: safePort,
+    tunnelPort: Number.isFinite(tunnelPort) && tunnelPort >= 0 ? tunnelPort : 0,
+    tunnelIdleMs: nonNegative(process.env.RUNNER_TUNNEL_IDLE_MIN, 60) * 60_000,
+    tunnelMaxMs: nonNegative(process.env.RUNNER_TUNNEL_MAX_HOURS, 24) * 3_600_000,
     token: loadToken(),
     cwdRoot,
     maxSessions: Number(process.env.RUNNER_MAX_SESSIONS ?? 12),
@@ -77,6 +91,11 @@ export function loadConfig(): RunnerConfig {
       notifyWebhook: process.env.SUPERVISOR_NOTIFY_WEBHOOK?.trim() || null,
     },
   };
+}
+
+function nonNegative(v: string | undefined, fallback: number): number {
+  const n = v === undefined || v.trim() === "" ? fallback : Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 
 function asPolicy(v: string | undefined): "manual" | "assist" | "auto" | null {

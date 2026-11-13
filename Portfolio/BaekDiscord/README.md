@@ -102,6 +102,9 @@ Claude Code에서 이 러너를 쓰려면 `/devhub-runner` 스킬(`D:\Projects\.
 | `RUNNER_WEB_PROXY` | `http://127.0.0.1:3000` | `/runner` 밖 경로를 넘길 Next 서버(`off`로 비활성) |
 | `RUNNER_ALLOWED_ORIGINS` | localhost:3000 · 127.0.0.1:3000 · :7331 | 브라우저 Origin 화이트리스트(터널 URL은 자동 추가) |
 | `RUNNER_TUNNEL` | – | `1`이면 시작 시 터널 자동 열기 |
+| `RUNNER_TUNNEL_PORT` | `RUNNER_PORT`+1 (7332) | 터널 전용 수신 포트(127.0.0.1). 터널은 이 포트로만 붙고, 쓰이고 있으면 빈 포트로 대신 엽니다 |
+| `RUNNER_TUNNEL_IDLE_MIN` | 60 | 연결된 원격 기기 없이 이만큼 지나면 터널 자동 닫힘(실행 중 세션이 있으면 한 번 연장). `0`은 끔 |
+| `RUNNER_TUNNEL_MAX_HOURS` | 24 | 터널을 연 뒤 이만큼 지나면 기기가 있어도 닫힘. `0`은 상한 없음 |
 | `SUPERVISOR_ENABLED` | 1 | `0`이면 관찰 루프 정지 |
 | `SUPERVISOR_DEFAULT_POLICY` | assist | manual · assist · auto |
 | `SUPERVISOR_BRAIN` | auto | api · claude-cli · heuristic |
@@ -112,7 +115,12 @@ Claude Code에서 이 러너를 쓰려면 `/devhub-runner` 스킬(`D:\Projects\.
 
 ## 보안 모델
 - 러너는 127.0.0.1에만 바인딩하고, 브라우저 Origin 화이트리스트와 Bearer 토큰(상수시간 비교)을 요구합니다. `/runner/health`만 공개.
-- 인증 실패 5회(10분)면 그 클라이언트는 15분 잠금(HTTP·WS 공통). 전체 요청 240/분, 컴파일 20/분 제한. WS 메시지 256KB, 입력 16KB, 코드 200KB 상한.
+- 로컬 포트(7331)는 Host 헤더가 localhost·127.0.0.1(또는 `RUNNER_ALLOWED_ORIGINS`의 호스트)일 때만 응답합니다(DNS 리바인딩 차단).
+- 터널은 별도의 터널 전용 포트로만 연결됩니다. 이 포트로는 관제 화면(`/control`과 그 정적 파일, manifest, 서비스워커)과 러너 API만 열리고, 팀 다이제스트·`/api/*`·콘솔·컴파일러 화면은 404입니다. 원격 연결에서는 터널을 새로 열 수 없습니다.
+- 터널이 열려 있으면 관제 화면 맨 위에 "원격 접속 열림 · 기기 N · 자동 닫힘 시각"이 늘 보입니다. 러너가 20초마다 핑을 보내 응답 없는 소켓은 끊고, 연결된 원격 기기가 없는 상태가 이어지면 터널을 자동으로 닫습니다(위 환경 변수). 터널이 닫히면 원격 기기는 닫힘 코드 4005를 받고 다시 연결을 시도하지 않습니다.
+- WebSocket은 연결 후 5초 안에 인증해야 하고, 인증 전 연결은 20개·메시지 1KB로 제한됩니다.
+- 인증 실패 5회(10분)면 그 클라이언트는 15분 잠금(HTTP·WS 공통). 잠금 키는 로컬 포트에서는 소켓 주소, 터널 포트에서는 터널 사업자가 붙인 주소(ngrok은 `X-Forwarded-For`의 마지막 항목, cloudflared는 `CF-Connecting-IP`)라서, 클라이언트가 헤더를 바꿔 잠금을 피하거나 PC 앞의 사용자를 잠글 수 없습니다.
+- 세션(에이전트)에는 `RUNNER_TOKEN` 환경 변수를 넘기지 않습니다. 전체 요청 240/분, 컴파일 20/분 제한. WS 메시지 256KB, 입력 16KB, 코드 200KB 상한.
 - 세션 cwd·관제 AI의 폴더 탐색은 `RUNNER_CWD_ROOT` 안으로 제한. Windows 시스템 폴더(`Windows`, `Program Files`, `ProgramData`, `AppData`, `Recovery`, `$Recycle.Bin` 등)는 이름 기준(대소문자 무시)으로 숨기고 열지 않습니다. 세션 id 등은 형식 검증.
 - 관제 AI와 자율 모드는 파괴적 패턴(rm -rf, force push, DROP, 배포, 비밀값…)을 거부하거나 사람에게 올립니다. 채팅에서 "확인"을 명시하거나 `--confirm`일 때만 통과.
 - 밖으로 나가는 텍스트(판단 엔진 프롬프트, 알림)는 토큰·키·비밀번호 형태를 `[REDACTED]`로 마스킹.
@@ -123,7 +131,7 @@ Claude Code에서 이 러너를 쓰려면 `/devhub-runner` 스킬(`D:\Projects\.
 
 | 명령 | 설명 |
 | --- | --- |
-| `npm test` | 러너(50) + 웹(40) vitest |
+| `npm test` | 러너(118) + 웹(51) vitest |
 | `npm run build` | 러너 `tsc` + 웹 `next build` |
 | `npm run lint` | 웹 eslint |
 | `npm run ctl -w runner -- sessions` | devhubctl (health · sessions · create · send · output · kill · workspace · events · chat · tunnel · fs · claude · attach · worklog · review) |

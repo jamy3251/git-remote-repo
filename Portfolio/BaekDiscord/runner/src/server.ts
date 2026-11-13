@@ -21,17 +21,45 @@ import { PlaybookStore } from "./playbook.js";
 import { heuristicSummary, refinePrompt, summarizeWork } from "./prompts.js";
 import { proxyHttp, proxyUpgrade } from "./proxy.js";
 import { gitChangesSync, gitSummary } from "./workspace.js";
-import { AuthLockout, RateLimiter, clampString, clientKey, isSafeId, redactSecrets, tokenMatches } from "./security.js";
+import { AuthLockout, RateLimiter, clampString, clientKey, hostAllowed, isSafeId, redactSecrets, tokenMatches, type Listener } from "./security.js";
+import { closesAt as tunnelClosesAt, freshIdleState, tickIdle, type IdleState } from "./tunnelidle.js";
 
 export const RUNNER_VERSION = "0.2.0";
 const API_PREFIX = "/runner";
 const MAX_WS_MESSAGE = 256 * 1024;
+/** Server-side ping cadence; a socket that misses one full interval is terminated. */
+export const HEARTBEAT_MS = 20_000;
+/** An unauthenticated socket must send `hello` (or have connected with a token) within this time. */
+export const HELLO_TIMEOUT_MS = 5_000;
+const MAX_PREAUTH_SOCKETS = 20;
+const MAX_PREAUTH_MESSAGE = 1024;
+/** WebSocket close code sent to remote devices when the tunnel closes. */
+export const CLOSE_TUNNEL_CLOSED = 4005;
+
+/**
+ * Dashboard paths reachable through the tunnel listener. Everything else the Next app serves
+ * (team digest pages, /api/*, /console, /compile, dev login) stays local-only.
+ */
+export function tunnelWebAllowed(pathname: string): boolean {
+  if (pathname === "/control" || pathname.startsWith("/control/")) return true;
+  if (pathname.startsWith("/_next/")) return true;
+  if (pathname.startsWith("/icons/")) return true;
+  return pathname === "/manifest.webmanifest" || pathname === "/sw.js" || pathname === "/offline.html" || pathname === "/favicon.ico";
+}
+
+const TUNNEL_BLOCKED_PAGE =
+  `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>DevHub</title>` +
+  `<body style="font-family:system-ui;background:#0b0d10;color:#e6e8eb;padding:2rem">` +
+  `<h2>원격 접속으로는 관제 화면만 열립니다</h2><p><a href="/control" style="color:#7c9cff">관제 화면으로 이동</a></p></body>`;
 
 interface ClientState {
   ws: WebSocket;
   authed: boolean;
   attached: Set<string>;
   client: string;
+  listener: Listener;
+  /** Answered the last server ping. */
+  alive: boolean;
 }
 
 const SECURITY_HEADERS: Record<string, string> = {
@@ -118,7 +146,8 @@ export function createRunnerServer(cfg: RunnerConfig) {
     playbook: (q) => playbook.search(q, 5),
     liveFolders: () => listFolder(cfg.cwdRoot, null, folderContext()).live,
   });
-  const tunnel = new TunnelManager({ port: cfg.port, token: cfg.token, dashboardPath: cfg.dashboardPath });
+  let boundTunnelPort = 0;
+  const tunnel = new TunnelManager({ port: () => boundTunnelPort, token: cfg.token, dashboardPath: cfg.dashboardPath });
   const compileGate = new Semaphore(2);
   const clients = new Set<ClientState>();
   const lockout = new AuthLockout();
@@ -267,17 +296,76 @@ export function createRunnerServer(cfg: RunnerConfig) {
   tunnel.on("change", (status) => broadcast({ type: "tunnel", status }));
   tunnel.on("url", (url: string) => {
     allowedOrigins.add(url);
+    idle = freshIdleState(Date.now());
+    refreshTunnel();
     supervisor.log("action", null, "system", `원격 터널 열림: ${url}`);
   });
+
+  // ---- remote presence and forgotten-tunnel auto-close -------------------------------------
+  let idle: IdleState | null = null;
+  const remoteClients = () => [...clients].filter((c) => c.authed && c.listener === "tunnel" && c.alive).length;
+  const idleInput = () => ({ startedAt: tunnel.status().startedAt ?? Date.now(), idleMs: cfg.tunnelIdleMs, maxMs: cfg.tunnelMaxMs });
+
+  /** Push the live device count and close time to dashboards (no-op when unchanged). */
+  function refreshTunnel(): void {
+    if (tunnel.status().state !== "running" || !idle) return tunnel.annotate({ remoteClients: 0, closesAt: null });
+    const n = remoteClients();
+    if (n > 0) idle.lastRemoteAt = Date.now();
+    tunnel.annotate({ remoteClients: n, closesAt: n > 0 ? null : tunnelClosesAt(idle, idleInput()) });
+  }
+
+  /** Close every remote socket with the tunnel-closed code, then stop the tunnel process. */
+  function closeTunnel(reason: string, actor: SupervisorEvent["actor"]): void {
+    for (const c of clients) if (c.listener === "tunnel") c.ws.close(CLOSE_TUNNEL_CLOSED, "tunnel closed");
+    tunnel.stop();
+    idle = null;
+    supervisor.log("action", null, actor, reason);
+  }
+
+  function tickTunnel(now = Date.now()): void {
+    if (tunnel.status().state !== "running" || !idle) return;
+    const running = sessions.list().filter((s) => s.status === "running").length;
+    const action = tickIdle(idle, { ...idleInput(), now, remoteClients: remoteClients(), runningSessions: running });
+    const at = (t: number) => new Date(t).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+    if (action.kind === "warn") supervisor.log("warn", null, "system", `연결된 원격 기기가 없어 ${at(action.closesAt)}에 원격 터널이 자동으로 닫힙니다`);
+    if (action.kind === "extend") supervisor.log("info", null, "system", `실행 중인 세션이 있어 원격 터널 자동 닫힘을 ${at(action.closesAt)}로 미룹니다`);
+    if (action.kind === "close") {
+      const hours = Math.round(cfg.tunnelMaxMs / 3_600_000);
+      const mins = Math.round(cfg.tunnelIdleMs / 60_000);
+      return closeTunnel(action.reason === "max" ? `원격 터널 자동 닫힘: 연 지 ${hours}시간이 지남` : `원격 터널 자동 닫힘: ${mins}분 동안 연결된 원격 기기 없음`, "system");
+    }
+    refreshTunnel();
+  }
+
+  // Ping every socket; terminate the ones that did not answer the previous ping (half-open phone sockets).
+  const heartbeat = setInterval(() => {
+    for (const c of clients) {
+      if (!c.alive) {
+        c.ws.terminate();
+        continue;
+      }
+      c.alive = false;
+      try {
+        c.ws.ping();
+      } catch {
+        c.ws.terminate();
+      }
+    }
+    tickTunnel();
+  }, HEARTBEAT_MS);
+  heartbeat.unref?.();
   tunnel.on("warn", (m: string) => supervisor.log("warn", null, "system", m));
   supervisor.start();
 
   const authFailed = (client: string): { locked: boolean; remaining: number } => lockout.recordFailure(client);
 
-  const server = http.createServer(async (req, res) => {
-    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+  const keyFor = (req: http.IncomingMessage, listener: Listener) =>
+    clientKey(req.socket.remoteAddress, req.headers, listener, listener === "tunnel" ? tunnel.provider() : null);
+
+  const handleHttp = (listener: Listener) => async (req: http.IncomingMessage, res: http.ServerResponse) => {
+    const url = new URL(req.url ?? "/", "http://localhost");
     const origin = req.headers.origin;
-    const client = clientKey(req.socket.remoteAddress, req.headers["x-forwarded-for"]);
+    const client = keyFor(req, listener);
     const json = (status: number, body: unknown) => {
       const headers: Record<string, string> = { "content-type": "application/json; charset=utf-8", ...SECURITY_HEADERS };
       if (origin && originAllowed(origin)) {
@@ -290,8 +378,16 @@ export function createRunnerServer(cfg: RunnerConfig) {
       res.end(JSON.stringify(body));
     };
 
+    // The local listener only answers to local host names, so a web page that rebinds its own
+    // domain to 127.0.0.1 cannot reach the runner or the proxied dashboard.
+    if (listener === "local" && !hostAllowed(req.headers.host, allowedOrigins)) return json(403, { error: "host not allowed" });
+
     // Everything outside the runner namespace is the Next.js dashboard, reached through the proxy.
     if (!url.pathname.startsWith(API_PREFIX)) {
+      if (listener === "tunnel" && !tunnelWebAllowed(url.pathname)) {
+        res.writeHead(404, { "content-type": "text/html; charset=utf-8", ...SECURITY_HEADERS });
+        return res.end(TUNNEL_BLOCKED_PAGE);
+      }
       if (!webTarget) return json(404, { error: "not found", hint: `runner API lives under ${API_PREFIX}/` });
       return proxyHttp(req, res, webTarget);
     }
@@ -385,24 +481,34 @@ export function createRunnerServer(cfg: RunnerConfig) {
     } catch (e) {
       return json(400, { error: (e as Error).message });
     }
-  });
+  };
+
+  const server = http.createServer(handleHttp("local"));
+  const tunnelServer = http.createServer(handleHttp("tunnel"));
 
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_WS_MESSAGE });
-  server.on("upgrade", (req, socket, head) => {
+  const handleUpgrade = (listener: Listener) => (req: http.IncomingMessage, socket: import("node:stream").Duplex, head: Buffer) => {
     // A client that drops mid-handshake (flaky phone network, killed tab) must not crash the runner.
     socket.on("error", () => socket.destroy());
     const url = new URL(req.url ?? "/", "http://localhost");
+    if (listener === "local" && !hostAllowed(req.headers.host, allowedOrigins)) {
+      socket.destroy();
+      return;
+    }
     if (url.pathname === `${API_PREFIX}/ws`) {
       if (!originAllowed(req.headers.origin)) {
         socket.destroy();
         return;
       }
-      wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
+      wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req, listener));
       return;
     }
-    if (webTarget && !url.pathname.startsWith(API_PREFIX)) return proxyUpgrade(req, socket, head, webTarget);
+    const webAllowed = listener === "local" || tunnelWebAllowed(url.pathname);
+    if (webTarget && webAllowed && !url.pathname.startsWith(API_PREFIX)) return proxyUpgrade(req, socket, head, webTarget);
     socket.destroy();
-  });
+  };
+  server.on("upgrade", handleUpgrade("local"));
+  tunnelServer.on("upgrade", handleUpgrade("tunnel"));
 
   const greet = (state: ClientState) => {
     send(state, { type: "welcome", runner: runnerInfo });
@@ -413,12 +519,26 @@ export function createRunnerServer(cfg: RunnerConfig) {
     send(state, { type: "events", events: supervisor.recentEvents(100) });
   };
 
-  wss.on("connection", (ws, req) => {
+  wss.on("connection", (ws: WebSocket, req: http.IncomingMessage, listener: Listener = "local") => {
     const url = new URL(req.url ?? "/", "http://localhost");
-    const client = clientKey(req.socket.remoteAddress, req.headers["x-forwarded-for"]);
+    const client = keyFor(req, listener);
     if (lockout.isLocked(client)) return ws.close(4029, "locked out");
-    const state: ClientState = { ws, authed: false, attached: new Set(), client };
+    if ([...clients].filter((c) => !c.authed).length >= MAX_PREAUTH_SOCKETS) return ws.close(1013, "too many pending connections");
+    const state: ClientState = { ws, authed: false, attached: new Set(), client, listener, alive: true };
     clients.add(state);
+    ws.on("pong", () => {
+      state.alive = true;
+    });
+    const helloTimer = setTimeout(() => {
+      if (!state.authed) ws.close(4008, "hello timeout");
+    }, HELLO_TIMEOUT_MS);
+    helloTimer.unref?.();
+    const onAuthed = () => {
+      clearTimeout(helloTimer);
+      lockout.recordSuccess(client);
+      greet(state);
+      if (listener === "tunnel") refreshTunnel();
+    };
     const token = url.searchParams.get("token");
     if (token !== null) {
       state.authed = tokenMatches(token, cfg.token);
@@ -427,11 +547,11 @@ export function createRunnerServer(cfg: RunnerConfig) {
         send(state, { type: "error", message: "invalid token" });
         return ws.close(4001, "unauthorized");
       }
-      lockout.recordSuccess(client);
-      greet(state);
+      onAuthed();
     }
 
-    ws.on("message", (raw) => {
+    ws.on("message", (raw: Buffer) => {
+      if (!state.authed && raw.length > MAX_PREAUTH_MESSAGE) return ws.close(1009, "message too large before authentication");
       let msg: ClientMessage;
       try {
         msg = JSON.parse(raw.toString()) as ClientMessage;
@@ -445,14 +565,17 @@ export function createRunnerServer(cfg: RunnerConfig) {
           send(state, { type: "error", message: f.locked ? "locked out" : "invalid token" });
           return ws.close(4001, "unauthorized");
         }
-        lockout.recordSuccess(client);
-        return greet(state);
+        return onAuthed();
       }
       if (!state.authed) return send(state, { type: "error", message: "not authenticated" });
       void handle(state, msg);
     });
 
-    ws.on("close", () => clients.delete(state));
+    ws.on("close", () => {
+      clearTimeout(helloTimer);
+      clients.delete(state);
+      if (listener === "tunnel") refreshTunnel();
+    });
     ws.on("error", () => ws.terminate());
   });
 
@@ -540,11 +663,11 @@ export function createRunnerServer(cfg: RunnerConfig) {
           return broadcast({ type: "chat_history", turns: [], busy: false });
         case "tunnel": {
           if (msg.action === "start") {
+            if (state.listener === "tunnel") return send(state, { type: "error", message: "원격 터널은 PC에서만 열 수 있습니다" });
             supervisor.log("action", null, "human", `원격 터널 시작 요청 (${msg.provider ?? "auto"})`);
             await tunnel.start(msg.provider);
           } else if (msg.action === "stop") {
-            tunnel.stop();
-            supervisor.log("action", null, "human", "원격 터널 종료");
+            closeTunnel(state.listener === "tunnel" ? "원격 터널 종료(원격 기기에서)" : "원격 터널 종료", "human");
           }
           return send(state, { type: "tunnel", status: tunnel.status() });
         }
@@ -650,20 +773,46 @@ export function createRunnerServer(cfg: RunnerConfig) {
     supervisor,
     tunnel,
     brain,
-    listen: () =>
-      new Promise<number>((resolve) => {
+    /** Port of the tunnel-only listener (0 until listen() resolves). */
+    tunnelPort: () => boundTunnelPort,
+    listen: async () => {
+      const port = await new Promise<number>((resolve) => {
         server.listen(cfg.port, cfg.host, () => {
           const addr = server.address();
           resolve(typeof addr === "object" && addr ? addr.port : cfg.port);
         });
-      }),
+      });
+      // The tunnel listener is loopback-only: only the local tunnel process connects to it.
+      const bindTunnel = (p: number) =>
+        new Promise<number>((resolve, reject) => {
+          const onError = (e: Error) => reject(e);
+          tunnelServer.once("error", onError);
+          tunnelServer.listen(p, "127.0.0.1", () => {
+            tunnelServer.off("error", onError);
+            const addr = tunnelServer.address();
+            resolve(typeof addr === "object" && addr ? addr.port : p);
+          });
+        });
+      try {
+        boundTunnelPort = await bindTunnel(cfg.tunnelPort);
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== "EADDRINUSE" || cfg.tunnelPort === 0) throw e;
+        supervisor.log("warn", null, "system", `터널 전용 포트 ${cfg.tunnelPort} 사용 중, 빈 포트로 대신 엽니다`);
+        boundTunnelPort = await bindTunnel(0);
+      }
+      return port;
+    },
+    /** Run one auto-close tick now (tests use this with an explicit clock). */
+    tickTunnel,
     close: () =>
       new Promise<void>((resolve) => {
+        clearInterval(heartbeat);
         supervisor.stop();
         tunnel.stop();
         sessions.killAll();
         for (const c of clients) c.ws.close();
         wss.close();
+        tunnelServer.close();
         server.close(() => resolve());
       }),
   };

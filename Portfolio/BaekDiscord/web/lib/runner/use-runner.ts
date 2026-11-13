@@ -188,11 +188,14 @@ export function useRunner(): RunnerApi {
       stopPing();
       setRttMs(null);
       const unauthorized = ev.code === 4001 || ev.code === 4029;
+      // The runner closed the remote tunnel: the address is gone, retrying it cannot succeed.
+      const tunnelClosed = ev.code === 4005;
       if (ev.code === 4001) setLastError("러너 토큰이 올바르지 않습니다.");
       if (ev.code === 4029) setLastError("인증 실패가 반복되어 잠시 잠겼습니다. 15분 뒤 다시 시도하세요.");
-      // Auto-reconnect on network drops (phones sleep): not on auth failures or manual close.
+      if (tunnelClosed) setLastError("원격 터널이 닫혔습니다. PC에서 다시 열고 QR을 다시 찍으세요.");
+      // Auto-reconnect on network drops (phones sleep): not on auth failures, a closed tunnel or manual close.
       // Delay grows 1s → 30s with jitter and resets on the next successful open.
-      if (!unauthorized && !manualClose.current) {
+      if (!unauthorized && !tunnelClosed && !manualClose.current) {
         const delay = backoff.current.next();
         setStatus("reconnecting");
         setNextRetryAt(Date.now() + delay);

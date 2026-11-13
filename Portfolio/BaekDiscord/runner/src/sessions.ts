@@ -28,6 +28,21 @@ export interface SessionManagerOptions {
   beforeSpawn?: (info: SessionInfo) => void;
 }
 
+/** Variables a session's agent must never see: the runner's own admin credential. */
+const SESSION_ENV_DENY = ["RUNNER_TOKEN"];
+
+/** Environment for a spawned session: the runner's environment minus its credentials, plus session markers. */
+export function sessionEnv(base: NodeJS.ProcessEnv, id: string): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [k, v] of Object.entries(base)) {
+    if (v === undefined) continue;
+    // Windows env names are case-insensitive, so compare upper-cased.
+    if (SESSION_ENV_DENY.includes(k.toUpperCase())) continue;
+    env[k] = v;
+  }
+  return { ...env, DEVHUB_SESSION: id, TERM: "xterm-256color", FORCE_COLOR: "1" };
+}
+
 /**
  * Wrap a command line in the platform shell. On Windows the PTY path receives a
  * single verbatim string because node-pty re-quotes array arguments (which
@@ -127,7 +142,7 @@ export class SessionManager extends EventEmitter {
     const session: Session = { info, proc: null, history: [], historyBytes: 0, prompt: prompt || null, crossReview: req.crossReview ?? null };
     this.sessions.set(id, session);
 
-    const env = { ...process.env, DEVHUB_SESSION: id, TERM: "xterm-256color", FORCE_COLOR: "1" } as Record<string, string>;
+    const env = sessionEnv(process.env, id);
     try {
       this.opts.beforeSpawn?.({ ...info });
     } catch {

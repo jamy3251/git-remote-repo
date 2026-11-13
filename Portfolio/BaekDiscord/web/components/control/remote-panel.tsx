@@ -95,7 +95,7 @@ export function RemotePanel({ tunnel, runner, defaultOpen = true }: Props) {
           )}
           {t?.state === "stopped" && (
             <p className="mt-2 text-xs text-muted">
-              터널을 열면 이 PC의 러너(대시보드 포함)가 임시 공개 주소로 노출됩니다. 토큰 없이는 아무것도 할 수 없지만, 다 쓰면 닫아 두세요.
+              터널을 열면 관제 화면과 러너 API가 임시 공개 주소로 열립니다(다른 페이지는 원격으로 열리지 않습니다). 토큰 없이는 아무것도 할 수 없고, 연결된 기기 없이 일정 시간이 지나면 자동으로 닫힙니다. 다 쓰면 닫아 두세요.
             </p>
           )}
         </div>

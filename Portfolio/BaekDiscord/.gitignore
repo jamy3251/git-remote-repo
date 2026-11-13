@@ -7,3 +7,8 @@ dist/
 *.log
 .runner-token
 *.tsbuildinfo
+# Android signing keys and build outputs
+*.keystore
+*.jks
+*.apk
+*.aab

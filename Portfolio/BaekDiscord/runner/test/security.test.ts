@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { AuthLockout, RateLimiter, clientKey, isSafeId, redactSecrets, tokenMatches } from "../src/security.js";
+import { AuthLockout, RateLimiter, clientKey, hostAllowed, isSafeId, redactSecrets, tokenMatches } from "../src/security.js";
+import { sessionEnv } from "../src/sessions.js";
 
 describe("tokenMatches", () => {
   it("accepts only the exact token", () => {
@@ -77,8 +78,44 @@ describe("ids and client keys", () => {
     expect(isSafeId("")).toBe(false);
     expect(isSafeId(42)).toBe(false);
   });
-  it("prefers the first forwarded address", () => {
-    expect(clientKey("127.0.0.1", "203.0.113.5, 10.0.0.1")).toBe("203.0.113.5");
-    expect(clientKey("127.0.0.1", undefined)).toBe("127.0.0.1");
+  it("ignores forwarded headers on the local listener", () => {
+    expect(clientKey("127.0.0.1", { "x-forwarded-for": "203.0.113.5, 10.0.0.1" })).toBe("127.0.0.1");
+    expect(clientKey("127.0.0.1", {}, "local")).toBe("127.0.0.1");
+  });
+
+  it("uses the provider-written address on the tunnel listener", () => {
+    // ngrok appends the real client as the last entry; earlier entries are whatever the client sent.
+    expect(clientKey("127.0.0.1", { "x-forwarded-for": "1.1.1.1, 203.0.113.5" }, "tunnel", "ngrok")).toBe("tunnel:203.0.113.5");
+    expect(clientKey("127.0.0.1", { "x-forwarded-for": "9.9.9.9, 203.0.113.5" }, "tunnel", "ngrok")).toBe("tunnel:203.0.113.5");
+    // A client-sent CF-Connecting-IP means nothing behind ngrok.
+    expect(clientKey("127.0.0.1", { "x-forwarded-for": "203.0.113.5", "cf-connecting-ip": "1.2.3.4" }, "tunnel", "ngrok")).toBe("tunnel:203.0.113.5");
+    expect(clientKey("127.0.0.1", { "x-forwarded-for": "6.6.6.6", "cf-connecting-ip": "198.51.100.7" }, "tunnel", "cloudflared")).toBe("tunnel:198.51.100.7");
+    // Never collapse into the local key, so tunnel failures cannot lock the person at the PC.
+    expect(clientKey("127.0.0.1", {}, "tunnel", "ngrok")).toBe("tunnel:unknown");
+  });
+});
+
+describe("hostAllowed", () => {
+  const origins = ["http://localhost:3000", "http://10.0.2.2:7331"];
+  it("accepts loopback names and hosts of allowed origins", () => {
+    expect(hostAllowed("127.0.0.1:7331", origins)).toBe(true);
+    expect(hostAllowed("localhost:7331", origins)).toBe(true);
+    expect(hostAllowed("[::1]:7331", origins)).toBe(true);
+    expect(hostAllowed("10.0.2.2:7331", origins)).toBe(true);
+  });
+  it("rejects other names (DNS rebinding) and a missing header", () => {
+    expect(hostAllowed("evil.example:7331", origins)).toBe(false);
+    expect(hostAllowed("127.0.0.1.evil.example", origins)).toBe(false);
+    expect(hostAllowed(undefined, origins)).toBe(false);
+  });
+});
+
+describe("sessionEnv", () => {
+  it("never passes the runner token to a session", () => {
+    const env = sessionEnv({ PATH: "/bin", RUNNER_TOKEN: "admin-secret", runner_token: "lower", HOME: "/h" }, "abc");
+    expect(env.RUNNER_TOKEN).toBeUndefined();
+    expect(env.runner_token).toBeUndefined();
+    expect(env.PATH).toBe("/bin");
+    expect(env.DEVHUB_SESSION).toBe("abc");
   });
 });

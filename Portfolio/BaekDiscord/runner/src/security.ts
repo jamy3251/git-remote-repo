@@ -105,8 +105,57 @@ export function clampString(v: unknown, max: number, fallback = ""): string {
   return v.length > max ? v.slice(0, max) : v;
 }
 
-export function clientKey(remoteAddress: string | undefined, forwardedFor: string | string[] | undefined): string {
-  const xff = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
-  const first = xff?.split(",")[0]?.trim();
-  return first || remoteAddress || "unknown";
+/** Which socket a request arrived on. The tunnel process connects only to the tunnel listener. */
+export type Listener = "local" | "tunnel";
+export type TunnelProvider = "ngrok" | "cloudflared" | null;
+
+function firstHeader(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
+
+/**
+ * Key for rate limits and auth lockout.
+ *
+ * - Local listener: the socket address only. Forwarded headers come from the caller and are ignored,
+ *   so nobody on this machine can pick their own key.
+ * - Tunnel listener: every request arrives from the tunnel process on 127.0.0.1, so the socket address
+ *   says nothing. Use the value the tunnel provider itself wrote: cloudflared sets `CF-Connecting-IP`;
+ *   ngrok appends the client address as the LAST `X-Forwarded-For` entry. Earlier entries are
+ *   client-controlled and never used. Keys are prefixed so tunnel failures never lock the local user.
+ */
+export function clientKey(
+  remoteAddress: string | undefined,
+  headers: Record<string, string | string[] | undefined>,
+  listener: Listener = "local",
+  provider: TunnelProvider = null,
+): string {
+  if (listener === "local") return remoteAddress || "unknown";
+  if (provider === "cloudflared") {
+    const cf = firstHeader(headers["cf-connecting-ip"])?.trim();
+    if (cf) return `tunnel:${cf}`;
+  }
+  const xff = headers["x-forwarded-for"];
+  const joined = Array.isArray(xff) ? xff.join(",") : xff;
+  const last = joined
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .pop();
+  return `tunnel:${last || "unknown"}`;
+}
+
+/** Hosts the local listener answers to. Blocks DNS-rebinding pages that resolve their own name to 127.0.0.1. */
+export function hostAllowed(hostHeader: string | undefined, allowedOrigins: Iterable<string>): boolean {
+  if (!hostHeader) return false;
+  const host = hostHeader.toLowerCase();
+  const name = host.startsWith("[") ? host.slice(0, host.indexOf("]") + 1) : host.split(":")[0];
+  if (name === "localhost" || name === "127.0.0.1" || name === "[::1]") return true;
+  for (const o of allowedOrigins) {
+    try {
+      if (new URL(o).host.toLowerCase() === host) return true;
+    } catch {
+      /* ignore malformed origin entries */
+    }
+  }
+  return false;
 }

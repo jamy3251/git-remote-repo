@@ -144,6 +144,10 @@ export interface TunnelStatus {
   qrSvg: string | null;
   error: string | null;
   startedAt: number | null;
+  /** Authenticated remote devices that answered the last ping. */
+  remoteClients: number;
+  /** When the tunnel will close on its own (idle or the absolute cap), or null if it will not. */
+  closesAt: number | null;
 }
 
 export interface ChatAction {

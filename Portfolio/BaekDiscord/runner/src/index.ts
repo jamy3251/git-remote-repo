@@ -9,6 +9,7 @@ const runner = createRunnerServer(cfg);
 runner.listen().then((port) => {
   const log = (m: string) => console.log(`[devhub-runner] ${m}`);
   log(`listening on http://${cfg.host}:${port}  (API under /runner, dashboard proxied from ${cfg.webProxy ?? "off"})`);
+  log(`tunnel listener: 127.0.0.1:${runner.tunnelPort()} (remote traffic only; serves /control and the runner API)`);
   log(`cwd root: ${cfg.cwdRoot}`);
   log(`token: ${cfg.token}`);
   log(`dashboard: http://127.0.0.1:${port}${cfg.dashboardPath}#rt=${cfg.token}`);
