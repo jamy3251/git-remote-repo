@@ -69,6 +69,18 @@ describe("compileAndRun", () => {
     );
     expect(r.run?.truncated).toBe(true);
     expect(r.run!.stdout.length).toBeLessThanOrEqual(limits.outputCapBytes);
+    // Ends on the cap, not on the 5 s timeout (it used to take ~60 s on Windows).
+    expect(r.run?.timedOut).toBe(false);
+  });
+
+  only("python")("caps runaway stderr", async () => {
+    const r = await compileAndRun(
+      { language: "python", code: "import sys\nwhile True:\n    sys.stderr.write('e' * 4096)\n", timeoutMs: 5000 },
+      limits,
+    );
+    expect(r.run?.truncated).toBe(true);
+    expect(r.run!.stderr.length).toBeLessThanOrEqual(limits.outputCapBytes);
+    expect(r.run?.timedOut).toBe(false);
   });
 
   it("rejects unknown languages", async () => {

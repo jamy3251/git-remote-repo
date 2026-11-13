@@ -63,19 +63,35 @@ export function runStep(file: string, args: string[], opts: StepOptions): Promis
       return buf + chunk.slice(0, room);
     };
 
+    // Kill at most once. A flooding program delivers thousands of chunks after the cap; spawning a
+    // taskkill per chunk (Windows) starved the machine and the step took a minute to end.
+    let killed = false;
+    const killOnce = () => {
+      if (killed) return;
+      killed = true;
+      killTree(child.pid);
+    };
+    // Past the cap, stop reading: destroying the stream lets "close" fire without draining the pipe.
+    const overflow = () => {
+      killOnce();
+      child.stdout.destroy();
+      child.stderr.destroy();
+    };
+
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (d: string) => {
       stdout = cap(stdout, d);
-      if (truncated) killTree(child.pid);
+      if (truncated) overflow();
     });
     child.stderr.on("data", (d: string) => {
       stderr = cap(stderr, d);
+      if (truncated) overflow();
     });
 
     const timer = setTimeout(() => {
       timedOut = true;
-      killTree(child.pid);
+      killOnce();
     }, opts.timeoutMs);
 
     const finish = (exitCode: number | null, extraErr?: string) => {
