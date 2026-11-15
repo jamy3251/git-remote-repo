@@ -1,5 +1,7 @@
 "use client";
 
+import { RunnerCallError } from "./labels";
+
 export interface RunnerSettings {
   url: string;
   token: string;
@@ -78,7 +80,7 @@ export async function runnerFetch<T>(s: RunnerSettings, path: string, init?: Req
     ...init,
     headers: { ...(init?.headers ?? {}), authorization: `Bearer ${s.token}`, "content-type": "application/json", "ngrok-skip-browser-warning": "1" },
   });
-  const body = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new Error(body.error || `${res.status} ${res.statusText}`);
+  const body = (await res.json().catch(() => ({}))) as T & { error?: string; code?: string };
+  if (!res.ok) throw new RunnerCallError({ ...body, error: body.error || `${res.status} ${res.statusText}` });
   return body;
 }

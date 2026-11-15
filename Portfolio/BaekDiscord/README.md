@@ -50,6 +50,10 @@ docs/     설계 문서
 
 설계 문서: 현재 계획 [`docs/designs/devhub-next-20261113.md`](docs/designs/devhub-next-20261113.md)(2026-11-14 승인), 이력 [`devhub.md`](docs/designs/devhub.md)(팀 다이제스트, 2026-09-22), [`devhub-addendum-20260926.md`](docs/designs/devhub-addendum-20260926.md), [`devhub-addendum-20261004.md`](docs/designs/devhub-addendum-20261004.md).
 
+공식 기능 대비 위치와 hook 확인 결과: [`docs/designs/devhub-control.md`](docs/designs/devhub-control.md). Claude Code 세션만 폰에서 보면 되는 날은 공식 Remote Control로 충분합니다. DevHub는 Claude·Codex·셸을 한 화면에서 보고 자율 판단과 그 기록까지 하는 데 씁니다.
+
+러너 오류 코드와 고칠 방법: [`docs/errors.md`](docs/errors.md). HTTP와 WebSocket 오류 모두 `code`, `fix`, `retry`(필요하면 `retryAfterMs`, `traceId`)를 가집니다.
+
 팀 다이제스트(`/teams`)는 GitHub OAuth가 필요합니다. `web/.env.example`을 `web/.env.local`로 복사해 채우세요. OAuth 없이 화면만 보려면 `DEV_LOGIN=1`로 웹을 띄웁니다(bash: `DEV_LOGIN=1 npm run dev:web`, PowerShell: `$env:DEV_LOGIN=1; npm run dev:web`). 2026-12-31까지 실사용 팀(M0)이 생기지 않으면 보관 처리합니다.
 
 ## 기능
@@ -162,7 +166,7 @@ Claude Code에서 이 러너를 쓰려면 `/devhub-runner` 스킬(`D:\Projects\.
 | --- | --- |
 | `npm run demo` | 데모 (가짜 러너 + 웹, 브라우저 열기). `--check`는 /control 200 확인 후 종료(CI용) |
 | `npm run dev` | 러너 + 웹 동시 실행 (Windows 포함, Ctrl+C로 둘 다 종료) |
-| `npm test` | 러너(123) + 웹(51) vitest |
+| `npm test` | 러너(131) + 웹(55) vitest |
 | `npm run typecheck` | 러너 + 웹 `tsc --noEmit` |
 | `npm run check:protocol` | `runner/src/protocol.ts`와 `web/lib/runner/protocol.ts` 사본 일치 검사 |
 | `npm run build` | 러너 `tsc` + 웹 `next build` |

@@ -229,7 +229,25 @@ export type ServerMessage =
   | { type: "playbook"; entries: PlaybookEntry[]; reqId?: string }
   | { type: "playbook_entry"; entry: PlaybookEntry; reqId?: string }
   | { type: "playbook_draft"; draft: PlaybookInput; reqId?: string }
-  | { type: "error"; message: string; reqId?: string };
+  | ({ type: "error"; message: string; reqId?: string } & Partial<Omit<ErrorInfo, "error">>);
+
+/** How a caller may retry: not at all, after a wait, or after fixing what `fix` says. */
+export type ErrorRetry = "no" | "after_ms" | "after_fix";
+
+/**
+ * Error contract (docs/errors.md). HTTP bodies carry all of it; WS `error` messages carry the same
+ * fields next to `message`. `error` is the human text kept for older clients; act on `code`.
+ */
+export interface ErrorInfo {
+  error: string;
+  /** Fixed English identifier; see docs/errors.md#<code>. */
+  code: string;
+  fix: string;
+  retry: ErrorRetry;
+  retryAfterMs?: number;
+  /** Present on unexpected failures; the full detail is in the runner event log under this id. */
+  traceId?: string;
+}
 
 export interface CompileRequest {
   language: string;

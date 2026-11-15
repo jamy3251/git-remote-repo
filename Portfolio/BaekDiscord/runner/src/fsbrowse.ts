@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { FsEntry, FsListing, LiveFolder } from "./protocol.js";
 import type { ClaudeActivity } from "./cliactivity.js";
+import { RunnerError } from "./errors.js";
 
 /** What is running where, to annotate the listing. */
 export interface FolderContext {
@@ -61,11 +62,11 @@ export function resolveInRoot(root: string, input?: string | null): string {
   const realRoot = fs.realpathSync(root);
   const raw = typeof input === "string" && input.trim() ? input.trim() : realRoot;
   const target = path.resolve(realRoot, raw);
-  if (!inside(realRoot, target)) throw new Error(`루트(${realRoot}) 밖의 경로는 열 수 없습니다`);
-  if (path.relative(realRoot, target).split(path.sep).some(isProtectedName)) throw new Error(`시스템 폴더는 열 수 없습니다: ${target}`);
-  if (!fs.existsSync(target) || !fs.statSync(target).isDirectory()) throw new Error(`폴더가 없습니다: ${target}`);
+  if (!inside(realRoot, target)) throw new RunnerError("cwd_outside_root", `루트(${realRoot}) 밖의 경로는 열 수 없습니다`);
+  if (path.relative(realRoot, target).split(path.sep).some(isProtectedName)) throw new RunnerError("path_forbidden", `시스템 폴더는 열 수 없습니다: ${target}`);
+  if (!fs.existsSync(target) || !fs.statSync(target).isDirectory()) throw new RunnerError("folder_missing", `폴더가 없습니다: ${target}`);
   const real = fs.realpathSync(target);
-  if (!inside(realRoot, real)) throw new Error(`루트(${realRoot}) 밖을 가리키는 링크입니다`);
+  if (!inside(realRoot, real)) throw new RunnerError("path_forbidden", `루트(${realRoot}) 밖을 가리키는 링크입니다`);
   return target;
 }
 

@@ -22,6 +22,7 @@ import { heuristicSummary, refinePrompt, summarizeWork } from "./prompts.js";
 import { proxyHttp, proxyUpgrade } from "./proxy.js";
 import { gitChangesSync, gitSummary } from "./workspace.js";
 import { AuthLockout, RateLimiter, clampString, clientKey, hostAllowed, isSafeId, redactSecrets, tokenMatches, type Listener } from "./security.js";
+import { RunnerError, errorInfo, toErrorInfo, type ErrorCode } from "./errors.js";
 import { closesAt as tunnelClosesAt, freshIdleState, tickIdle, type IdleState } from "./tunnelidle.js";
 
 export const RUNNER_VERSION = "0.2.0";
@@ -77,7 +78,7 @@ function readJson(req: http.IncomingMessage, limit = 1_000_000): Promise<unknown
     req.on("data", (c: string) => {
       body += c;
       if (body.length > limit) {
-        reject(new Error("body too large"));
+        reject(new RunnerError("body_too_large", "body too large"));
         req.destroy();
       }
     });
@@ -170,10 +171,10 @@ export function createRunnerServer(cfg: RunnerConfig) {
   /** Have a different AI review a finished session, read-only. Returns the updated log entry. */
   async function startReview(entryId: string, requested?: ReviewerId | "auto", mode: ReviewMode = "review", actor: "human" | "chat" | "system" = "human"): Promise<WorkLogEntry> {
     const entry = worklog.get(entryId);
-    if (!entry) throw new Error(`작업 내역 ${entryId} 없음`);
-    if (entry.reviews?.some((r) => r.status === "running")) throw new Error("이미 교차검증 중입니다");
+    if (!entry) throw new RunnerError("not_found", `작업 내역 ${entryId} 없음`);
+    if (entry.reviews?.some((r) => r.status === "running")) throw new RunnerError("busy", "이미 교차검증 중입니다");
     const reviewer = pickReviewer(entry.preset, requested, { codex: binaryAvailable("codex"), claude: binaryAvailable("claude") });
-    if (!reviewer) throw new Error("검토할 AI CLI(codex 또는 claude)가 설치되어 있지 않습니다");
+    if (!reviewer) throw new RunnerError("cli_missing", "검토할 AI CLI(codex 또는 claude)가 설치되어 있지 않습니다");
     const git = await gitSummary(entry.cwd, 0).catch(() => null);
     const diff = git && entry.git?.files.length ? await collectDiff(git.repoRoot, entry.git.files) : "";
     const session = sessions.create({
@@ -253,12 +254,12 @@ export function createRunnerServer(cfg: RunnerConfig) {
   /** Ask the prompt model for a short result summary of one finished session (on demand: costs tokens). */
   async function summarizeEntry(id: string): Promise<WorkLogEntry> {
     const e = worklog.get(id);
-    if (!e) throw new Error(`작업 내역 ${id} 없음`);
-    if (summarizing.has(id)) throw new Error("이미 요약 중입니다");
+    if (!e) throw new RunnerError("not_found", `작업 내역 ${id} 없음`);
+    if (summarizing.has(id)) throw new RunnerError("busy", "이미 요약 중입니다");
     summarizing.add(id);
     try {
       const text = await summarizeWork(brain, e);
-      if (!text) throw new Error("요약할 모델이 없습니다 (판단 엔진: heuristic)");
+      if (!text) throw new RunnerError("cli_missing", "요약할 모델이 없습니다 (판단 엔진: heuristic)");
       const next = worklog.update(id, { summary: redactSecrets(text), summarySource: "brain" })!;
       broadcast({ type: "worklog_entry", entry: next });
       supervisor.log("info", id, "system", `작업 요약: ${next.summary.slice(0, 120)}`);
@@ -279,6 +280,14 @@ export function createRunnerServer(cfg: RunnerConfig) {
   const send = (c: ClientState, msg: ServerMessage) => {
     if (c.ws.readyState === WebSocket.OPEN) c.ws.send(JSON.stringify(msg));
   };
+  /** WS errors carry the same contract fields as HTTP bodies (docs/errors.md), next to `message`. */
+  const sendInfo = (c: ClientState, info: ReturnType<typeof errorInfo>, reqId?: string) => {
+    const { status: _status, error, ...rest } = info;
+    void _status;
+    send(c, { type: "error", message: error, ...rest, ...(reqId ? { reqId } : {}) });
+  };
+  const sendError = (c: ClientState, code: ErrorCode, message: string, reqId?: string) => sendInfo(c, errorInfo(code, message), reqId);
+  const sendThrown = (c: ClientState, e: unknown, reqId?: string) => sendInfo(c, toErrorInfo(e, logInternal, [cfg.token]), reqId);
   const broadcast = (msg: ServerMessage, filter?: (c: ClientState) => boolean) => {
     for (const c of clients) if (c.authed && (!filter || filter(c))) send(c, msg);
   };
@@ -358,6 +367,8 @@ export function createRunnerServer(cfg: RunnerConfig) {
   supervisor.start();
 
   const authFailed = (client: string): { locked: boolean; remaining: number } => lockout.recordFailure(client);
+  /** Unexpected failures: the masked detail goes to the event log only, the client gets the trace id. */
+  const logInternal = (traceId: string, detail: string) => supervisor.log("error", null, "system", `내부 오류 ${traceId}: ${detail}`);
 
   const keyFor = (req: http.IncomingMessage, listener: Listener) =>
     clientKey(req.socket.remoteAddress, req.headers, listener, listener === "tunnel" ? tunnel.provider() : null);
@@ -377,10 +388,14 @@ export function createRunnerServer(cfg: RunnerConfig) {
       res.writeHead(status, headers);
       res.end(JSON.stringify(body));
     };
+    const fail = (code: ErrorCode, message: string, extra: { retryAfterMs?: number; remainingAttempts?: number } = {}) => {
+      const { status, ...body } = errorInfo(code, message, { retryAfterMs: extra.retryAfterMs });
+      return json(status, extra.remainingAttempts !== undefined ? { ...body, remainingAttempts: extra.remainingAttempts } : body);
+    };
 
     // The local listener only answers to local host names, so a web page that rebinds its own
     // domain to 127.0.0.1 cannot reach the runner or the proxied dashboard.
-    if (listener === "local" && !hostAllowed(req.headers.host, allowedOrigins)) return json(403, { error: "host not allowed" });
+    if (listener === "local" && !hostAllowed(req.headers.host, allowedOrigins)) return fail("host_not_allowed", "host not allowed");
 
     // Everything outside the runner namespace is the Next.js dashboard, reached through the proxy.
     if (!url.pathname.startsWith(API_PREFIX)) {
@@ -388,24 +403,24 @@ export function createRunnerServer(cfg: RunnerConfig) {
         res.writeHead(404, { "content-type": "text/html; charset=utf-8", ...SECURITY_HEADERS });
         return res.end(TUNNEL_BLOCKED_PAGE);
       }
-      if (!webTarget) return json(404, { error: "not found", hint: `runner API lives under ${API_PREFIX}/` });
+      if (!webTarget) return fail("not_found", "not found");
       return proxyHttp(req, res, webTarget);
     }
     const route = url.pathname.slice(API_PREFIX.length) || "/";
 
     if (req.method === "OPTIONS") return json(204, {});
-    if (!originAllowed(origin)) return json(403, { error: "origin not allowed" });
-    if (!httpLimiter.allow(client)) return json(429, { error: "too many requests" });
+    if (!originAllowed(origin)) return fail("origin_not_allowed", "origin not allowed");
+    if (!httpLimiter.allow(client)) return fail("rate_limited", "too many requests");
 
     if (route === "/health" && req.method === "GET") {
       return json(200, { ok: true, ...runnerInfo, sessions: sessions.list().length, tunnel: tunnel.status().state, supervisor: supervisor.config().enabled });
     }
 
-    if (lockout.isLocked(client)) return json(429, { error: "too many failed logins; try again later", retryAfterMs: lockout.lockedFor(client) });
+    if (lockout.isLocked(client)) return fail("auth_locked", "too many failed logins; try again later", { retryAfterMs: lockout.lockedFor(client) });
     if (!tokenMatches(bearer(req, url), cfg.token)) {
       const f = authFailed(client);
       if (f.locked) supervisor.log("warn", null, "system", `인증 실패 반복으로 ${client} 잠금`);
-      return json(401, { error: "invalid token", remainingAttempts: f.remaining });
+      return fail("auth_invalid", "invalid token", { remainingAttempts: f.remaining });
     }
     lockout.recordSuccess(client);
 
@@ -420,13 +435,13 @@ export function createRunnerServer(cfg: RunnerConfig) {
       if (route === "/worklog" && req.method === "GET") return json(200, { entries: worklog.list(Number(url.searchParams.get("limit")) || 50) });
       if (route === "/refine" && req.method === "POST") {
         const body = (await readJson(req, 64_000)) as { text?: string; cwd?: string };
-        if (!body.text?.trim()) return json(400, { error: "text required" });
-        if (!aiLimiter.allow(client)) return json(429, { error: "refine rate limit" });
+        if (!body.text?.trim()) return fail("bad_request", "text required");
+        if (!aiLimiter.allow(client)) return fail("rate_limited", "refine rate limit");
         return json(200, { result: await refine(body.text, body.cwd) });
       }
       if (route === "/fs" && req.method === "GET") return json(200, { listing: listFolder(cfg.cwdRoot, url.searchParams.get("path"), folderContext()) });
       if (route === "/compile" && req.method === "POST") {
-        if (!compileLimiter.allow(client)) return json(429, { error: "compile rate limit" });
+        if (!compileLimiter.allow(client)) return fail("rate_limited", "compile rate limit");
         const body = (await readJson(req)) as CompileRequest & { expected?: string };
         const release = await compileGate.acquire();
         try {
@@ -448,7 +463,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
       if (sessionRoute) {
         const [, id, action] = sessionRoute;
         const s = sessions.get(id);
-        if (!s) return json(404, { error: "no such session" });
+        if (!s) return fail("session_not_found", "no such session");
         if (action === "output" && req.method === "GET") {
           const n = Math.max(1, Math.min(400, Number(url.searchParams.get("lines")) || 60));
           return json(200, { id, lines: sessions.tail(id, n) });
@@ -472,14 +487,15 @@ export function createRunnerServer(cfg: RunnerConfig) {
       if (route === "/chat" && req.method === "POST") {
         const body = (await readJson(req, 64_000)) as { text?: string; confirm?: boolean };
         const text = clampString(body.text, 4000).trim();
-        if (!text) return json(400, { error: "text required" });
-        if (chat.busy) return json(409, { error: "chat busy" });
+        if (!text) return fail("bad_request", "text required");
+        if (chat.busy) return fail("busy", "chat busy");
         const turn = await chat.send(text, body.confirm === true);
         return json(200, { turn, history: chat.history() });
       }
-      return json(404, { error: "not found" });
+      return fail("not_found", "not found");
     } catch (e) {
-      return json(400, { error: (e as Error).message });
+      const { status, ...body } = toErrorInfo(e, logInternal, [cfg.token]);
+      return json(status, body);
     }
   };
 
@@ -544,7 +560,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
       state.authed = tokenMatches(token, cfg.token);
       if (!state.authed) {
         authFailed(client);
-        send(state, { type: "error", message: "invalid token" });
+        sendError(state, "auth_invalid", "invalid token");
         return ws.close(4001, "unauthorized");
       }
       onAuthed();
@@ -556,18 +572,18 @@ export function createRunnerServer(cfg: RunnerConfig) {
       try {
         msg = JSON.parse(raw.toString()) as ClientMessage;
       } catch {
-        return send(state, { type: "error", message: "invalid JSON" });
+        return sendError(state, "invalid_json", "invalid JSON");
       }
       if (msg.type === "hello") {
         state.authed = tokenMatches(msg.token, cfg.token);
         if (!state.authed) {
           const f = authFailed(client);
-          send(state, { type: "error", message: f.locked ? "locked out" : "invalid token" });
+          sendError(state, f.locked ? "auth_locked" : "auth_invalid", f.locked ? "locked out" : "invalid token");
           return ws.close(4001, "unauthorized");
         }
         return onAuthed();
       }
-      if (!state.authed) return send(state, { type: "error", message: "not authenticated" });
+      if (!state.authed) return sendError(state, "auth_required", "not authenticated");
       void handle(state, msg);
     });
 
@@ -596,7 +612,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
           return;
         }
         case "attach": {
-          if (!isSafeId(msg.id) || !sessions.get(msg.id)) return send(state, { type: "error", message: `no session ${msg.id}` });
+          if (!isSafeId(msg.id) || !sessions.get(msg.id)) return sendError(state, "session_not_found", `no session ${msg.id}`);
           state.attached.add(msg.id);
           return send(state, { type: "history", id: msg.id, data: sessions.history(msg.id) });
         }
@@ -642,8 +658,8 @@ export function createRunnerServer(cfg: RunnerConfig) {
           return;
         case "chat": {
           const text = clampString(msg.text, 4000).trim();
-          if (!text) return send(state, { type: "error", message: "empty message" });
-          if (chat.busy) return send(state, { type: "error", message: "관제 AI가 아직 이전 요청을 처리 중입니다" });
+          if (!text) return sendError(state, "bad_request", "empty message");
+          if (chat.busy) return sendError(state, "busy", "관제 AI가 아직 이전 요청을 처리 중입니다");
           broadcast({ type: "chat_status", busy: true });
           const history = chat.history();
           const userTurn = history[history.length - 1];
@@ -663,7 +679,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
           return broadcast({ type: "chat_history", turns: [], busy: false });
         case "tunnel": {
           if (msg.action === "start") {
-            if (state.listener === "tunnel") return send(state, { type: "error", message: "원격 터널은 PC에서만 열 수 있습니다" });
+            if (state.listener === "tunnel") return sendError(state, "remote_forbidden", "원격 터널은 PC에서만 열 수 있습니다");
             supervisor.log("action", null, "human", `원격 터널 시작 요청 (${msg.provider ?? "auto"})`);
             await tunnel.start(msg.provider);
           } else if (msg.action === "stop") {
@@ -673,23 +689,23 @@ export function createRunnerServer(cfg: RunnerConfig) {
         }
         case "refine": {
           const text = clampString(msg.text, 4000);
-          if (!text.trim()) return send(state, { type: "error", message: "다듬을 지시가 비어 있습니다", reqId: msg.reqId });
-          if (!aiLimiter.allow(state.client)) return send(state, { type: "error", message: "모델 호출이 너무 잦습니다. 잠시 뒤 다시 시도하세요", reqId: msg.reqId });
+          if (!text.trim()) return sendError(state, "bad_request", "다듬을 지시가 비어 있습니다", msg.reqId);
+          if (!aiLimiter.allow(state.client)) return sendError(state, "rate_limited", "모델 호출이 너무 잦습니다. 잠시 뒤 다시 시도하세요", msg.reqId);
           try {
             return send(state, { type: "refine", result: await refine(text, typeof msg.cwd === "string" ? msg.cwd : undefined), reqId: msg.reqId });
           } catch (e) {
-            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+            return sendThrown(state, e, msg.reqId);
           }
         }
         case "worklog":
           return send(state, { type: "worklog", entries: worklog.list(msg.limit ?? 100), reqId: msg.reqId });
         case "worklog_summarize": {
           if (!isSafeId(msg.id)) return;
-          if (!aiLimiter.allow(state.client)) return send(state, { type: "error", message: "모델 호출이 너무 잦습니다. 잠시 뒤 다시 시도하세요", reqId: msg.reqId });
+          if (!aiLimiter.allow(state.client)) return sendError(state, "rate_limited", "모델 호출이 너무 잦습니다. 잠시 뒤 다시 시도하세요", msg.reqId);
           try {
             return send(state, { type: "worklog_entry", entry: await summarizeEntry(msg.id), reqId: msg.reqId });
           } catch (e) {
-            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+            return sendThrown(state, e, msg.reqId);
           }
         }
         case "products": {
@@ -697,7 +713,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
             const r = await products.list(msg.refresh === true);
             return send(state, { type: "products", ...r, reqId: msg.reqId });
           } catch (e) {
-            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+            return sendThrown(state, e, msg.reqId);
           }
         }
         case "playbook":
@@ -707,32 +723,32 @@ export function createRunnerServer(cfg: RunnerConfig) {
             const id = typeof msg.id === "string" ? msg.id : undefined;
             return send(state, { type: "playbook_entry", entry: playbook.save(msg.entry, id), reqId: msg.reqId });
           } catch (e) {
-            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+            return sendThrown(state, e, msg.reqId);
           }
         }
         case "playbook_draft": {
           if (!isSafeId(msg.id)) return;
           const entry = worklog.get(msg.id);
-          if (!entry) return send(state, { type: "error", message: "작업 기록을 찾을 수 없습니다", reqId: msg.reqId });
-          if (!aiLimiter.allow(state.client)) return send(state, { type: "error", message: "모델 호출이 너무 잦습니다. 잠시 뒤 다시 시도하세요", reqId: msg.reqId });
+          if (!entry) return sendError(state, "not_found", "작업 기록을 찾을 수 없습니다", msg.reqId);
+          if (!aiLimiter.allow(state.client)) return sendError(state, "rate_limited", "모델 호출이 너무 잦습니다. 잠시 뒤 다시 시도하세요", msg.reqId);
           try {
             return send(state, { type: "playbook_draft", draft: await playbook.draftFrom(entry), reqId: msg.reqId });
           } catch (e) {
-            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+            return sendThrown(state, e, msg.reqId);
           }
         }
         case "product_update":
         case "product_ping":
         case "product_insight": {
           const target = typeof msg.path === "string" ? msg.path.slice(0, 1024) : "";
-          if (msg.type !== "product_update" && !aiLimiter.allow(state.client)) return send(state, { type: "error", message: "요청이 너무 잦습니다. 잠시 뒤 다시 시도하세요", reqId: msg.reqId });
+          if (msg.type !== "product_update" && !aiLimiter.allow(state.client)) return sendError(state, "rate_limited", "요청이 너무 잦습니다. 잠시 뒤 다시 시도하세요", msg.reqId);
           try {
             const product =
               msg.type === "product_update" ? await products.update(target, msg.patch ?? {}) : msg.type === "product_ping" ? await products.ping(target) : await products.insight(target);
             broadcast({ type: "product", product });
             return send(state, { type: "product", product, reqId: msg.reqId });
           } catch (e) {
-            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+            return sendThrown(state, e, msg.reqId);
           }
         }
         case "cross_review": {
@@ -741,29 +757,29 @@ export function createRunnerServer(cfg: RunnerConfig) {
             const reviewer = msg.reviewer === "codex" || msg.reviewer === "claude" ? msg.reviewer : "auto";
             return send(state, { type: "worklog_entry", entry: await startReview(msg.id, reviewer, msg.mode === "challenge" ? "challenge" : "review"), reqId: msg.reqId });
           } catch (e) {
-            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+            return sendThrown(state, e, msg.reqId);
           }
         }
         case "fs": {
           try {
             return send(state, { type: "fs", listing: listFolder(cfg.cwdRoot, typeof msg.path === "string" ? msg.path.slice(0, 1024) : null, folderContext()), reqId: msg.reqId });
           } catch (e) {
-            return send(state, { type: "error", message: (e as Error).message, reqId: msg.reqId });
+            return sendThrown(state, e, msg.reqId);
           }
         }
         case "workspace": {
           if (!isSafeId(msg.id)) return;
           const s = sessions.get(msg.id);
-          if (!s) return send(state, { type: "error", message: `no session ${msg.id}` });
+          if (!s) return sendError(state, "session_not_found", `no session ${msg.id}`);
           const git = await gitSummary(s.cwd);
           return send(state, { type: "workspace", info: { id: s.id, cwd: s.cwd, git, activity: supervisor.activity(s.id) } });
         }
         default:
-          return send(state, { type: "error", message: "unknown message type" });
+          return sendError(state, "unknown_message", "unknown message type");
       }
     } catch (e) {
       const reqId = msg.type === "create" ? msg.reqId : undefined;
-      send(state, { type: "error", message: (e as Error).message, reqId });
+      sendThrown(state, e, reqId);
     }
   }
 

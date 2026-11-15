@@ -7,6 +7,7 @@ import type { Brain, BrainMessage } from "./brain.js";
 import { presetInfos } from "../presets.js";
 import { compactTail, describeInput } from "./supervisor.js";
 import { redactSecrets } from "../security.js";
+import { RunnerError } from "../errors.js";
 
 export interface ChatOptions {
   cwdRoot: string;
@@ -132,7 +133,7 @@ export class ControlChat {
   private safeDir(p: unknown): string {
     const target = path.resolve(typeof p === "string" && p.trim() ? p : this.opts.cwdRoot);
     const rel = path.relative(this.opts.cwdRoot, target);
-    if (rel.startsWith("..") || path.isAbsolute(rel)) throw new Error(`루트(${this.opts.cwdRoot}) 밖의 경로는 쓸 수 없습니다`);
+    if (rel.startsWith("..") || path.isAbsolute(rel)) throw new RunnerError("cwd_outside_root", `루트(${this.opts.cwdRoot}) 밖의 경로는 쓸 수 없습니다`);
     return target;
   }
 

@@ -3,6 +3,7 @@ import path from "node:path";
 import type { PlaybookEntry, PlaybookInput } from "./protocol.js";
 import type { Brain } from "./supervisor/brain.js";
 import type { WorkLogEntry } from "./protocol.js";
+import { RunnerError } from "./errors.js";
 
 const SECTIONS = [
   ["symptom", "증상"],
@@ -121,8 +122,8 @@ export function sanitizeInput(raw: Partial<PlaybookInput> | undefined): Playbook
     example: clean(raw?.example),
     related: strs(raw?.related, 12),
   };
-  if (!input.title) throw new Error("제목이 필요합니다");
-  if (!input.symptom || !input.fix) throw new Error("증상과 해결책은 필수입니다");
+  if (!input.title) throw new RunnerError("bad_request", "제목이 필요합니다");
+  if (!input.symptom || !input.fix) throw new RunnerError("bad_request", "증상과 해결책은 필수입니다");
   return input;
 }
 

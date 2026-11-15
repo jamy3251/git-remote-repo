@@ -5,6 +5,7 @@ import path from "node:path";
 import type { CompileRequest, CompileResponse, StepResult } from "../protocol.js";
 import { isWindows } from "../config.js";
 import { findLanguage, outputBinaryName, probeLanguage, type LanguageDef } from "./languages.js";
+import { RunnerError } from "../errors.js";
 
 export interface RunLimits {
   compileTimeoutMs: number;
@@ -128,10 +129,10 @@ function substitute(value: string, vars: Vars): string {
 
 export async function compileAndRun(req: CompileRequest, limits: RunLimits): Promise<CompileResponse> {
   const def: LanguageDef | undefined = findLanguage(req.language);
-  if (!def) throw new Error(`unsupported language: ${req.language}`);
-  if (!probeLanguage(def).available) throw new Error(`toolchain not installed for ${def.label}`);
-  if (typeof req.code !== "string" || req.code.length === 0) throw new Error("code is required");
-  if (req.code.length > 200_000) throw new Error("code too large (200KB max)");
+  if (!def) throw new RunnerError("bad_request", `unsupported language: ${req.language}`);
+  if (!probeLanguage(def).available) throw new RunnerError("cli_missing", `toolchain not installed for ${def.label}`);
+  if (typeof req.code !== "string" || req.code.length === 0) throw new RunnerError("bad_request", "code is required");
+  if (req.code.length > 200_000) throw new RunnerError("body_too_large", "code too large (200KB max)");
 
   const runTimeout = Math.min(Math.max(Number(req.timeoutMs ?? 5000), 100), limits.runTimeoutMaxMs);
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "devhub-compile-"));

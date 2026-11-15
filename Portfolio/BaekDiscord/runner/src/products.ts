@@ -6,6 +6,7 @@ import type { Product, ProductHealth, ProductInsight, ProductMeta, ProductMetaPa
 import type { Brain } from "./supervisor/brain.js";
 import { SKIP, markersOf } from "./fsbrowse.js";
 import { claudeTranscripts } from "./cliactivity.js";
+import { RunnerError } from "./errors.js";
 
 const run = promisify(execFile);
 
@@ -361,7 +362,7 @@ export class ProductStore {
   private async find(p: string): Promise<Product> {
     const { products } = await this.list();
     const hit = products.find((x) => norm(x.path) === norm(p));
-    if (!hit) throw new Error(`프로덕트를 찾을 수 없습니다: ${p}`);
+    if (!hit) throw new RunnerError("not_found", `프로덕트를 찾을 수 없습니다: ${p}`);
     return hit;
   }
 
@@ -380,7 +381,7 @@ export class ProductStore {
   /** HTTP GET the deploy URL (6s timeout) and remember whether it answered. */
   async ping(p: string): Promise<Product> {
     const prod = await this.find(p);
-    if (!prod.deployUrl) throw new Error("배포 주소가 없습니다. 카드에서 주소를 넣어 주세요");
+    if (!prod.deployUrl) throw new RunnerError("bad_request", "배포 주소가 없습니다. 카드에서 주소를 넣어 주세요");
     const start = Date.now();
     let result: ProductMeta["ping"];
     try {

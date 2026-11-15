@@ -188,3 +188,38 @@ describe("websocket sessions", () => {
     c.ws.close();
   });
 });
+
+describe("error contract (docs/errors.md)", () => {
+  const h = { authorization: `Bearer ${cfg.token}` };
+
+  it("puts code, fix and retry on HTTP errors", async () => {
+    const r = await fetch(`${base()}/runner/languages`, { headers: { authorization: "Bearer wrong" } });
+    expect(r.status).toBe(401);
+    const j = (await r.json()) as Record<string, unknown>;
+    expect(j).toMatchObject({ error: "invalid token", code: "auth_invalid", retry: "after_fix" });
+    expect(typeof j.fix).toBe("string");
+    expect(typeof j.remainingAttempts).toBe("number");
+
+    const nf = await fetch(`${base()}/runner/nope`, { headers: h });
+    expect(nf.status).toBe(404);
+    expect(await nf.json()).toMatchObject({ code: "not_found", retry: "no" });
+
+    const bad = await fetch(`${base()}/runner/sessions`, { method: "POST", headers: { ...h, "content-type": "application/json" }, body: "{not json" });
+    expect(bad.status).toBe(400);
+    expect(await bad.json()).toMatchObject({ code: "invalid_json" });
+
+    const missing = await fetch(`${base()}/runner/sessions/zzzz/output`, { headers: h });
+    expect(await missing.json()).toMatchObject({ code: "session_not_found" });
+  });
+
+  it("puts the same fields on WS errors", async () => {
+    const c = await connect();
+    await c.next((m) => m.type === "welcome");
+    c.send({ type: "create", reqId: "r1", req: { preset: "custom", command: "echo hi", cwd: path.resolve(cfg.cwdRoot, "..", "..", "..") } });
+    const e = await c.next((m) => m.type === "error");
+    expect(e).toMatchObject({ code: "cwd_outside_root", retry: "after_fix", reqId: "r1" });
+    c.send({ type: "no_such_thing" });
+    expect(await c.next((m) => m.type === "error")).toMatchObject({ code: "unknown_message", retry: "no" });
+    c.ws.close();
+  });
+});

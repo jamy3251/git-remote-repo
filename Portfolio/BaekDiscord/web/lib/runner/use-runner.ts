@@ -25,6 +25,7 @@ import type {
 } from "./protocol";
 import { loadRunnerSettings, saveRunnerSettings, wsUrl, type RunnerSettings } from "./settings";
 import { Backoff, PING_INTERVAL_MS, pongOverdue } from "./connection";
+import { RunnerCallError, describeError } from "./labels";
 
 /** reconnecting: dropped and a retry is scheduled (nextRetryAt); closed: stopped on purpose. */
 export type ConnectionStatus = "idle" | "connecting" | "open" | "reconnecting" | "unauthorized" | "closed";
@@ -226,7 +227,7 @@ export function useRunner(): RunnerApi {
       if ("reqId" in msg && msg.reqId && pending.current.has(msg.reqId) && msg.type !== "created") {
         const p = pending.current.get(msg.reqId)!;
         pending.current.delete(msg.reqId);
-        if (msg.type === "error") p.reject(new Error(msg.message));
+        if (msg.type === "error") p.reject(new RunnerCallError(msg));
         else p.resolve(msg);
         if (msg.type !== "worklog_entry" && msg.type !== "product" && msg.type !== "products") return;
       }
@@ -301,8 +302,8 @@ export function useRunner(): RunnerApi {
           setWorkspaces((prev) => ({ ...prev, [msg.info.id]: msg.info }));
           break;
         case "error": {
-          setLastError(msg.message);
-          if (msg.message === "invalid token") setStatus("unauthorized");
+          setLastError(describeError(msg));
+          if (msg.code === "auth_invalid" || msg.code === "auth_locked" || msg.message === "invalid token") setStatus("unauthorized");
           break;
         }
       }

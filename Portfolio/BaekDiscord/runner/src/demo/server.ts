@@ -7,6 +7,13 @@ import http from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { ChatTurn, ClientMessage, PresetInfo, ServerMessage, SessionInfo, SupervisorConfig, SupervisorEvent, TunnelStatus, WorkLogEntry, WorkspaceInfo } from "../protocol.js";
 import { proxyHttp, proxyUpgrade } from "../proxy.js";
+import { errorInfo, type ErrorCode } from "../errors.js";
+
+function demoError(code: ErrorCode, message: string, reqId?: string): ServerMessage {
+  const { status: _status, error, ...rest } = errorInfo(code, message);
+  void _status;
+  return { type: "error", message: error, ...rest, ...(reqId ? { reqId } : {}) };
+}
 
 export const DEMO_TOKEN = "demo";
 const CWD_ROOT = "C:\\demo";
@@ -393,7 +400,7 @@ export function createDemoServer(opts: DemoServerOptions) {
           tunnel = { ...tunnel, state: "stopped", url: null, remoteClients: 0, startedAt: null, closesAt: null };
           broadcast({ type: "tunnel", status: tunnel });
         } else if (msg.action === "start") {
-          send(ws, { type: "error", message: "데모에서는 원격 터널을 열 수 없습니다.", reqId });
+          send(ws, demoError("demo_unsupported", "데모에서는 원격 터널을 열 수 없습니다.", reqId));
         } else send(ws, { type: "tunnel", status: tunnel });
         return;
       case "workspace": {
@@ -411,7 +418,7 @@ export function createDemoServer(opts: DemoServerOptions) {
       case "resize":
         return;
       default:
-        return send(ws, { type: "error", message: "데모에서는 이 기능이 동작하지 않습니다.", reqId });
+        return send(ws, demoError("demo_unsupported", "데모에서는 이 기능이 동작하지 않습니다.", reqId));
     }
   }
 
@@ -452,7 +459,7 @@ export function createDemoServer(opts: DemoServerOptions) {
           try {
             handle(ws, JSON.parse(raw.toString()) as ClientMessage);
           } catch {
-            send(ws, { type: "error", message: "invalid JSON" });
+            send(ws, demoError("invalid_json", "invalid JSON"));
           }
         });
         ws.on("close", () => clients.delete(ws));

@@ -8,6 +8,7 @@ import type { CreateSessionRequest, Policy, SessionInfo, SessionStatus } from ".
 import { findPreset } from "./presets.js";
 import { isWindows } from "./config.js";
 import { tailLines } from "./supervisor/ansi.js";
+import { RunnerError } from "./errors.js";
 
 interface Session {
   info: SessionInfo;
@@ -108,10 +109,10 @@ export class SessionManager extends EventEmitter {
   resolveCwd(cwd?: string): string {
     const target = path.resolve(cwd ? cwd : this.opts.cwdRoot);
     if (!isInside(this.opts.cwdRoot, target)) {
-      throw new Error(`cwd must be inside ${this.opts.cwdRoot}`);
+      throw new RunnerError("cwd_outside_root", `cwd must be inside ${this.opts.cwdRoot}`);
     }
     if (!fs.existsSync(target) || !fs.statSync(target).isDirectory()) {
-      throw new Error(`cwd does not exist: ${target}`);
+      throw new RunnerError("folder_missing", `cwd does not exist: ${target}`);
     }
     return target;
   }
@@ -119,15 +120,15 @@ export class SessionManager extends EventEmitter {
   create(req: CreateSessionRequest): SessionInfo {
     const running = [...this.sessions.values()].filter((s) => s.info.status === "running").length;
     if (running >= this.opts.maxSessions) {
-      throw new Error(`session limit reached (${this.opts.maxSessions})`);
+      throw new RunnerError("session_limit", `session limit reached (${this.opts.maxSessions})`);
     }
     const preset = findPreset(req.preset);
-    if (!preset) throw new Error(`unknown preset: ${req.preset}`);
+    if (!preset) throw new RunnerError("preset_unknown", `unknown preset: ${req.preset}`);
     const command = (preset.command || req.command || "").trim();
-    if (!command) throw new Error("command is required for custom preset");
+    if (!command) throw new RunnerError("bad_request", "command is required for custom preset");
     const cwd = this.resolveCwd(req.cwd);
     const prompt = (req.prompt ?? "").trim();
-    if (preset.acceptsPrompt && !prompt) throw new Error("prompt is required for this preset");
+    if (preset.acceptsPrompt && !prompt) throw new RunnerError("bad_request", "prompt is required for this preset");
 
     const id = randomUUID().slice(0, 8);
     const info: SessionInfo = {
