@@ -29,7 +29,22 @@ export interface SessionManagerOptions {
 }
 
 /** Variables a session's agent must never see: the runner's own admin credential. */
-const SESSION_ENV_DENY = ["RUNNER_TOKEN"];
+const SESSION_ENV_DENY = [
+  "RUNNER_TOKEN",
+  // Markers of the Claude Code session that started the runner (e.g. `npm run dev` asked of Claude).
+  // Inherited, they make every child `claude` a sub-session: transcript saving turns off, so the
+  // session cannot be resumed later. The messaging token is also that parent's credential.
+  "CLAUDECODE",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+  "CLAUDE_PID",
+  "CLAUDE_EFFORT",
+];
 
 /** Environment for a spawned session: the runner's environment minus its credentials, plus session markers. */
 export function sessionEnv(base: NodeJS.ProcessEnv, id: string): Record<string, string> {

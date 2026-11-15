@@ -74,3 +74,9 @@
 - **Why:** 여러 회사 CLI 관제가 차별점인데 hook은 Claude 전용이다.
 - **Context:** 공식 기능 관문에서 Codex 쪽 신호 수단을 조사한 뒤.
 - **Effort:** 사람 M / CC S. **Priority:** P2.
+
+## 새 폴더 신뢰 확인 화면 처리
+- **What:** Claude Code가 처음 보는 폴더에서 띄우는 신뢰 확인(기본 선택 "No, exit")을 감지해 "폴더 신뢰 확인 필요"로 보이고, 슈퍼바이저 자동 응답이 여기에 Enter를 보내지 않게 막는다.
+- **Why:** 자동 Enter는 세션을 바로 종료시킨다(hook 스파이크에서 확인, `docs/designs/devhub-control.md` 2절).
+- **Context:** hook 신호 단계에서 같이. 신뢰 결정은 사용자 몫이라 자동 승인은 하지 않는다.
+- **Effort:** 사람 S / CC S. **Priority:** P2.

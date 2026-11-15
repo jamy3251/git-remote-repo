@@ -118,4 +118,16 @@ describe("sessionEnv", () => {
     expect(env.PATH).toBe("/bin");
     expect(env.DEVHUB_SESSION).toBe("abc");
   });
+
+  it("drops the parent Claude Code session's markers but keeps user configuration", () => {
+    const env = sessionEnv(
+      { PATH: "/bin", CLAUDECODE: "1", CLAUDE_CODE_CHILD_SESSION: "1", CLAUDE_CODE_MESSAGING_TOKEN: "t", CLAUDE_CODE_USE_BEDROCK: "1", CLAUDE_CODE_GIT_BASH_PATH: "C:/git/bash.exe" },
+      "abc",
+    );
+    expect(env.CLAUDECODE).toBeUndefined();
+    expect(env.CLAUDE_CODE_CHILD_SESSION).toBeUndefined();
+    expect(env.CLAUDE_CODE_MESSAGING_TOKEN).toBeUndefined();
+    expect(env.CLAUDE_CODE_USE_BEDROCK).toBe("1");
+    expect(env.CLAUDE_CODE_GIT_BASH_PATH).toBe("C:/git/bash.exe");
+  });
 });
