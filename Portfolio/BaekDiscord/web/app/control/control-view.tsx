@@ -4,6 +4,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import type { PlaybookInput, Policy } from "@/lib/runner/protocol";
 import { useRunner, type RunnerApi } from "@/lib/runner/use-runner";
 import { useAttention } from "@/lib/runner/use-attention";
+import { metricItems } from "@/lib/runner/metrics";
 import { NotifyBar } from "@/components/control/notify-bar";
 import { RunnerSettingsBar } from "@/components/runner-settings-bar";
 import { Overview } from "@/components/control/overview";
@@ -258,6 +259,16 @@ function SupervisorBar({ runner }: { runner: RunnerApi }) {
           호출 {usage.brainCalls}
           {usage.brainErrors ? <span className="text-danger"> (오류 {usage.brainErrors})</span> : null} · 입력 {usage.inputTokens.toLocaleString()} · 출력 {usage.outputTokens.toLocaleString()} 토큰
         </span>
+      )}
+      {supervisor?.metrics && (
+        <div className="flex w-full flex-wrap gap-x-4 gap-y-1 border-t border-border pt-2 text-xs text-muted">
+          {metricItems(supervisor.metrics).map((m) => (
+            <span key={m.label} title={m.hint}>
+              {m.label} <span className={m.warn ? "text-warn" : "text-foreground"}>{m.value}</span>
+            </span>
+          ))}
+          {supervisor.metrics.writeError ? <span className="text-danger">판단 기록 저장 실패 · 이벤트 로그 확인</span> : null}
+        </div>
       )}
     </section>
   );

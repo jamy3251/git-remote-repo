@@ -166,9 +166,10 @@ Claude Code에서 이 러너를 쓰려면 `/devhub-runner` 스킬(`D:\Projects\.
 | --- | --- |
 | `npm run demo` | 데모 (가짜 러너 + 웹, 브라우저 열기). `--check`는 /control 200 확인 후 종료(CI용) |
 | `npm run dev` | 러너 + 웹 동시 실행 (Windows 포함, Ctrl+C로 둘 다 종료) |
-| `npm test` | 러너(131) + 웹(55) vitest |
+| `npm test` | 러너(150) + 웹(57) vitest |
 | `npm run typecheck` | 러너 + 웹 `tsc --noEmit` |
 | `npm run check:protocol` | `runner/src/protocol.ts`와 `web/lib/runner/protocol.ts` 사본 일치 검사 |
+| `npm run eval:supervisor` | 판단 기록(`runner/.data/decisions.jsonl`)으로 슈퍼바이저 채점: 제안 승인률, 자율 일치율, 방치 시간, 사고. 50건 미만이면 "표본 부족". `--json`, `--file <경로>` |
 | `npm run build` | 러너 `tsc` + 웹 `next build` |
 | `npm run lint` | 웹 eslint |
 | `npm run ctl -w runner -- sessions` | devhubctl (health · sessions · create · send · output · kill · workspace · events · chat · tunnel · fs · claude · attach · worklog · review) |

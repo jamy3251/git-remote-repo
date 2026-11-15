@@ -80,3 +80,9 @@
 - **Why:** 자동 Enter는 세션을 바로 종료시킨다(hook 스파이크에서 확인, `docs/designs/devhub-control.md` 2절).
 - **Context:** hook 신호 단계에서 같이. 신뢰 결정은 사용자 몫이라 자동 승인은 하지 않는다.
 - **Effort:** 사람 S / CC S. **Priority:** P2.
+
+## eval:supervisor 모델 재실행
+- **What:** `--engine`, `--limit`로 저장된 판단 입력을 모델 엔진에 다시 넣어 사람 응답과 비교.
+- **Why:** 판단 프롬프트를 바꿨을 때 회귀를 보려면 필요하다. 지금은 기록 집계와 휴리스틱 재실행만 있다.
+- **Context:** 판단 기록에 프롬프트 해시와 마스킹한 입력이 이미 저장된다. 표본 50건이 쌓인 뒤 착수. 비용 상한은 `--limit` 필수.
+- **Effort:** 사람 S / CC S. **Priority:** P2.

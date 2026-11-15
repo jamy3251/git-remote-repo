@@ -34,6 +34,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck -w runner
       - run: npm test -w runner
+      # Aggregate + heuristic re-run on a fixed sample (model re-runs never run in CI).
+      - run: npm run eval:supervisor -w runner -- --file test/fixtures/decisions.sample.jsonl
 
   web:
     runs-on: ubuntu-latest

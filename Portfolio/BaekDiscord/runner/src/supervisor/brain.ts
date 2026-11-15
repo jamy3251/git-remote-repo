@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import type { AgentState } from "../protocol.js";
 import { binaryAvailable } from "../presets.js";
 import { isWindows } from "../config.js";
@@ -96,6 +97,9 @@ function judgePrompt(input: BrainJudgeInput): string {
     "```",
   ].join("\n");
 }
+
+/** Identifies the judge prompt in decision records, so eval can tell which prompt made a call. */
+export const JUDGE_PROMPT_HASH = createHash("sha256").update(JUDGE_SYSTEM).update(judgePrompt.toString()).digest("hex").slice(0, 12);
 
 class ApiBrain implements Brain {
   kind: BrainKind = "api";

@@ -105,6 +105,33 @@ export interface SupervisorConfig {
   notifyWebhook: boolean;
   /** Brain token accounting since the runner started. */
   usage: { brainCalls: number; brainErrors: number; inputTokens: number; outputTokens: number };
+  /** From the decision log (docs/designs/devhub-next-20261113.md). Absent when the log is off. */
+  metrics?: DecisionMetrics;
+}
+
+/** A rate with its denominator. `enough` is false below 50 samples: show "표본 부족", not the rate. */
+export interface RateStat {
+  hit: number;
+  total: number;
+  rate: number | null;
+  enough: boolean;
+}
+
+export interface DecisionMetrics {
+  decisions: number;
+  /** Decisions a person answered (approve, dismiss or typed). */
+  answered: number;
+  /** Of the engine's proposed answers, how many the person approved unchanged. */
+  approval: RateStat;
+  /** Of the cases the engine would have sent itself, how often the person answered the same. */
+  autoAgreement: RateStat & { undetermined: number };
+  /** Median time from "waiting for input" to a person's answer. */
+  waitMedianMs: number | null;
+  waitSamples: number;
+  interventionsToday: number;
+  incidents: { autoReverted: number; missedWaits: number };
+  autoSent: number;
+  writeError?: boolean;
 }
 
 export interface GitFileChange {

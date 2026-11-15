@@ -5,6 +5,8 @@ import type { SessionManager } from "../sessions.js";
 import type { Brain, BrainDecision } from "./brain.js";
 import { heuristicSuggestion, isSafeAutoInput, judgeHeuristically, type Judgment } from "./heuristics.js";
 import { redactSecrets } from "../security.js";
+import { JUDGE_PROMPT_HASH } from "./brain.js";
+import type { DecisionLog } from "./decisions.js";
 
 export interface SupervisorOptions {
   enabled: boolean;
@@ -15,6 +17,9 @@ export interface SupervisorOptions {
   brainCooldownMs?: number;
   /** Bucket width for the activity sparkline. */
   activityBucketMs?: number;
+  /** Decision records for metrics and eval:supervisor. Off when null (tests, demo). */
+  decisions?: DecisionLog | null;
+  runnerVersion?: string;
 }
 
 interface Track {
@@ -24,6 +29,8 @@ interface Track {
   activity: number[];
   bucketStart: number;
   bytesSeen: number;
+  /** When the current wait for input began; null while not waiting. */
+  waitingSince: number | null;
 }
 
 export interface UsageTotals {
@@ -104,6 +111,7 @@ export class Supervisor extends EventEmitter {
       brainModel: this.brain.model,
       notifyWebhook: Boolean(this.opts.notify),
       usage: { ...this.usage },
+      ...(this.opts.decisions ? { metrics: this.opts.decisions.metrics() } : {}),
     };
   }
 
@@ -155,6 +163,7 @@ export class Supervisor extends EventEmitter {
     const s = this.sessions.get(id);
     if (!s || !s.suggestion || s.suggestion.id !== suggestionId) return s;
     const sug = s.suggestion;
+    this.opts.decisions?.verdict(id, decision === "approve" ? "approved" : "dismissed");
     if (decision === "approve" && sug.kind === "respond" && sug.input !== undefined) {
       this.sessions.write(id, sug.input);
       this.log("action", id, actor, `제안 승인 → 입력 전송: ${describeInput(sug.input)} (${sug.label})`);
@@ -173,7 +182,7 @@ export class Supervisor extends EventEmitter {
   private track(s: SessionInfo, now: number): Track {
     let t = this.tracks.get(s.id);
     if (!t) {
-      t = { judgedHash: null, judgedAt: 0, lastNotifyAt: 0, activity: new Array(ACTIVITY_BUCKETS).fill(0), bucketStart: now, bytesSeen: 0 };
+      t = { judgedHash: null, judgedAt: 0, lastNotifyAt: 0, activity: new Array(ACTIVITY_BUCKETS).fill(0), bucketStart: now, bytesSeen: 0, waitingSince: null };
       this.tracks.set(s.id, t);
     }
     const width = this.opts.activityBucketMs ?? 30_000;
@@ -217,12 +226,21 @@ export class Supervisor extends EventEmitter {
       const level = j.state === "error" ? "error" : j.state === "waiting_input" ? "warn" : "info";
       this.log(level, s.id, "supervisor", `${stateLabel(j.state)} — ${j.reason}`);
       if (j.state !== "waiting_input") t.judgedHash = null;
+      if (j.state === "waiting_input") t.waitingSince = now;
+      else {
+        t.waitingSince = null;
+        this.opts.decisions?.flush(s.id);
+      }
     } else if (j.reason !== s.stateReason) {
       this.sessions.patch(s.id, { stateReason: j.reason });
     }
 
     if (j.state !== "waiting_input" || s.policy === "manual") {
-      if (changed && j.state === "waiting_input" && s.policy === "manual") void this.notify(s, t, now, `입력 대기: ${j.reason}`);
+      if (changed && j.state === "waiting_input" && s.policy === "manual") {
+        // No engine runs under manual, but the wait itself is recorded so waiting time is measured.
+        this.recordDecision(s, j, tail, t, now, null, false, false, { kind: "none", model: null });
+        void this.notify(s, t, now, `입력 대기: ${j.reason}`);
+      }
       return;
     }
     if (s.suggestion || this.inflight.has(s.id)) return;
@@ -257,16 +275,21 @@ export class Supervisor extends EventEmitter {
       if (!current || current.state !== "waiting_input" || current.suggestion) return;
 
       const suggestion = decision ? fromDecision(decision, j) : heuristicSuggestion(j);
-      if (!suggestion) return;
+      const engine = decision ? { kind: this.brain.kind, model: this.brain.model } : { kind: "heuristic", model: null };
+      if (!suggestion) {
+        this.recordDecision(current, j, tail, t, now, null, false, false, engine);
+        return;
+      }
       const full: Suggestion = { ...suggestion, id: randomUUID().slice(0, 8), createdAt: Date.now() };
 
-      const autoOk =
-        current.policy === "auto" &&
+      const wouldAuto =
         full.kind === "respond" &&
         full.input !== undefined &&
         !j.danger &&
         full.confidence >= 0.7 &&
         (full.source === "brain" || isSafeAutoInput(full.input));
+      const autoOk = current.policy === "auto" && wouldAuto;
+      this.recordDecision(current, j, tail, t, now, suggestion, wouldAuto, autoOk, engine);
       if (autoOk) {
         this.sessions.write(s.id, full.input as string);
         this.log("action", s.id, "supervisor", `자율 응답: ${describeInput(full.input as string)} — ${full.rationale} (신뢰도 ${full.confidence.toFixed(2)})`);
@@ -278,6 +301,39 @@ export class Supervisor extends EventEmitter {
     } finally {
       this.inflight.delete(s.id);
     }
+  }
+
+  /** A person typed into a session (terminal keys arrive one at a time; the log groups them). */
+  noteHumanInput(id: string, data: string): void {
+    this.opts.decisions?.humanInput(id, data);
+  }
+
+  noteHumanKill(id: string): void {
+    this.opts.decisions?.humanKill(id);
+  }
+
+  private recordDecision(
+    s: SessionInfo,
+    j: Judgment,
+    tail: string[],
+    t: Track,
+    now: number,
+    proposal: Omit<Suggestion, "id" | "createdAt"> | null,
+    wouldAuto: boolean,
+    autoSent: boolean,
+    engine: { kind: string; model: string | null },
+  ): void {
+    this.opts.decisions?.record({
+      session: s,
+      judgment: j,
+      tail,
+      now,
+      waitingSince: t.waitingSince,
+      engine: { ...engine, runner: this.opts.runnerVersion ?? "unknown", promptHash: engine.kind === "api" || engine.kind === "claude-cli" ? JUDGE_PROMPT_HASH : null },
+      proposal,
+      wouldAuto,
+      autoSent,
+    });
   }
 
   private async notify(s: SessionInfo, t: Track, now: number, text: string): Promise<void> {

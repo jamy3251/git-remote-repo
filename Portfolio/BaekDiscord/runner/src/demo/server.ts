@@ -220,6 +220,18 @@ export function createDemoServer(opts: DemoServerOptions) {
     brainModel: null,
     notifyWebhook: false,
     usage: { brainCalls: 0, brainErrors: 0, inputTokens: 0, outputTokens: 0 },
+    // Sample numbers, still under the 50-sample minimum, so the screen shows "표본 부족" as a real one would early on.
+    metrics: {
+      decisions: 23,
+      answered: 19,
+      approval: { hit: 14, total: 17, rate: 14 / 17, enough: false },
+      autoAgreement: { hit: 11, total: 12, rate: 11 / 12, enough: false, undetermined: 1 },
+      waitMedianMs: 96_000,
+      waitSamples: 19,
+      interventionsToday: 6,
+      incidents: { autoReverted: 0, missedWaits: 1 },
+      autoSent: 4,
+    },
   };
   let tunnel: TunnelStatus = {
     provider: "ngrok",

@@ -9,6 +9,8 @@ import { languageInfos } from "./compiler/languages.js";
 import { compileAndRun, judge, Semaphore } from "./compiler/run.js";
 import { createBrain } from "./supervisor/brain.js";
 import { Supervisor } from "./supervisor/supervisor.js";
+import { DecisionLog, type LogRecord } from "./supervisor/decisions.js";
+import { JsonlLog } from "./store/files.js";
 import { ControlChat } from "./supervisor/chat.js";
 import { TunnelManager } from "./tunnel.js";
 import { listFolder, type FolderContext } from "./fsbrowse.js";
@@ -133,11 +135,18 @@ export function createRunnerServer(cfg: RunnerConfig) {
       supervisor.usage.outputTokens += output;
     },
   });
+  // Decision records are never rotated: they are the golden set for `npm run eval:supervisor`.
+  const decisions = new DecisionLog(
+    new JsonlLog<LogRecord>(path.join(process.cwd(), ".data", "decisions.jsonl"), { rotate: false, onSkipped: (n) => console.warn(`[runner] decisions.jsonl: 깨진 줄 ${n}개 건너뜀`) }),
+    (message) => supervisor.log("error", null, "system", message),
+  );
   const supervisor = new Supervisor(sessions, brain, {
     enabled: cfg.supervisor.enabled,
     defaultPolicy: cfg.supervisor.defaultPolicy,
     intervalMs: cfg.supervisor.intervalMs,
     notify: cfg.supervisor.notifyWebhook ? (text) => postDiscord(cfg.supervisor.notifyWebhook as string, text) : null,
+    decisions,
+    runnerVersion: RUNNER_VERSION,
   });
   const chat = new ControlChat(brain, sessions, supervisor, {
     cwdRoot: cfg.cwdRoot,
@@ -302,6 +311,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
   sessions.on("removed", (id: string) => broadcast({ type: "removed", id }));
   supervisor.on("event", (event: SupervisorEvent) => broadcast({ type: "event", event }));
   supervisor.on("config", () => broadcast({ type: "supervisor", config: supervisor.config() }));
+  decisions.onWrite = () => broadcast({ type: "supervisor", config: supervisor.config() });
   tunnel.on("change", (status) => broadcast({ type: "tunnel", status }));
   tunnel.on("url", (url: string) => {
     allowedOrigins.add(url);
@@ -475,11 +485,13 @@ export function createRunnerServer(cfg: RunnerConfig) {
           const body = (await readJson(req, 64_000)) as { data?: string };
           const data = clampString(body.data, 16_000);
           sessions.write(id, data);
+          supervisor.noteHumanInput(id, data);
           supervisor.log("action", id, "human", `입력(HTTP) ${data.length}자`);
           return json(200, { ok: true });
         }
         if (action === "kill" && req.method === "POST") {
           sessions.kill(id);
+          supervisor.noteHumanKill(id);
           supervisor.log("action", id, "human", "종료(HTTP)");
           return json(200, { ok: true });
         }
@@ -621,7 +633,10 @@ export function createRunnerServer(cfg: RunnerConfig) {
           return;
         case "input": {
           const data = clampString(msg.data, 16_000);
-          for (const id of msg.ids.filter(isSafeId)) sessions.write(id, data);
+          for (const id of msg.ids.filter(isSafeId)) {
+            sessions.write(id, data);
+            supervisor.noteHumanInput(id, data);
+          }
           return;
         }
         case "resize": {
@@ -634,6 +649,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
         case "kill":
           for (const id of msg.ids.filter(isSafeId)) {
             sessions.kill(id);
+            supervisor.noteHumanKill(id);
             supervisor.log("action", id, "human", "세션 종료");
           }
           return;
