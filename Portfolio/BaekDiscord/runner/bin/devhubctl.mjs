@@ -5,6 +5,8 @@
  *   devhubctl health
  *   devhubctl sessions [--json]
  *   devhubctl create --preset claude-print --cwd D:\Projects\X --prompt "..." [--name n] [--goal g] [--policy assist|auto|manual]
+ *                   [--allow-overlap]            겹치는 폴더에 실행 중인 세션이 있어도 시작
+ *                   [--no-hooks]                 Claude Code hook을 붙이지 않음(상태는 출력으로 추정)
  *   devhubctl send <id> "text" [--no-enter]
  *   devhubctl output <id> [--lines 60]
  *   devhubctl kill <id>
@@ -19,6 +21,11 @@
  *   devhubctl claude [claude 인자...]             이 폴더에서 Claude Code를 러너 세션으로 실행하고 이 창에 붙음.
  *                                               폰 대시보드와 같은 화면을 공유. Ctrl+] = 분리(세션은 계속 실행)
  *   devhubctl attach <id>                        실행 중인 세션을 이 창에 붙임 (Ctrl+] 분리)
+ *   devhubctl help | --help | -h                 이 도움말
+ *
+ * 같은 폴더(또는 상위·하위)에 쓰기 세션이 이미 돌고 있으면 create와 claude는 멈추고 겹치는 세션을
+ * 보여 줍니다. claude는 그 자리에서 y/N을 묻고, create는 --allow-overlap을 붙여 다시 실행합니다.
+ * 종료 코드: 0 성공, 1 실패(메시지와 고칠 방법을 stderr에 출력).
  *
  * Shortcut: runner/bin/dclaude.cmd 를 PATH에 두면 `dclaude --continue` 처럼 claude 대신 씁니다.
  *
@@ -66,7 +73,11 @@ async function api(method, route, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error ?? `${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    const e = new Error(json.error ?? `${res.status} ${res.statusText}`);
+    e.info = json;
+    throw e;
+  }
   return json;
 }
 
@@ -157,12 +168,38 @@ function printSessions(list) {
   }
 }
 
+const RELATION = { same: "같은 폴더", parent: "상위 폴더", child: "하위 폴더", root: "작업 폴더 전체" };
+
+function printOverlaps(overlaps) {
+  console.error("겹치는 폴더에서 이미 실행 중인 세션이 있습니다 (두 에이전트가 같은 파일을 고치면 서로 덮어씁니다):");
+  for (const o of overlaps ?? []) console.error(`  ${o.id}  ${o.name}  ${RELATION[o.relation] ?? o.relation}  ${o.cwd}`);
+}
+
+function askYesNo(question) {
+  return new Promise((resolve) => {
+    process.stdout.write(question);
+    process.stdin.setEncoding("utf8");
+    process.stdin.resume();
+    process.stdin.once("data", (d) => {
+      process.stdin.pause();
+      resolve(/^y(es)?$/i.test(String(d).trim()));
+    });
+  });
+}
+
+function usage() {
+  return fs.readFileSync(fileURLToPath(import.meta.url), "utf8").split("*/")[0].replace(/^#!.*\r?\n/, "").replace(/^\/\*\*?\s?/, "").replace(/^ \* ?/gm, "");
+}
+
 async function main() {
+  if (["help", "--help", "-h"].includes(process.argv[2]) || (process.argv[2] !== "claude" && process.argv.slice(2).some((a) => a === "--help" || a === "-h"))) {
+    return console.log(usage());
+  }
   // `claude` passes every remaining argument through untouched (e.g. --continue, --resume <id>, -p "...").
   if (process.argv[2] === "claude") {
     const extra = process.argv.slice(3);
     const command = ["claude", ...extra.map(quoteArg)].join(" ");
-    const { session } = await api("POST", "/sessions", {
+    const req = {
       preset: "custom",
       command,
       cwd: process.cwd(),
@@ -170,7 +207,21 @@ async function main() {
       cols: process.stdout.columns || 100,
       rows: process.stdout.rows || 30,
       tags: ["pc"],
-    });
+    };
+    let session;
+    try {
+      ({ session } = await api("POST", "/sessions", req));
+    } catch (e) {
+      if (e.info?.code !== "folder_busy") throw e;
+      printOverlaps(e.info.overlaps);
+      if (!process.stdin.isTTY) throw new Error("겹치는 세션이 있어 시작하지 않았습니다. 기존 세션에 붙으려면: devhubctl attach <id>");
+      if (!(await askYesNo("그래도 여기서 새로 시작할까요? [y/N] "))) {
+        console.error(`시작하지 않았습니다. 기존 세션에 붙으려면: devhubctl attach ${e.info.overlaps?.[0]?.id ?? "<id>"}`);
+        process.exitCode = 1;
+        return;
+      }
+      ({ session } = await api("POST", "/sessions", { ...req, allowOverlap: true }));
+    }
     return attachConsole(session.id, { announce: `[devhub] ${session.id} · ${session.cwd} · 폰 대시보드에서도 보입니다 (Ctrl+] 분리)` });
   }
   const { positional, flags } = parseArgs(process.argv.slice(2));
@@ -187,16 +238,25 @@ async function main() {
     }
     case "create": {
       if (!flags.preset) throw new Error("--preset 필요 (claude-print, claude, codex-exec, codex, shell, custom)");
-      const { session } = await api("POST", "/sessions", {
-        preset: flags.preset,
-        cwd: flags.cwd,
-        prompt: flags.prompt,
-        name: flags.name,
-        goal: flags.goal ?? flags.prompt,
-        policy: flags.policy,
-        command: flags.command,
-        tags: ["devhubctl"],
-      });
+      let session;
+      try {
+        ({ session } = await api("POST", "/sessions", {
+          preset: flags.preset,
+          cwd: flags.cwd,
+          prompt: flags.prompt,
+          name: flags.name,
+          goal: flags.goal ?? flags.prompt,
+          policy: flags.policy,
+          command: flags.command,
+          tags: ["devhubctl"],
+          ...(flags["allow-overlap"] ? { allowOverlap: true } : {}),
+          ...(flags["no-hooks"] ? { hooks: false } : {}),
+        }));
+      } catch (e) {
+        if (e.info?.code !== "folder_busy") throw e;
+        printOverlaps(e.info.overlaps);
+        throw new Error("시작하지 않았습니다. 그래도 시작하려면 --allow-overlap을 붙여 다시 실행하세요.");
+      }
       return flags.json ? asJson(session) : console.log(`created ${session.id} ${session.name} @ ${session.cwd}`);
     }
     case "send": {
@@ -311,7 +371,8 @@ async function main() {
       return ws.close();
     }
     default:
-      console.log(fs.readFileSync(fileURLToPath(import.meta.url), "utf8").split("*/")[0].replace(/^\/\*\*?\s?/, ""));
+      if (cmd) console.error(`devhubctl: 모르는 명령 "${cmd}"`);
+      console.log(usage());
       process.exitCode = cmd ? 1 : 0;
   }
 }

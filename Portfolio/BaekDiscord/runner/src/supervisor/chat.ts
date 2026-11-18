@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { ChatAction, ChatTurn, CreateSessionRequest, LiveFolder, PlaybookEntry, Policy, Product, ReviewMode, ReviewerId, WorkLogEntry } from "../protocol.js";
+import type { ChatAction, ChatTurn, CreateSessionRequest, FolderOverlap, LiveFolder, PlaybookEntry, Policy, Product, ReviewMode, ReviewerId, WorkLogEntry } from "../protocol.js";
 import type { SessionManager } from "../sessions.js";
 import type { Supervisor } from "./supervisor.js";
 import type { Brain, BrainMessage } from "./brain.js";
@@ -8,6 +8,8 @@ import { presetInfos } from "../presets.js";
 import { compactTail, describeInput } from "./supervisor.js";
 import { redactSecrets } from "../security.js";
 import { RunnerError } from "../errors.js";
+import { detectDangerText } from "../danger.js";
+import { describeOverlaps } from "../overlap.js";
 
 export interface ChatOptions {
   cwdRoot: string;
@@ -24,9 +26,12 @@ export interface ChatOptions {
   playbook?: (query: string) => PlaybookEntry[];
   /** Start a cross-verification of a finished session by a different AI. */
   crossReview?: (id: string, reviewer: ReviewerId | "auto", mode: ReviewMode) => Promise<WorkLogEntry>;
+  /** Running sessions that would share a folder with a new one started in `cwd`. */
+  overlaps?: (cwd: string) => FolderOverlap[];
 }
 
-const DANGEROUS_INPUT = /\brm\s+-rf?\b|Remove-Item.*-Recurse|\bgit\s+push\b.*(--force|-f\b)|\bgit\s+reset\s+--hard\b|\bDROP\s+(TABLE|DATABASE)\b|\bformat\s+[a-z]:|\bshutdown\b|\bnpm\s+publish\b|\bvercel\s+--prod\b/i;
+/** Same table the supervisor and the hook judgment use (runner/src/danger.ts). */
+const DANGEROUS_INPUT = { test: (text: string): boolean => detectDangerText(text).danger };
 
 const SYSTEM = `당신은 개발자의 PC에서 돌아가는 CLI 에이전트 세션(Claude Code, Codex, 셸)을 지휘하는 관제 AI입니다. 사용자는 보통 휴대폰에서 짧게 지시합니다.
 
@@ -189,6 +194,13 @@ export class ControlChat {
           tags: ["chat"],
         };
         if (req.command && DANGEROUS_INPUT.test(req.command) && !confirmed) return "거부: 파괴적 명령으로 보입니다. 사용자가 '확인'이라고 말해야 실행합니다.";
+        // Two agents writing in one folder overwrite each other: the AI never decides that alone.
+        const overlaps = this.opts.overlaps?.(cwd) ?? [];
+        if (overlaps.length && !confirmed) {
+          this.supervisor.log("warn", null, "chat", `관제 AI의 세션 생성 보류: ${cwd}에서 이미 실행 중 (${describeOverlaps(overlaps)})`);
+          return `보류: 겹치는 폴더에서 이미 실행 중인 세션이 있습니다 — ${describeOverlaps(overlaps)}. 세션을 만들지 않았습니다. 사용자에게 기존 세션을 쓸지, 그래도 새로 시작할지 물어보세요. 사용자가 '확인'이라고 답하면 다시 시도할 수 있습니다.`;
+        }
+        if (overlaps.length) req.allowOverlap = true;
         const s = this.sessions.create(req);
         this.supervisor.log("action", s.id, "chat", `관제 AI가 세션 생성: ${s.name} (${s.preset}) @ ${s.cwd}`);
         return `생성됨: id=${s.id} name=${s.name}`;

@@ -26,6 +26,10 @@ function session(over: Partial<SessionInfo>): SessionInfo {
     suggestion: null,
     cols: 80,
     rows: 24,
+    agent: "claude",
+    interactive: true,
+    signal: "output",
+    claudeSessionId: null,
     ...over,
   };
 }

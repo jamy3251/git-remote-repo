@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { RunnerSettingsBar } from "@/components/runner-settings-bar";
 import { TerminalTile } from "@/components/terminal-tile";
 import { useRunner } from "@/lib/runner/use-runner";
+import { OverlapDialog } from "@/components/control/overlap-dialog";
 import type { CreateSessionRequest, Policy } from "@/lib/runner/protocol";
 
 type Columns = 1 | 2 | 3;
@@ -78,6 +79,7 @@ export function ConsoleView() {
 
   return (
     <div>
+      <OverlapDialog runner={runner} />
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold">CLI 다중 제어 콘솔</h1>

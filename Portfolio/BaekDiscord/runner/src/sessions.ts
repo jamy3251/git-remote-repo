@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { spawn as spawnChild, type ChildProcess } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import * as pty from "node-pty";
@@ -9,6 +9,8 @@ import { findPreset } from "./presets.js";
 import { isWindows } from "./config.js";
 import { tailLines } from "./supervisor/ansi.js";
 import { RunnerError } from "./errors.js";
+import { canInjectHooks, detectAgent, withHookSettings, writeHookSettings } from "./hooks.js";
+import { registerExactSecret, unregisterExactSecret } from "./security.js";
 
 interface Session {
   info: SessionInfo;
@@ -18,6 +20,17 @@ interface Session {
   /** The prompt a one-shot preset was started with (for the work log). */
   prompt: string | null;
   crossReview: CreateSessionRequest["crossReview"] | null;
+  /** Set when Claude Code hooks were attached: what the hook script must present, and its settings file. */
+  hook: { secret: string; settingsFile: string } | null;
+}
+
+export interface SessionHookOptions {
+  /** Where per-session settings files go (runner/.data/hooks). */
+  dir: string;
+  /** runner/bin/devhub-hook.mjs */
+  script: string;
+  /** `POST` target for the hook script, e.g. http://127.0.0.1:7331/runner/hooks. */
+  url: () => string;
 }
 
 export interface SessionManagerOptions {
@@ -27,6 +40,8 @@ export interface SessionManagerOptions {
   defaultPolicy: Policy;
   /** Called synchronously right before the process spawns (e.g. to snapshot the folder's git state). */
   beforeSpawn?: (info: SessionInfo) => void;
+  /** Attach Claude Code hooks to interactive Claude sessions. Off when null or absent. */
+  hooks?: SessionHookOptions | null;
 }
 
 /** Variables a session's agent must never see: the runner's own admin credential. */
@@ -154,17 +169,37 @@ export class SessionManager extends EventEmitter {
       suggestion: null,
       cols: clampDim(req.cols, 100),
       rows: clampDim(req.rows, 30),
+      ...detectAgent(command, preset.mode),
+      signal: "output",
+      claudeSessionId: null,
     };
-    const session: Session = { info, proc: null, history: [], historyBytes: 0, prompt: prompt || null, crossReview: req.crossReview ?? null };
+    const session: Session = { info, proc: null, history: [], historyBytes: 0, prompt: prompt || null, crossReview: req.crossReview ?? null, hook: null };
     this.sessions.set(id, session);
 
     const env = sessionEnv(process.env, id);
+    // Hooks ride on a per-session settings file; the user's own settings are merged by Claude Code, not replaced.
+    let spawnCommand = command;
+    const hooks = this.opts.hooks;
+    if (hooks && req.hooks !== false && canInjectHooks(command, preset.mode)) {
+      try {
+        const secret = randomBytes(24).toString("base64url");
+        const settingsFile = writeHookSettings(hooks.dir, id, process.execPath, hooks.script);
+        session.hook = { secret, settingsFile };
+        registerExactSecret(secret);
+        env.DEVHUB_HOOK_SECRET = secret;
+        env.DEVHUB_HOOK_URL = hooks.url();
+        spawnCommand = withHookSettings(command, settingsFile);
+      } catch {
+        /* no hooks for this session: its state is estimated from output instead */
+        session.hook = null;
+      }
+    }
     try {
       this.opts.beforeSpawn?.({ ...info });
     } catch {
       /* a snapshot failure must not block the session */
     }
-    const { file, args, ptyArgs } = shellWrap(command);
+    const { file, args, ptyArgs } = shellWrap(spawnCommand);
 
     try {
       if (preset.mode === "pty") {
@@ -224,6 +259,7 @@ export class SessionManager extends EventEmitter {
     if (!s || s.info.status !== "running" || !s.proc) return;
     if (isPty(s.proc)) s.proc.write(data);
     else s.proc.stdin?.write(data);
+    this.emit("input", id, data);
   }
 
   resize(id: string, cols: number, rows: number): void {
@@ -273,7 +309,10 @@ export class SessionManager extends EventEmitter {
   }
 
   /** Partial update of supervisor-owned fields; broadcasts "updated". */
-  patch(id: string, partial: Partial<Pick<SessionInfo, "goal" | "policy" | "state" | "stateReason" | "suggestion" | "name" | "tags">>): SessionInfo | undefined {
+  patch(
+    id: string,
+    partial: Partial<Pick<SessionInfo, "goal" | "policy" | "state" | "stateReason" | "suggestion" | "name" | "tags" | "signal" | "claudeSessionId">>,
+  ): SessionInfo | undefined {
     const s = this.sessions.get(id);
     if (!s) return undefined;
     Object.assign(s.info, partial);
@@ -289,6 +328,11 @@ export class SessionManager extends EventEmitter {
 
   promptOf(id: string): string | null {
     return this.sessions.get(id)?.prompt ?? null;
+  }
+
+  /** The secret this session's hook script presents, or null when no hooks were attached. */
+  hookSecretOf(id: string): string | null {
+    return this.sessions.get(id)?.hook?.secret ?? null;
   }
 
   tail(id: string, n: number): string[] {
@@ -314,6 +358,12 @@ export class SessionManager extends EventEmitter {
     s.info.exitCode = exitCode;
     s.info.status = status ?? (s.info.status === "killed" ? "killed" : "exited");
     s.info.endedAt = Date.now();
+    if (s.hook) {
+      // A hook that arrives after the process ended is refused; its settings file is no longer needed.
+      unregisterExactSecret(s.hook.secret);
+      fs.rm(s.hook.settingsFile, { force: true }, () => {});
+      s.hook = null;
+    }
     const code = exitCode !== null ? ` (code ${exitCode})` : "";
     this.push(s, `\r\n[runner] process ${s.info.status}${code}\r\n`);
     this.emit("exit", s.info.id, exitCode, s.info.status);

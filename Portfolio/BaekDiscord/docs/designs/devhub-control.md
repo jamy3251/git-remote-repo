@@ -60,6 +60,36 @@
 - **부모 Claude Code 세션 표시 상속.** 러너를 Claude Code 안에서 띄우면(`npm run dev`를 Claude에게 시킨 경우) `CLAUDECODE`, `CLAUDE_CODE_CHILD_SESSION` 등이 자식 세션까지 내려가고, 자식 `claude`는 "Transcript saving is off — inherited CLAUDE_CODE_CHILD_SESSION marker"를 띄운다. 그러면 그 세션은 나중에 재개할 수 없다. `runner/src/sessions.ts`의 `SESSION_ENV_DENY`에 이 표시들을 추가해 고쳤다(사용자 설정용 `CLAUDE_CODE_USE_BEDROCK` 같은 변수는 유지, 테스트 있음).
 - **처음 보는 폴더의 신뢰 확인 기본값이 "No, exit".** 러너가 새 폴더에서 세션을 띄우고 Enter를 자동으로 보내면 세션이 바로 종료된다. 슈퍼바이저 자동 응답이 이 화면에 Enter를 보내지 않는지, 화면에 "폴더 신뢰 확인 필요"로 보이는지 hook 신호 단계에서 확인한다(TODOS).
 
+## 2-1. hook 신호 구현 (2026-11-18)
+
+2절의 계획 수정대로 넣었다. 코드: `runner/src/hooks.ts`, `runner/bin/devhub-hook.mjs`, `runner/src/overlap.ts`, `runner/src/danger.ts`.
+
+- **주입 대상.** 명령이 `claude`로 시작하는 대화형 PTY 세션(프리셋 `claude`, `claude-continue`, `dclaude`와 `devhubctl claude`). 프리셋 이름이 아니라 명령 줄에서 읽어 세션 정보의 `agent`와 `interactive`에 적는다. `-p`, 사용자가 직접 넘긴 `--settings`, 다른 명령을 잇는 줄(`&&`, `|` 등)에는 붙이지 않는다.
+- **방식.** 세션마다 `runner/.data/hooks/<세션 id>.json`을 만들어 `--settings`로 넘긴다. 등록 이벤트는 SessionStart, UserPromptSubmit, PermissionRequest, PostToolUse, Notification, Stop이고 모두 `async`다. PreToolUse는 없다. 스크립트는 페이로드를 `POST /runner/hooks`로 보내고 아무것도 출력하지 않으며 항상 0으로 끝난다. 러너가 꺼져 있거나 3초 안에 답하지 않으면 `runner/.data/hook-errors.log`에 한 줄 남긴다. 세션이 끝나면 설정 파일을 지우고, 러너 시작 때 남은 파일도 지운다.
+- **인증.** 세션별 비밀값(`DEVHUB_HOOK_SECRET`)과 `DEVHUB_SESSION`. 로컬 리스너에서만 받고 터널 리스너에서는 404다. 관리자 토큰은 hook 자격으로 통하지 않는다. 비밀값은 정확 일치 마스킹 목록에 올라 판단 엔진 프롬프트, 작업 내역 꼬리, 알림에서 가려진다. 오류 코드는 `hook_unknown_session`, `hook_bad_secret`, `hook_duplicate`.
+- **상태 전이.** SessionStart → 지시 대기, UserPromptSubmit·PostToolUse → 작업 중, PermissionRequest → 입력 대기(도구와 명령 또는 대상 파일을 사유에 표시, 위험 패턴은 `tool_input`으로 판정), Stop → 입력 대기(응답 끝). hook이 시작된 시각보다 오래된 신호는 버려서 늦게 온 async hook이 상태를 되돌리지 못한다. 권한 프롬프트에 답이 입력되면(사람, 관제 AI, 슈퍼바이저) 그 자리에서 작업 중으로 바꾼다. PostToolUse는 도구가 끝나야 오기 때문이다.
+- **출력 판정과의 관계.** hook이 한 번이라도 온 세션은 hook이 이긴다. 예외는 하나다. hook은 작업 중인데 화면에 선택지·예/아니오·Enter 프롬프트가 있고 60초 동안 아무 출력이 없으면 화면을 믿고 "추정"으로 입력 대기를 띄운다(hook이 알려 주지 않는 대화 상자 대비). 세션 카드의 상태 옆에 "확정"(hook) 또는 "추정"(출력)이 붙는다.
+- **판단 기록.** `signal`이 `hook`인 기록에는 `hook: { claudeSessionId, promptId, tool, inputHash }`가 붙는다. 휴리스틱 재실행은 hook 기록을 건너뛴다.
+- **실측(Claude Code 실물, 2026-11-18).** 러너가 띄운 `claude` 세션에서 SessionStart로 세션 id를 받았고, 지시 한 줄에 "작업 중 → 입력 대기(응답 끝)"가 1초 간격으로 hook만으로 바뀌었다. 3건 수신, 거절 0건. 권한 프롬프트(PermissionRequest)와 `dclaude` 경로는 실물로 아직 안 봤다(단위 테스트만).
+
+설정:
+
+| 이름 | 기본값 | 뜻 |
+| --- | --- | --- |
+| `RUNNER_HOOKS` | 켜짐 | `0`이면 hook을 붙이지 않는다. 모든 세션이 "추정"이다 |
+| 세션 생성의 `hooks: false`, `devhubctl create --no-hooks` | - | 그 세션만 끈다 |
+| 세션 생성의 `allowOverlap: true`, `devhubctl create --allow-overlap` | - | 겹치는 폴더 경고를 확인한 것으로 보고 시작한다 |
+
+한계:
+
+- 세션 안의 에이전트는 자기 hook 비밀값을 환경 변수로 읽을 수 있어 hook 신호를 위조할 수 있다. 승인 결정은 바꾸지 못하지만(결정은 터미널 입력뿐) 상태 표시와 지표를 흐릴 수 있다.
+- 자율 정책의 허용 목록(읽기 전용 도구, 작업 폴더 안 편집)은 아직 없다. 지금 자율 응답은 예전처럼 판단 엔진 제안과 위험 패턴으로 정해진다. 승인 카드와 같이 2차에서 한다.
+- 같은 폴더 경고는 러너가 띄운 세션끼리만 본다. 러너 밖에서 연 Claude 창은 모른다.
+
+**폴더 신뢰 확인 화면.** 문구("Is this a project you created or one you trust?", 기본 선택 "No, exit", "Enter to confirm")를 실물에서 받아 출력 판정에 넣었다. "폴더 신뢰 확인 필요"로 입력 대기가 되고, 판단 엔진을 부르지 않으며, 제안은 "사람 확인"뿐이라 자율 정책에서도 Enter가 나가지 않는다. 고치기 전에는 "Enter to confirm"이 일반 Enter 프롬프트로 읽혀 자율 정책이 Enter를 보냈고 세션이 끝났다.
+
+**같은 폴더 경고.** 실행 중인 쓰기 세션의 폴더와 같거나 그 상위·하위에 새 세션을 띄우면 러너가 `folder_busy`로 멈추고 겹치는 세션을 돌려준다. 경로는 실제 경로와 소문자로 맞춰 비교한다(정션, 대소문자). 대시보드는 "기존 세션 열기 / 그래도 시작 / 취소" 창을 띄우고, `dclaude`는 y/N을 묻고, 관제 AI는 만들지 않고 사용자에게 묻는다. 읽기 전용 교차검증 세션은 대상이 아니다. 교차검증은 세션이 끝난 시점에 저장한 diff 사본(`runner/.data/diffs/<id>.diff`)을 읽는다.
+
 ## 3. 사용자 실측 (비어 있음)
 
 - 공식 Remote Control과 Agent View로 실제 작업 몇 건: 아직. 사용자 구독 로그인과 폰 앱이 필요하다. 해 본 뒤 1절 표의 "공식이 이미 한다"가 맞는지 고친다.

@@ -36,6 +36,7 @@ function cfgFor(webPort: number): RunnerConfig {
     allowedOrigins: ["http://localhost:3000"],
     webProxy: `http://127.0.0.1:${webPort}`,
     dashboardPath: "/control",
+    hooks: false,
     supervisor: { enabled: false, defaultPolicy: "assist", intervalMs: 100_000, brain: "heuristic", brainModel: null, apiKey: null, cliTimeoutMs: 1000, notifyWebhook: null },
   };
 }

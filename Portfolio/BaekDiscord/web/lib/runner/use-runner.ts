@@ -5,6 +5,7 @@ import type {
   ChatTurn,
   ClientMessage,
   CreateSessionRequest,
+  FolderOverlap,
   FsListing,
   Policy,
   PresetInfo,
@@ -62,6 +63,10 @@ export interface RunnerApi {
   connect: () => void;
   disconnect: () => void;
   create: (req: CreateSessionRequest) => void;
+  /** A create the runner held back because another session runs in an overlapping folder. */
+  overlap: { req: CreateSessionRequest; overlaps: FolderOverlap[] } | null;
+  /** Answer the held-back create: start anyway, or drop it. */
+  resolveOverlap: (start: boolean) => void;
   input: (ids: string[], data: string) => void;
   resize: (id: string, cols: number, rows: number) => void;
   kill: (ids: string[]) => void;
@@ -114,6 +119,10 @@ export function useRunner(): RunnerApi {
   const [chatBusy, setChatBusy] = useState(false);
   const [workspaces, setWorkspaces] = useState<Record<string, WorkspaceInfo>>({});
   const [lastError, setLastError] = useState<string | null>(null);
+  const [overlap, setOverlap] = useState<{ req: CreateSessionRequest; overlaps: FolderOverlap[] } | null>(null);
+  const overlapRef = useRef<{ req: CreateSessionRequest; overlaps: FolderOverlap[] } | null>(null);
+  /** Creates sent and not yet answered, so a refusal can be offered again with the same request. */
+  const creating = useRef(new Map<string, CreateSessionRequest>());
   const wsRef = useRef<WebSocket | null>(null);
   const listeners = useRef(new Map<string, Set<OutputListener>>());
   const manualClose = useRef(false);
@@ -254,6 +263,7 @@ export function useRunner(): RunnerApi {
           setSessions(msg.sessions);
           break;
         case "created":
+          if (msg.reqId) creating.current.delete(msg.reqId);
           setSessions((prev) => (prev.some((s) => s.id === msg.session.id) ? prev : [...prev, msg.session]));
           break;
         case "updated":
@@ -302,6 +312,14 @@ export function useRunner(): RunnerApi {
           setWorkspaces((prev) => ({ ...prev, [msg.info.id]: msg.info }));
           break;
         case "error": {
+          const held = msg.reqId ? creating.current.get(msg.reqId) : undefined;
+          if (msg.reqId) creating.current.delete(msg.reqId);
+          // Not a failure to report: the person is asked whether to start next to the running session.
+          if (held && msg.code === "folder_busy") {
+            overlapRef.current = { req: held, overlaps: msg.overlaps ?? [] };
+            setOverlap(overlapRef.current);
+            break;
+          }
           setLastError(describeError(msg));
           if (msg.code === "auth_invalid" || msg.code === "auth_locked" || msg.message === "invalid token") setStatus("unauthorized");
           break;
@@ -365,6 +383,24 @@ export function useRunner(): RunnerApi {
       };
     },
     [send],
+  );
+
+  const create = useCallback(
+    (req: CreateSessionRequest) => {
+      const reqId = Math.random().toString(36).slice(2, 8);
+      creating.current.set(reqId, req);
+      send({ type: "create", req, reqId });
+    },
+    [send],
+  );
+  const resolveOverlap = useCallback(
+    (start: boolean) => {
+      const held = overlapRef.current;
+      overlapRef.current = null;
+      setOverlap(null);
+      if (held && start) create({ ...held.req, allowOverlap: true });
+    },
+    [create],
   );
 
   /** Send a message carrying a reqId and wait for the runner's reply to it. */
@@ -480,7 +516,9 @@ export function useRunner(): RunnerApi {
       clearError: () => setLastError(null),
       connect,
       disconnect,
-      create: (req) => send({ type: "create", req, reqId: Math.random().toString(36).slice(2, 8) }),
+      create,
+      overlap,
+      resolveOverlap,
       input: (ids, data) => send({ type: "input", ids, data }),
       resize: (id, cols, rows) => send({ type: "resize", id, cols, rows }),
       kill: (ids) => send({ type: "kill", ids }),
@@ -508,6 +546,6 @@ export function useRunner(): RunnerApi {
       productInsight,
       subscribe,
     }),
-    [settings, updateSettings, status, nextRetryAt, rttMs, info, presets, sessions, events, supervisor, tunnel, chat, chatBusy, workspaces, lastError, connect, disconnect, send, subscribe, listFolder, refine, worklog, summarizeWork, crossReview, searchPlaybook, savePlaybook, draftPlaybook, products, loadProducts, updateProduct, pingProduct, productInsight],
+    [settings, updateSettings, status, nextRetryAt, rttMs, info, presets, sessions, events, supervisor, tunnel, chat, chatBusy, workspaces, lastError, connect, disconnect, send, create, overlap, resolveOverlap, subscribe, listFolder, refine, worklog, summarizeWork, crossReview, searchPlaybook, savePlaybook, draftPlaybook, products, loadProducts, updateProduct, pingProduct, productInsight],
   );
 }

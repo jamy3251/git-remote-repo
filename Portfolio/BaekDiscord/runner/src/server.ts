@@ -1,8 +1,10 @@
+import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { WebSocketServer, WebSocket } from "ws";
 import type { RunnerConfig } from "./config.js";
-import type { ClientMessage, CompileRequest, CreateSessionRequest, CrossReview, GitFileChange, Policy, ReviewMode, ReviewerId, ServerMessage, SupervisorEvent, WorkLogEntry } from "./protocol.js";
+import type { ClientMessage, CompileRequest, CreateSessionRequest, CrossReview, FolderOverlap, GitFileChange, Policy, ReviewMode, ReviewerId, ServerMessage, SupervisorEvent, WorkLogEntry } from "./protocol.js";
 import { SessionManager } from "./sessions.js";
 import { presetInfos } from "./presets.js";
 import { languageInfos } from "./compiler/languages.js";
@@ -26,6 +28,8 @@ import { gitChangesSync, gitSummary } from "./workspace.js";
 import { AuthLockout, RateLimiter, clampString, clientKey, hostAllowed, isSafeId, redactSecrets, tokenMatches, type Listener } from "./security.js";
 import { RunnerError, errorInfo, toErrorInfo, type ErrorCode } from "./errors.js";
 import { closesAt as tunnelClosesAt, freshIdleState, tickIdle, type IdleState } from "./tunnelidle.js";
+import { HOOK_SECRET_HEADER, HOOK_SESSION_HEADER, parseHookBody } from "./hooks.js";
+import { describeOverlaps, findOverlaps, isReadOnlySession } from "./overlap.js";
 
 export const RUNNER_VERSION = "0.2.0";
 const API_PREFIX = "/runner";
@@ -116,7 +120,25 @@ export function createRunnerServer(cfg: RunnerConfig) {
 
   /** Uncommitted changes in each session's folder right before it spawned, so the log shows only its own. */
   const gitBaseline = new Map<string, GitFileChange[] | null>();
+  let boundPort = 0;
+  const dataDir = path.join(process.cwd(), ".data");
+  // Settings files of sessions a previous run did not get to clean up (crash, forced stop).
+  if (cfg.hooks) {
+    try {
+      for (const f of fs.readdirSync(path.join(dataDir, "hooks"))) if (f.endsWith(".json")) fs.rmSync(path.join(dataDir, "hooks", f), { force: true });
+    } catch {
+      /* no folder yet */
+    }
+  }
   const sessions = new SessionManager({
+    hooks: cfg.hooks
+      ? {
+          dir: path.join(dataDir, "hooks"),
+          script: fileURLToPath(new URL("../bin/devhub-hook.mjs", import.meta.url)),
+          // Always loopback: the hook script runs on this machine, whatever RUNNER_HOST is.
+          url: () => `http://127.0.0.1:${boundPort || cfg.port}${API_PREFIX}/hooks`,
+        }
+      : null,
     cwdRoot: cfg.cwdRoot,
     maxSessions: cfg.maxSessions,
     historyBytes: cfg.historyBytes,
@@ -147,6 +169,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
     notify: cfg.supervisor.notifyWebhook ? (text) => postDiscord(cfg.supervisor.notifyWebhook as string, text) : null,
     decisions,
     runnerVersion: RUNNER_VERSION,
+    hooksEnabled: cfg.hooks,
   });
   const chat = new ControlChat(brain, sessions, supervisor, {
     cwdRoot: cfg.cwdRoot,
@@ -155,6 +178,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
     products: async () => (await products.list()).products,
     playbook: (q) => playbook.search(q, 5),
     liveFolders: () => listFolder(cfg.cwdRoot, null, folderContext()).live,
+    overlaps: (cwd) => findOverlaps(cwd, sessions.list(), cfg.cwdRoot),
   });
   let boundTunnelPort = 0;
   const tunnel = new TunnelManager({ port: () => boundTunnelPort, token: cfg.token, dashboardPath: cfg.dashboardPath });
@@ -162,6 +186,24 @@ export function createRunnerServer(cfg: RunnerConfig) {
   const clients = new Set<ClientState>();
   const lockout = new AuthLockout();
   const httpLimiter = new RateLimiter(240, 60_000);
+  // Hooks fire per tool call and share 127.0.0.1 with the local dashboard: they get their own budget.
+  const hookLimiter = new RateLimiter(3000, 60_000);
+  let lastHookWarnAt = 0;
+
+  /**
+   * Running sessions a new one would collide with (same, parent or child folder). Empty when the
+   * caller already confirmed, or for read-only review sessions.
+   */
+  function overlapsFor(req: CreateSessionRequest): FolderOverlap[] {
+    if (req.allowOverlap === true || isReadOnlySession({ preset: req.preset, tags: req.tags ?? [] })) return [];
+    try {
+      return findOverlaps(sessions.resolveCwd(req.cwd), sessions.list(), cfg.cwdRoot);
+    } catch {
+      return []; // a bad folder is reported by create() itself
+    }
+  }
+  const overlapMessage = (o: FolderOverlap[]) => `이 폴더와 겹치는 곳에서 이미 실행 중인 세션이 있습니다: ${describeOverlaps(o)}`;
+  const diffFile = (id: string) => path.join(dataDir, "diffs", `${id}.diff`);
   const compileLimiter = new RateLimiter(20, 60_000);
   // Prompt-model calls (refine, summarize) cost tokens; keep a phone tapping a button from burning them.
   const aiLimiter = new RateLimiter(12, 60_000);
@@ -185,7 +227,13 @@ export function createRunnerServer(cfg: RunnerConfig) {
     const reviewer = pickReviewer(entry.preset, requested, { codex: binaryAvailable("codex"), claude: binaryAvailable("claude") });
     if (!reviewer) throw new RunnerError("cli_missing", "검토할 AI CLI(codex 또는 claude)가 설치되어 있지 않습니다");
     const git = await gitSummary(entry.cwd, 0).catch(() => null);
-    const diff = git && entry.git?.files.length ? await collectDiff(git.repoRoot, entry.git.files) : "";
+    // The copy taken when the session ended, so later changes by other sessions do not leak into the review.
+    let diff = "";
+    try {
+      diff = fs.readFileSync(diffFile(entryId), "utf8");
+    } catch {
+      diff = git && entry.git?.files.length ? await collectDiff(git.repoRoot, entry.git.files) : "";
+    }
     const session = sessions.create({
       preset: `${reviewer}-review`,
       cwd: entry.cwd,
@@ -252,6 +300,15 @@ export function createRunnerServer(cfg: RunnerConfig) {
       summarySource: "heuristic",
     };
     entry.summary = heuristicSummary(entry);
+    if (git && entry.git?.files.length) {
+      try {
+        const diff = await collectDiff(git.repoRoot, entry.git.files);
+        fs.mkdirSync(path.dirname(diffFile(id)), { recursive: true });
+        fs.writeFileSync(diffFile(id), diff, "utf8");
+      } catch {
+        /* no copy: a later review falls back to the live diff */
+      }
+    }
     worklog.add(entry);
     broadcast({ type: "worklog_entry", entry });
     const auto = sessions.crossReviewOf(id);
@@ -420,6 +477,38 @@ export function createRunnerServer(cfg: RunnerConfig) {
 
     if (req.method === "OPTIONS") return json(204, {});
     if (!originAllowed(origin)) return fail("origin_not_allowed", "origin not allowed");
+
+    // Hook signals from sessions this runner started. Local listener only (a tunnel request gets the
+    // same 404 as any unknown path), authenticated by the session's own secret, not the admin token.
+    if (route === "/hooks" && req.method === "POST" && listener === "local") {
+      const reject = (code: ErrorCode, message: string, warn?: string) => {
+        supervisor.hookRejected();
+        if (warn && Date.now() - lastHookWarnAt > 60_000) {
+          lastHookWarnAt = Date.now();
+          supervisor.log("warn", null, "system", warn);
+        }
+        return fail(code, message);
+      };
+      if (!hookLimiter.allow(client)) return reject("rate_limited", "too many hook calls");
+      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) return reject("bad_request", "content-type must be application/json");
+      const sid = req.headers[HOOK_SESSION_HEADER];
+      const secret = typeof sid === "string" && isSafeId(sid) ? sessions.hookSecretOf(sid) : null;
+      if (typeof sid !== "string" || !secret) return reject("hook_unknown_session", "no running session with hooks for this id", "hook 신호 거절: 모르는 세션");
+      const presented = req.headers[HOOK_SECRET_HEADER];
+      if (!tokenMatches(typeof presented === "string" ? presented : null, secret)) return reject("hook_bad_secret", "hook secret mismatch", `hook 신호 거절: 세션 ${sid}의 비밀값 불일치`);
+      let body: unknown;
+      try {
+        body = await readJson(req, MAX_WS_MESSAGE);
+      } catch (e) {
+        supervisor.hookRejected();
+        const { status, ...info } = toErrorInfo(e, logInternal, [cfg.token, secret]);
+        return json(status, info);
+      }
+      const signal = parseHookBody(body);
+      if (!signal) return reject("bad_request", "not a hook call: expected { id, ts, payload.hook_event_name }");
+      if (supervisor.hookSignal(sid, signal) === "duplicate") return reject("hook_duplicate", "hook call already handled");
+      return json(200, { ok: true });
+    }
     if (!httpLimiter.allow(client)) return fail("rate_limited", "too many requests");
 
     if (route === "/health" && req.method === "GET") {
@@ -464,6 +553,11 @@ export function createRunnerServer(cfg: RunnerConfig) {
       }
       if (route === "/sessions" && req.method === "POST") {
         const body = (await readJson(req, 64_000)) as CreateSessionRequest;
+        const overlaps = overlapsFor(body);
+        if (overlaps.length) {
+          const { status, ...info } = errorInfo("folder_busy", overlapMessage(overlaps));
+          return json(status, { ...info, overlaps });
+        }
         const session = sessions.create(body);
         supervisor.log("action", session.id, "human", `세션 생성(HTTP): ${session.name}`);
         broadcast({ type: "created", session });
@@ -617,6 +711,12 @@ export function createRunnerServer(cfg: RunnerConfig) {
         case "presets":
           return send(state, { type: "presets", presets: presetInfos() });
         case "create": {
+          const overlaps = overlapsFor(msg.req);
+          if (overlaps.length) {
+            const { status: _status, error, ...rest } = errorInfo("folder_busy", overlapMessage(overlaps));
+            void _status;
+            return send(state, { type: "error", message: error, ...rest, overlaps, ...(msg.reqId ? { reqId: msg.reqId } : {}) });
+          }
           const session = sessions.create(msg.req);
           state.attached.add(session.id);
           supervisor.log("action", session.id, "human", `세션 생성: ${session.name} (${session.preset}) @ ${session.cwd}`);
@@ -814,6 +914,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
           resolve(typeof addr === "object" && addr ? addr.port : cfg.port);
         });
       });
+      boundPort = port;
       // The tunnel listener is loopback-only: only the local tunnel process connects to it.
       const bindTunnel = (p: number) =>
         new Promise<number>((resolve, reject) => {

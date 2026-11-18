@@ -83,9 +83,24 @@ const SECRET_PATTERNS: RegExp[] = [
   /((?:api[_-]?key|secret|token|password|passwd|authorization)\s*[=:]\s*["']?)([^\s"']{6,})/gi,
 ];
 
+/**
+ * Values masked by exact match, next to the patterns above: per-session hook secrets, which look
+ * like nothing in particular. Registered when a session starts, dropped when it ends.
+ */
+const exactSecrets = new Set<string>();
+
+export function registerExactSecret(value: string): void {
+  if (value.length >= 8) exactSecrets.add(value);
+}
+
+export function unregisterExactSecret(value: string): void {
+  exactSecrets.delete(value);
+}
+
 /** Mask credential-looking substrings before text leaves the machine (brain prompts, notifications). */
 export function redactSecrets(text: string): string {
   let out = text;
+  for (const s of exactSecrets) if (out.includes(s)) out = out.split(s).join("[REDACTED]");
   for (const re of SECRET_PATTERNS) {
     out = out.replace(re, (m: string, ...groups: unknown[]) => {
       const prefix = typeof groups[0] === "string" && groups.length > 2 ? (groups[0] as string) : "";

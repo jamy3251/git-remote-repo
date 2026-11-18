@@ -1,6 +1,7 @@
 import type { AgentState, SessionMode, SessionStatus, Suggestion } from "../protocol.js";
+import { detectDangerText } from "../danger.js";
 
-export type PromptKind = "yes_no" | "enter" | "menu" | "question" | "shell_prompt";
+export type PromptKind = "yes_no" | "enter" | "menu" | "question" | "shell_prompt" | "trust";
 
 export interface Judgment {
   state: AgentState;
@@ -27,17 +28,6 @@ const IDLE_AFTER_MS = 45_000;
 /** Output within this window → still working. */
 const WORKING_WITHIN_MS = 8_000;
 
-const DANGER_PATTERNS: Array<[RegExp, string]> = [
-  [/\brm\s+-rf?\b|\bRemove-Item\b.*-Recurse|\bdel\s+\/[sq]\b|\brmdir\s+\/s\b/i, "재귀 삭제 명령"],
-  [/\bgit\s+push\b.*(--force|-f\b)|\bgit\s+reset\s+--hard\b|\bgit\s+clean\s+-[a-z]*f/i, "되돌리기 어려운 git 명령"],
-  [/\bDROP\s+(TABLE|DATABASE|SCHEMA)\b|\bTRUNCATE\b|\bDELETE\s+FROM\b/i, "파괴적 SQL"],
-  [/\bformat\s+[a-z]:|\bdiskpart\b|\bmkfs\b|\bdd\s+if=/i, "디스크 포맷/덮어쓰기"],
-  [/\bshutdown\b|\breboot\b|\bRestart-Computer\b/i, "시스템 재시작"],
-  [/\bnpm\s+publish\b|\bcargo\s+publish\b|\bvercel\s+(--prod|deploy)\b|\bgh\s+release\s+create\b/i, "외부 배포/배포"],
-  [/\.env\b.*(secret|key|token)|\bAPI[_ ]?KEY\b|\bpassword\b/i, "비밀/자격 증명 언급"],
-  [/\bchmod\s+-R\s+777\b|\bicacls\b.*\/grant\b/i, "권한 전면 개방"],
-];
-
 const YES_NO = /\((?:y\/n|y\/N|Y\/n|yes\/no)\)\s*:?\s*$|\[(?:y\/n|y\/N|Y\/n)\]\s*:?\s*$|\?\s*\((?:y|yes)\/(?:n|no)\)\s*$/i;
 const ENTER = /press\s+(?:enter|any key|return)|enter\s+to\s+(?:continue|confirm|select)|\(esc to cancel\)|continue\?\s*$/i;
 const MENU_ITEM = /^\s*(?:[❯>›]\s*)?\d+[.)]\s+\S/;
@@ -46,18 +36,23 @@ const QUESTION_TAIL = /\?\s*$|:\s*$|›\s*$|❯\s*$/;
 const SHELL_PROMPT = /^(?:PS\s+)?[A-Za-z]:\\.*>\s*$|^[^\n]*\$\s*$|^[^\n]*#\s*$|^>\s*$/;
 const ERROR_LINE = /\b(?:error|exception|traceback|fatal|panic|failed|FAILED|npm ERR!|EACCES|ENOENT|segmentation fault)\b/i;
 const CLAUDE_IDLE_BOX = /^[╭│╰].*$/;
+/**
+ * Claude Code's first-run check in a folder it has not seen. Its default choice is "No, exit", so an
+ * automatic Enter ends the session. Trusting a folder is the person's call: never answered for them.
+ */
+const CLAUDE_TRUST = /project you created or one you trust|do you trust the files in this folder|yes,? i trust this folder/i;
+export const TRUST_REASON = "폴더 신뢰 확인 필요";
 
 function detectDanger(tail: string[]): { danger: boolean; reason: string | null } {
-  const text = tail.slice(-25).join("\n");
-  for (const [re, why] of DANGER_PATTERNS) if (re.test(text)) return { danger: true, reason: why };
-  return { danger: false, reason: null };
+  return detectDangerText(tail.slice(-25).join("\n"));
 }
 
-function detectPrompt(tail: string[]): Judgment["prompt"] {
+export function detectPrompt(tail: string[]): Judgment["prompt"] {
   const lines = tail.filter((l) => !CLAUDE_IDLE_BOX.test(l) || /\d+[.)]\s/.test(l));
   const last = lines[lines.length - 1] ?? "";
   const recent = lines.slice(-12).join("\n");
 
+  if (CLAUDE_TRUST.test(lines.slice(-20).join("\n"))) return { kind: "trust" };
   if (YES_NO.test(last) || YES_NO.test(recent.split("\n").slice(-2).join(" "))) return { kind: "yes_no" };
   if (ENTER.test(recent)) return { kind: "enter" };
 
@@ -96,6 +91,9 @@ export function judgeHeuristically(input: HeuristicInput): Judgment {
   const prompt = detectPrompt(input.tail);
   const recentlyActive = sinceOutput < WORKING_WITHIN_MS;
 
+  if (prompt?.kind === "trust" && !recentlyActive) {
+    return { state: "waiting_input", reason: TRUST_REASON, prompt, danger: true, dangerReason: "폴더 신뢰 확인" };
+  }
   if (prompt && prompt.kind !== "shell_prompt" && !recentlyActive) {
     const label =
       prompt.kind === "yes_no" ? "예/아니오 질문" : prompt.kind === "enter" ? "Enter 대기" : prompt.kind === "menu" ? "선택지 대기" : "질문 대기";
@@ -123,6 +121,15 @@ export function judgeHeuristically(input: HeuristicInput): Judgment {
  */
 export function heuristicSuggestion(j: Judgment): Omit<Suggestion, "id" | "createdAt"> | null {
   if (j.state !== "waiting_input" || !j.prompt) return null;
+  if (j.prompt.kind === "trust") {
+    return {
+      kind: "escalate",
+      label: TRUST_REASON,
+      rationale: "Claude Code가 처음 여는 폴더입니다. 기본 선택이 '종료'라 자동으로 Enter를 보내지 않습니다. 터미널을 열어 직접 고르세요.",
+      confidence: 0.95,
+      source: "heuristic",
+    };
+  }
   if (j.danger) {
     return {
       kind: "escalate",

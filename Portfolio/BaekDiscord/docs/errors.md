@@ -65,6 +65,18 @@
 ## folder_missing
 404, `after_fix`. 폴더가 없다.
 
+## folder_busy
+409, `after_fix`. 새 세션의 폴더가 실행 중인 쓰기 세션의 폴더와 같거나 그 상위·하위다. 응답의 `overlaps`에 겹치는 세션(`id`, `name`, `cwd`, `relation`: `same`, `parent`, `child`, `root`)이 들어 있다. 기존 세션을 쓰거나, 그래도 시작하려면 요청에 `allowOverlap: true`를 넣어 다시 보낸다. 읽기 전용 교차검증 세션은 대상이 아니다.
+
+## hook_unknown_session
+404, `no`. `POST /runner/hooks`에 온 세션 id가 없거나, 그 세션에 hook이 붙어 있지 않거나, 이미 끝났다. hook 스크립트는 이 응답을 `runner/.data/hook-errors.log`에 적고 조용히 끝난다.
+
+## hook_bad_secret
+403, `no`. hook 호출의 비밀값이 세션의 것과 다르다. 세션마다 새 값을 쓰므로 다른 세션의 값은 통하지 않는다.
+
+## hook_duplicate
+409, `no`. 같은 호출 id의 hook이 이미 처리됐다. 다시 보내도 상태는 바뀌지 않는다.
+
 ## preset_unknown
 400, `after_fix`. 없는 프리셋 id다. `GET /runner/presets`의 목록을 쓴다.
 

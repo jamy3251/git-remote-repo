@@ -29,6 +29,8 @@ export interface RunnerConfig {
   webProxy: string | null;
   /** Dashboard path opened by the tunnel QR code. */
   dashboardPath: string;
+  /** Attach Claude Code hooks to interactive Claude sessions (RUNNER_HOOKS=0 turns it off). */
+  hooks: boolean;
   supervisor: {
     enabled: boolean;
     defaultPolicy: "manual" | "assist" | "auto";
@@ -80,6 +82,7 @@ export function loadConfig(): RunnerConfig {
       .filter(Boolean),
     webProxy: process.env.RUNNER_WEB_PROXY === "off" ? null : (process.env.RUNNER_WEB_PROXY ?? "http://127.0.0.1:3000"),
     dashboardPath: process.env.RUNNER_DASHBOARD_PATH ?? "/control",
+    hooks: process.env.RUNNER_HOOKS !== "0",
     supervisor: {
       enabled: process.env.SUPERVISOR_ENABLED !== "0",
       defaultPolicy: asPolicy(process.env.SUPERVISOR_DEFAULT_POLICY) ?? "assist",

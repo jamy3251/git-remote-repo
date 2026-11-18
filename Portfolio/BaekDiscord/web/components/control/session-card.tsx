@@ -45,7 +45,7 @@ export function SessionCard({ session: s, workspace, runner }: Props) {
   const attention = s.state === "waiting_input" || s.state === "error" || s.suggestion !== null;
 
   return (
-    <article className={`card overflow-hidden ${attention ? "border-warn/50" : ""}`}>
+    <article id={`session-${s.id}`} className={`card overflow-hidden ${attention ? "border-warn/50" : ""}`}>
       <header className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 pt-2.5">
         <span className={`inline-block h-2.5 w-2.5 rounded-full ${meta.dot} ${s.state === "working" ? "animate-pulse" : ""}`} />
         <span className="font-medium">{s.name}</span>
@@ -56,6 +56,14 @@ export function SessionCard({ session: s, workspace, runner }: Props) {
           </span>
         )}
         <span className={`badge ${meta.cls}`}>{meta.label}</span>
+        {running && (
+          <span
+            className={`badge ${s.signal === "hook" ? "border-ok/50 text-ok" : "border-border text-muted"}`}
+            title={s.signal === "hook" ? "Claude Code가 hook으로 직접 알려 준 상태입니다" : "터미널 출력을 읽어 추정한 상태입니다. 틀릴 수 있습니다"}
+          >
+            {s.signal === "hook" ? "확정" : "추정"}
+          </span>
+        )}
         <span className="ml-auto text-xs text-muted">{running ? fmtDuration(s.createdAt, null) : `${s.status}${s.exitCode !== null ? ` · code ${s.exitCode}` : ""}`}</span>
       </header>
       <div className="px-3 pb-1 text-xs text-muted">

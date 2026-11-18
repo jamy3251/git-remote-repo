@@ -75,14 +75,13 @@
 - **Context:** 공식 기능 관문에서 Codex 쪽 신호 수단을 조사한 뒤.
 - **Effort:** 사람 M / CC S. **Priority:** P2.
 
-## 새 폴더 신뢰 확인 화면 처리
-- **What:** Claude Code가 처음 보는 폴더에서 띄우는 신뢰 확인(기본 선택 "No, exit")을 감지해 "폴더 신뢰 확인 필요"로 보이고, 슈퍼바이저 자동 응답이 여기에 Enter를 보내지 않게 막는다.
-- **Why:** 자동 Enter는 세션을 바로 종료시킨다(hook 스파이크에서 확인, `docs/designs/devhub-control.md` 2절).
-- **Context:** hook 신호 단계에서 같이. 신뢰 결정은 사용자 몫이라 자동 승인은 하지 않는다.
-- **Effort:** 사람 S / CC S. **Priority:** P2.
+## 자율 정책 허용 목록
+- **What:** hook의 `tool_input`으로 자율 승인 대상을 허용 목록(읽기 전용 도구, 세션 작업 폴더 안 편집, 설정한 명령)으로 제한.
+- **Why:** 지금 자율 응답은 판단 엔진 제안과 위험 패턴으로만 정해진다. "위험 패턴에 안 걸림"은 승인 근거가 아니다.
+- **Context:** hook 신호는 들어왔다(`docs/designs/devhub-control.md` 2-1절). 승인 카드(2차)와 같이.
+- **Effort:** 사람 M / CC S. **Priority:** P2.
 
-## eval:supervisor 모델 재실행
-- **What:** `--engine`, `--limit`로 저장된 판단 입력을 모델 엔진에 다시 넣어 사람 응답과 비교.
-- **Why:** 판단 프롬프트를 바꿨을 때 회귀를 보려면 필요하다. 지금은 기록 집계와 휴리스틱 재실행만 있다.
-- **Context:** 판단 기록에 프롬프트 해시와 마스킹한 입력이 이미 저장된다. 표본 50건이 쌓인 뒤 착수. 비용 상한은 `--limit` 필수.
-- **Effort:** 사람 S / CC S. **Priority:** P2.
+## diff 사본 정리
+- **What:** `runner/.data/diffs/`의 오래된 사본 삭제(작업 내역에서 빠진 항목).
+- **Context:** 사본 하나는 60KB 상한이다. 지금은 지우지 않는다.
+- **Effort:** 사람 S / CC S. **Priority:** P3.

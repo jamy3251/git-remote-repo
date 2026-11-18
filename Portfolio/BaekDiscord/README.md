@@ -136,6 +136,7 @@ Claude Code에서 이 러너를 쓰려면 `/devhub-runner` 스킬(`D:\Projects\.
 | `RUNNER_ALLOWED_ORIGINS` | localhost:3000 · 127.0.0.1:3000 · :7331 | 브라우저 Origin 화이트리스트(터널 URL은 자동 추가) |
 | `RUNNER_TUNNEL` | – | `1`이면 시작 시 터널 자동 열기 |
 | `RUNNER_TUNNEL_PORT` | `RUNNER_PORT`+1 (7332) | 터널 전용 수신 포트(127.0.0.1). 터널은 이 포트로만 붙고, 쓰이고 있으면 빈 포트로 대신 엽니다 |
+| `RUNNER_HOOKS` | 켜짐 | 대화형 Claude 세션에 Claude Code hook을 붙여 상태를 확정 신호로 받음. `0`이면 모든 세션을 출력으로 추정 |
 | `RUNNER_TUNNEL_IDLE_MIN` | 60 | 연결된 원격 기기 없이 이만큼 지나면 터널 자동 닫힘(실행 중 세션이 있으면 한 번 연장). `0`은 끔 |
 | `RUNNER_TUNNEL_MAX_HOURS` | 24 | 터널을 연 뒤 이만큼 지나면 기기가 있어도 닫힘. `0`은 상한 없음 |
 | `SUPERVISOR_ENABLED` | 1 | `0`이면 관찰 루프 정지 |
@@ -169,7 +170,7 @@ Claude Code에서 이 러너를 쓰려면 `/devhub-runner` 스킬(`D:\Projects\.
 | `npm test` | 러너(150) + 웹(57) vitest |
 | `npm run typecheck` | 러너 + 웹 `tsc --noEmit` |
 | `npm run check:protocol` | `runner/src/protocol.ts`와 `web/lib/runner/protocol.ts` 사본 일치 검사 |
-| `npm run eval:supervisor` | 판단 기록(`runner/.data/decisions.jsonl`)으로 슈퍼바이저 채점: 제안 승인률, 자율 일치율, 방치 시간, 사고. 50건 미만이면 "표본 부족". `--json`, `--file <경로>` |
+| `npm run eval:supervisor` | 판단 기록(`runner/.data/decisions.jsonl`)으로 슈퍼바이저 채점: 제안 승인률, 자율 일치율, 방치 시간, 사고. 50건 미만이면 "표본 부족". `--json`, `--file <경로>`, 모델 재실행은 `--engine api\|claude-cli --limit <건수>`(토큰 비용 발생) |
 | `npm run build` | 러너 `tsc` + 웹 `next build` |
 | `npm run lint` | 웹 eslint |
 | `npm run ctl -w runner -- sessions` | devhubctl (health · sessions · create · send · output · kill · workspace · events · chat · tunnel · fs · claude · attach · worklog · review) |

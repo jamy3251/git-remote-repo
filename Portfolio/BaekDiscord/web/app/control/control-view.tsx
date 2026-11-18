@@ -13,6 +13,7 @@ import { TunnelBanner } from "@/components/control/tunnel-banner";
 import { DemoBanner } from "@/components/control/demo-banner";
 import { NewTaskForm, type TaskDraft } from "@/components/control/new-task-form";
 import { SessionCard } from "@/components/control/session-card";
+import { OverlapDialog } from "@/components/control/overlap-dialog";
 import { Feed } from "@/components/control/feed";
 import { WorkLogView, type DraftRequest } from "@/components/control/worklog-view";
 import { TerminalScreen } from "@/components/control/terminal-screen";
@@ -68,7 +69,12 @@ export function ControlView() {
     setTab("playbook");
   };
 
-  const terminal = termSession ? <TerminalScreen session={termSession} runner={runner} onClose={() => setTermId(null)} /> : null;
+  const terminal = (
+    <>
+      {termSession ? <TerminalScreen session={termSession} runner={runner} onClose={() => setTermId(null)} /> : null}
+      <OverlapDialog runner={runner} onOpenSession={() => setTab("sessions")} />
+    </>
+  );
 
   if (!desktop) {
     return (

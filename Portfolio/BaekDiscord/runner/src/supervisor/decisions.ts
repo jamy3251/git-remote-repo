@@ -18,8 +18,13 @@ export interface DecisionRecord {
   preset: string;
   policy: Policy;
   goal: string | null;
-  /** Where the state came from. Only output-tail heuristics today; hooks come later. */
-  signal: "tail";
+  /** Where the state came from: the output tail (an estimate) or a Claude Code hook (certain). */
+  signal: "tail" | "hook";
+  /**
+   * Hook records only. PermissionRequest has no tool_use_id, so these four values are the key that
+   * ties a request to other records of the same call.
+   */
+  hook?: { claudeSessionId: string | null; promptId: string | null; tool: string | null; inputHash: string | null };
   waitingSince: number | null;
   judgment: { state: AgentState; reason: string; promptKind: string | null; danger: boolean; dangerReason: string | null };
   /** The heuristic's inputs, masked, so the heuristic can be re-run on this record. */
@@ -81,6 +86,8 @@ export interface DecisionInput {
   tail: string[];
   now: number;
   waitingSince: number | null;
+  signal?: DecisionRecord["signal"];
+  hook?: DecisionRecord["hook"] | null;
   engine: DecisionRecord["engine"];
   proposal: Omit<Suggestion, "id" | "createdAt"> | null;
   wouldAuto: boolean;
@@ -98,7 +105,8 @@ export function buildDecision(d: DecisionInput): DecisionRecord {
     preset: s.preset,
     policy: s.policy,
     goal: s.goal ? redactSecrets(s.goal).slice(0, 300) : null,
-    signal: "tail",
+    signal: d.signal ?? "tail",
+    ...(d.hook ? { hook: d.hook } : {}),
     waitingSince: d.waitingSince,
     judgment: { state: d.judgment.state, reason: d.judgment.reason, promptKind: d.judgment.prompt?.kind ?? null, danger: d.judgment.danger, dangerReason: d.judgment.dangerReason },
     input: { tail: maskTail(d.tail), lastOutputAt: s.lastOutputAt, createdAt: s.createdAt, now: d.now, status: s.status, exitCode: s.exitCode, mode: s.mode },
@@ -111,12 +119,12 @@ export function buildDecision(d: DecisionInput): DecisionRecord {
   };
 }
 
-interface Joined {
+export interface Joined {
   d: DecisionRecord;
   o: OutcomeRecord | null;
 }
 
-function join(records: LogRecord[]): Joined[] {
+export function join(records: LogRecord[]): Joined[] {
   const byId = new Map<string, Joined>();
   for (const r of records) {
     if (r.type === "decision") byId.set(r.id, { d: r, o: null });
@@ -128,11 +136,11 @@ function join(records: LogRecord[]): Joined[] {
   return [...byId.values()];
 }
 
-function rate(hit: number, total: number): { hit: number; total: number; rate: number | null; enough: boolean } {
+export function rate(hit: number, total: number): { hit: number; total: number; rate: number | null; enough: boolean } {
   return { hit, total, rate: total ? hit / total : null, enough: total >= MIN_SAMPLES };
 }
 
-function sameAnswer(proposal: string | undefined, o: OutcomeRecord): boolean | null {
+export function sameAnswer(proposal: string | undefined, o: OutcomeRecord): boolean | null {
   if (o.kind === "approved") return true;
   if (o.kind === "dismissed") return false;
   if (o.kind === "typed") return o.input == null || proposal === undefined ? null : normalizeAnswer(o.input) === normalizeAnswer(proposal);
@@ -192,6 +200,8 @@ export function replayHeuristic(records: LogRecord[]): { replayed: number; chang
   let judged = 0;
   let undetermined = 0;
   for (const r of join(records)) {
+    // A hook record's state did not come from the tail, so re-reading the tail says nothing about it.
+    if (r.d.signal === "hook") continue;
     const input: HeuristicInput = { ...r.d.input, preset: r.d.preset };
     const sug = heuristicSuggestion(judgeHeuristically(input));
     replayed += 1;

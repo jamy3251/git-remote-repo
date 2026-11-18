@@ -54,6 +54,26 @@ export interface SessionInfo {
   /** Current PTY size. A session tagged "pc" is mirrored to a PC console that owns this size. */
   cols: number;
   rows: number;
+  /** Which CLI the command starts, read from the command itself (not from the preset name). */
+  agent: AgentKind;
+  /** A conversation in a terminal (true) or a one-shot run that ends by itself (false). */
+  interactive: boolean;
+  /** Where `state` came from: a Claude Code hook (certain) or the output tail (an estimate). */
+  signal: StateSignal;
+  /** Claude Code's own session id, learned from hooks. null until the first hook arrives. */
+  claudeSessionId: string | null;
+}
+
+export type AgentKind = "claude" | "codex" | "shell" | "custom";
+export type StateSignal = "hook" | "output";
+
+/** A running session whose folder is the same as, above or below the folder of a new session. */
+export interface FolderOverlap {
+  id: string;
+  name: string;
+  cwd: string;
+  /** Where the running session sits relative to the new one. "root": it runs in the whole work root. */
+  relation: "same" | "parent" | "child" | "root";
 }
 
 export interface PresetInfo {
@@ -84,6 +104,10 @@ export interface CreateSessionRequest {
   policy?: Policy;
   /** When the session ends, have a different AI review its work. */
   crossReview?: ReviewerId | "auto";
+  /** Start even though another writing session runs in the same, a parent or a child folder. */
+  allowOverlap?: boolean;
+  /** false: do not attach Claude Code hooks to this session (state is then estimated from output). */
+  hooks?: boolean;
 }
 
 export interface SupervisorEvent {
@@ -107,6 +131,8 @@ export interface SupervisorConfig {
   usage: { brainCalls: number; brainErrors: number; inputTokens: number; outputTokens: number };
   /** From the decision log (docs/designs/devhub-next-20261113.md). Absent when the log is off. */
   metrics?: DecisionMetrics;
+  /** Claude Code hook signals since the runner started. `enabled` is false under RUNNER_HOOKS=0. */
+  hooks?: { enabled: boolean; received: number; rejected: number };
 }
 
 /** A rate with its denominator. `enough` is false below 50 samples: show "표본 부족", not the rate. */
@@ -256,7 +282,7 @@ export type ServerMessage =
   | { type: "playbook"; entries: PlaybookEntry[]; reqId?: string }
   | { type: "playbook_entry"; entry: PlaybookEntry; reqId?: string }
   | { type: "playbook_draft"; draft: PlaybookInput; reqId?: string }
-  | ({ type: "error"; message: string; reqId?: string } & Partial<Omit<ErrorInfo, "error">>);
+  | ({ type: "error"; message: string; reqId?: string; overlaps?: FolderOverlap[] } & Partial<Omit<ErrorInfo, "error">>);
 
 /** How a caller may retry: not at all, after a wait, or after fixing what `fix` says. */
 export type ErrorRetry = "no" | "after_ms" | "after_fix";

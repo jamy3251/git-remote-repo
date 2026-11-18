@@ -22,6 +22,7 @@ const cfg: RunnerConfig = {
   allowedOrigins: ["http://localhost:3000"],
   webProxy: null,
   dashboardPath: "/control",
+  hooks: false,
   supervisor: {
     enabled: false,
     defaultPolicy: "assist",
@@ -159,8 +160,13 @@ describe("websocket sessions", () => {
     await c.next((m) => m.type === "welcome");
     const cmd = process.platform === "win32" ? "cmd.exe /q /k" : "cat";
     c.send({ type: "create", reqId: "a", req: { preset: "custom", command: cmd, cwd: cfg.cwdRoot } });
-    c.send({ type: "create", reqId: "b", req: { preset: "custom", command: cmd, cwd: cfg.cwdRoot } });
     const a = await c.next((m) => m.type === "created" && m.reqId === "a");
+    // A second writer in the same folder is refused until the caller confirms.
+    c.send({ type: "create", reqId: "b", req: { preset: "custom", command: cmd, cwd: cfg.cwdRoot } });
+    const busy = await c.next((m) => m.type === "error" && m.reqId === "b");
+    expect(busy.type === "error" && busy.code).toBe("folder_busy");
+    expect(busy.type === "error" && busy.overlaps?.map((o) => o.relation)).toEqual(["same"]);
+    c.send({ type: "create", reqId: "b", req: { preset: "custom", command: cmd, cwd: cfg.cwdRoot, allowOverlap: true } });
     const b = await c.next((m) => m.type === "created" && m.reqId === "b");
     const ids = [a, b].map((m) => (m.type === "created" ? m.session.id : ""));
     c.send({ type: "input", ids, data: "echo multi-control\r" });

@@ -45,6 +45,11 @@ function session(over: Partial<SessionInfo> & Pick<SessionInfo, "id" | "name" | 
     suggestion: null,
     cols: 100,
     rows: 30,
+    agent: over.preset.startsWith("claude") ? "claude" : over.preset.startsWith("codex") ? "codex" : over.preset === "shell" ? "shell" : "custom",
+    interactive: true,
+    // The demo shows both badges: Claude sessions as hook-confirmed, the rest as output estimates.
+    signal: over.preset.startsWith("claude") ? "hook" : "output",
+    claudeSessionId: null,
     ...over,
   };
 }

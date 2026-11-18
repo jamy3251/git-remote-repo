@@ -1,9 +1,10 @@
 import { EventEmitter } from "node:events";
 import { createHash, randomUUID } from "node:crypto";
-import type { AgentState, Policy, SessionInfo, Suggestion, SupervisorConfig, SupervisorEvent } from "../protocol.js";
+import type { AgentState, Policy, SessionInfo, StateSignal, Suggestion, SupervisorConfig, SupervisorEvent } from "../protocol.js";
 import type { SessionManager } from "../sessions.js";
 import type { Brain, BrainDecision } from "./brain.js";
-import { heuristicSuggestion, isSafeAutoInput, judgeHeuristically, type Judgment } from "./heuristics.js";
+import { detectPrompt, heuristicSuggestion, isSafeAutoInput, judgeHeuristically, type Judgment } from "./heuristics.js";
+import { answersPermission, nextHookPhase, type HookPhase, type HookSignal } from "../hooks.js";
 import { redactSecrets } from "../security.js";
 import { JUDGE_PROMPT_HASH } from "./brain.js";
 import type { DecisionLog } from "./decisions.js";
@@ -20,7 +21,13 @@ export interface SupervisorOptions {
   /** Decision records for metrics and eval:supervisor. Off when null (tests, demo). */
   decisions?: DecisionLog | null;
   runnerVersion?: string;
+  /** Whether sessions get Claude Code hooks at all (RUNNER_HOOKS). Shown in the config. */
+  hooksEnabled?: boolean;
 }
+
+/** A hook says "working" but the screen has shown a prompt and stayed silent this long: trust the screen. */
+const HOOK_QUIET_FALLBACK_MS = 60_000;
+const SEEN_HOOK_IDS = 500;
 
 interface Track {
   judgedHash: string | null;
@@ -31,6 +38,11 @@ interface Track {
   bytesSeen: number;
   /** When the current wait for input began; null while not waiting. */
   waitingSince: number | null;
+  /** What Claude Code hooks last reported; null for sessions without hooks (state comes from output). */
+  hook: HookPhase | null;
+  seenHookIds: string[];
+  /** Where the judgment being applied came from (for the decision record). */
+  signal: StateSignal;
 }
 
 export interface UsageTotals {
@@ -79,6 +91,8 @@ export class Supervisor extends EventEmitter {
   private defaultPolicy: Policy;
   private inflight = new Set<string>();
   usage: UsageTotals = { brainCalls: 0, brainErrors: 0, inputTokens: 0, outputTokens: 0 };
+  /** Hook calls accepted and refused (unknown session, bad secret, malformed, duplicate). */
+  hookCounts = { received: 0, rejected: 0 };
 
   constructor(
     private sessions: SessionManager,
@@ -89,6 +103,39 @@ export class Supervisor extends EventEmitter {
     this.enabled = opts.enabled;
     this.defaultPolicy = opts.defaultPolicy;
     sessions.on("removed", (id: string) => this.tracks.delete(id));
+    // Any answer typed into a permission prompt (person, chat or the supervisor itself) ends that wait
+    // now; the tool's PostToolUse hook only arrives when the tool has finished.
+    sessions.on("input", (id: string, data: string) => {
+      const t = this.tracks.get(id);
+      if (t?.hook?.kind !== "permission" || !answersPermission(data)) return;
+      t.hook = { ...t.hook, kind: "working", state: "working", reason: "작업 중", danger: false, dangerReason: null, ts: Date.now() };
+      void this.evaluate(id);
+    });
+  }
+
+  /**
+   * One Claude Code hook call for a session (already authenticated by the server). Hooks only move
+   * the state; nothing here answers a prompt. Returns "duplicate" when this call id was seen before.
+   */
+  hookSignal(id: string, sig: HookSignal, now = Date.now()): "ok" | "duplicate" {
+    const s = this.sessions.get(id);
+    if (!s) return "ok";
+    const t = this.track(s, now);
+    if (t.seenHookIds.includes(sig.id)) return "duplicate";
+    t.seenHookIds.push(sig.id);
+    if (t.seenHookIds.length > SEEN_HOOK_IDS) t.seenHookIds.splice(0, t.seenHookIds.length - SEEN_HOOK_IDS);
+    this.hookCounts.received += 1;
+    if (sig.claudeSessionId && sig.claudeSessionId !== s.claudeSessionId) this.sessions.patch(id, { claudeSessionId: sig.claudeSessionId });
+    const next = nextHookPhase(t.hook, sig);
+    if (next) {
+      t.hook = next;
+      void this.evaluate(id, now);
+    }
+    return "ok";
+  }
+
+  hookRejected(): void {
+    this.hookCounts.rejected += 1;
   }
 
   start(): void {
@@ -112,6 +159,7 @@ export class Supervisor extends EventEmitter {
       notifyWebhook: Boolean(this.opts.notify),
       usage: { ...this.usage },
       ...(this.opts.decisions ? { metrics: this.opts.decisions.metrics() } : {}),
+      hooks: { enabled: this.opts.hooksEnabled ?? false, ...this.hookCounts },
     };
   }
 
@@ -182,7 +230,7 @@ export class Supervisor extends EventEmitter {
   private track(s: SessionInfo, now: number): Track {
     let t = this.tracks.get(s.id);
     if (!t) {
-      t = { judgedHash: null, judgedAt: 0, lastNotifyAt: 0, activity: new Array(ACTIVITY_BUCKETS).fill(0), bucketStart: now, bytesSeen: 0, waitingSince: null };
+      t = { judgedHash: null, judgedAt: 0, lastNotifyAt: 0, activity: new Array(ACTIVITY_BUCKETS).fill(0), bucketStart: now, bytesSeen: 0, waitingSince: null, hook: null, seenHookIds: [], signal: "output" };
       this.tracks.set(s.id, t);
     }
     const width = this.opts.activityBucketMs ?? 30_000;
@@ -204,23 +252,45 @@ export class Supervisor extends EventEmitter {
     for (const s of this.sessions.list()) {
       const t = this.track(s, now);
       if (!this.enabled) continue;
-      const tail = this.sessions.tail(s.id, 40);
-      const judgment = judgeHeuristically({
-        tail,
-        lastOutputAt: s.lastOutputAt,
-        createdAt: s.createdAt,
-        now,
-        status: s.status,
-        exitCode: s.exitCode,
-        mode: s.mode,
-        preset: s.preset,
-      });
-      await this.apply(s, judgment, tail, t, now);
+      const { j, tail, signal } = this.judge(s, t, now);
+      await this.apply(s, j, tail, t, now, signal);
     }
   }
 
-  private async apply(s: SessionInfo, j: Judgment, tail: string[], t: Track, now: number): Promise<void> {
+  /** Judge one session now instead of at the next tick (a hook just arrived, or a prompt was answered). */
+  private async evaluate(id: string, now = Date.now()): Promise<void> {
+    const s = this.sessions.get(id);
+    if (!s || !this.enabled) return;
+    const t = this.track(s, now);
+    const { j, tail, signal } = this.judge(s, t, now);
+    await this.apply(s, j, tail, t, now, signal);
+  }
+
+  /**
+   * The state of a session and where it came from. Hooks win while the process runs; the output
+   * tail is used for sessions without hooks, for the end of the process, and for a prompt on screen
+   * that hooks did not report (the hook still says "working" but nothing has moved for a while).
+   */
+  private judge(s: SessionInfo, t: Track, now: number): { j: Judgment; tail: string[]; signal: StateSignal } {
+    const tail = this.sessions.tail(s.id, 40);
+    const h = judgeHeuristically({ tail, lastOutputAt: s.lastOutputAt, createdAt: s.createdAt, now, status: s.status, exitCode: s.exitCode, mode: s.mode, preset: s.preset });
+    const phase = t.hook;
+    if (!phase || s.status !== "running") return { j: h, tail, signal: "output" };
+    const quietFor = now - Math.max(s.lastOutputAt ?? 0, phase.ts);
+    const screenPrompt = h.state === "waiting_input" && h.prompt !== null && h.prompt.kind !== "question";
+    if (phase.state !== "waiting_input" && screenPrompt && quietFor > HOOK_QUIET_FALLBACK_MS) return { j: h, tail, signal: "output" };
+    let prompt: Judgment["prompt"] = null;
+    if (phase.kind === "permission") {
+      const seen = detectPrompt(tail);
+      prompt = seen?.kind === "menu" ? seen : { kind: "menu", options: ["1. Yes", "2. No"] };
+    }
+    return { j: { state: phase.state, reason: phase.reason, prompt, danger: phase.danger, dangerReason: phase.dangerReason }, tail, signal: "hook" };
+  }
+
+  private async apply(s: SessionInfo, j: Judgment, tail: string[], t: Track, now: number, signal: StateSignal = "output"): Promise<void> {
     const changed = j.state !== s.state;
+    t.signal = signal;
+    if (signal !== s.signal) this.sessions.patch(s.id, { signal });
     if (changed) {
       this.sessions.patch(s.id, { state: j.state, stateReason: j.reason, suggestion: j.state === "waiting_input" ? s.suggestion : null });
       const level = j.state === "error" ? "error" : j.state === "waiting_input" ? "warn" : "info";
@@ -329,6 +399,11 @@ export class Supervisor extends EventEmitter {
       tail,
       now,
       waitingSince: t.waitingSince,
+      signal: t.signal === "hook" ? "hook" : "tail",
+      hook:
+        t.signal === "hook" && t.hook
+          ? { claudeSessionId: s.claudeSessionId, promptId: t.hook.promptId, tool: t.hook.tool, inputHash: t.hook.inputHash }
+          : null,
       engine: { ...engine, runner: this.opts.runnerVersion ?? "unknown", promptHash: engine.kind === "api" || engine.kind === "claude-cli" ? JUDGE_PROMPT_HASH : null },
       proposal,
       wouldAuto,
