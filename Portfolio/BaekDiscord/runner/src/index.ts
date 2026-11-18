@@ -16,7 +16,7 @@ runner.listen().then((port) => {
   log(`presets: ${presetInfos().map((p) => `${p.id}${p.available ? "" : "(x)"}`).join(", ")}`);
   log(`languages: ${languageInfos().map((l) => `${l.id}${l.available ? "" : "(x)"}`).join(", ")}`);
   const sup = runner.supervisor.config();
-  log(`supervisor: ${sup.enabled ? "on" : "off"}, default policy ${sup.defaultPolicy}, brain ${sup.brain}${sup.brainModel ? ` (${sup.brainModel})` : ""}, notify ${sup.notifyWebhook ? "webhook" : "off"}`);
+  log(`supervisor: ${sup.enabled ? "on" : "off"}, default policy ${sup.defaultPolicy}, brain ${sup.brain}${sup.brainModel ? ` (${sup.brainModel})` : ""}, notify ${sup.notifyWebhook ? "on" : "off"}`);
   const t = runner.tunnel.status();
   log(`tunnel providers: ngrok ${t.available.ngrok ? "ok" : "missing"}, cloudflared ${t.available.cloudflared ? "ok" : "missing"}`);
   if (process.env.RUNNER_TUNNEL === "1") void runner.tunnel.start();

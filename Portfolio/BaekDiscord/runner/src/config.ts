@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { NOTIFY_EVENTS, type NotifyConfig, type NotifyEvent } from "./notify.js";
 
 export interface RunnerConfig {
   host: string;
@@ -31,6 +32,8 @@ export interface RunnerConfig {
   dashboardPath: string;
   /** Attach Claude Code hooks to interactive Claude sessions (RUNNER_HOOKS=0 turns it off). */
   hooks: boolean;
+  /** Messenger progress messages (runner/src/notify.ts). Absent means webhook only, from `supervisor.notifyWebhook`. */
+  notify?: NotifyConfig;
   supervisor: {
     enabled: boolean;
     defaultPolicy: "manual" | "assist" | "auto";
@@ -83,6 +86,17 @@ export function loadConfig(): RunnerConfig {
     webProxy: process.env.RUNNER_WEB_PROXY === "off" ? null : (process.env.RUNNER_WEB_PROXY ?? "http://127.0.0.1:3000"),
     dashboardPath: process.env.RUNNER_DASHBOARD_PATH ?? "/control",
     hooks: process.env.RUNNER_HOOKS !== "0",
+    notify: {
+      webhook: process.env.SUPERVISOR_NOTIFY_WEBHOOK?.trim() || null,
+      telegramToken: process.env.NOTIFY_TELEGRAM_TOKEN?.trim() || null,
+      telegramChatId: process.env.NOTIFY_TELEGRAM_CHAT_ID?.trim() || null,
+      kakaoRestKey: process.env.NOTIFY_KAKAO_REST_KEY?.trim() || null,
+      kakaoClientSecret: process.env.NOTIFY_KAKAO_CLIENT_SECRET?.trim() || null,
+      kakaoTokenFile: process.env.NOTIFY_KAKAO_TOKEN_FILE?.trim() || path.join(process.cwd(), ".data", "kakao.json"),
+      digestMin: nonNegative(process.env.NOTIFY_DIGEST_MIN, 30),
+      events: asEvents(process.env.NOTIFY_EVENTS),
+      linkUrl: process.env.NOTIFY_LINK_URL?.trim() || null,
+    },
     supervisor: {
       enabled: process.env.SUPERVISOR_ENABLED !== "0",
       defaultPolicy: asPolicy(process.env.SUPERVISOR_DEFAULT_POLICY) ?? "assist",
@@ -99,6 +113,13 @@ export function loadConfig(): RunnerConfig {
 function nonNegative(v: string | undefined, fallback: number): number {
   const n = v === undefined || v.trim() === "" ? fallback : Number(v);
   return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+/** NOTIFY_EVENTS=start,wait,done,review,digest (default: all). Unknown names are ignored. */
+function asEvents(v: string | undefined): NotifyEvent[] {
+  if (!v?.trim()) return [...NOTIFY_EVENTS];
+  const want = v.split(",").map((s) => s.trim());
+  return NOTIFY_EVENTS.filter((e) => want.includes(e));
 }
 
 function asPolicy(v: string | undefined): "manual" | "assist" | "auto" | null {

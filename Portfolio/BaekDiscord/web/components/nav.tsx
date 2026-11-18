@@ -11,6 +11,7 @@ const links = [
   { href: "/compile", label: "컴파일러" },
   // Kept until 2026-12-31 (design gate UC2); archived then unless M0 opens.
   { href: "/teams", label: "팀 다이제스트" },
+  { href: "/intro", label: "소개" },
 ];
 
 export function Nav() {

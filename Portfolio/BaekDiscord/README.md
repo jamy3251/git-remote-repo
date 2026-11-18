@@ -83,7 +83,7 @@ docs/     설계 문서
 - 정책 세 단계: **수동**(관찰·알림만) · **제안**(판단 엔진이 응답을 제안, 사람이 승인) · **자율**(안전한 입력은 스스로 전송, 나머지는 사람에게).
 - **안전 규칙**: 삭제·force push·배포·비밀값·시스템 변경이 출력에 보이면 정책과 무관하게 항상 사람 확인으로 올립니다. 자율 모드가 스스로 보내는 입력은 `y`/`n`/번호/Enter 같은 단순 응답뿐이며 신뢰도 0.7 이상일 때만입니다.
 - **판단 엔진** (`SUPERVISOR_BRAIN`): `api`(Anthropic API, `ANTHROPIC_API_KEY`) → `claude-cli`(설치된 Claude Code의 `claude -p`, 키 불필요) → `heuristic`(규칙만). 기본 `auto`는 이 순서로 고릅니다.
-- **알림**: `SUPERVISOR_NOTIFY_WEBHOOK`(디스코드 웹훅)에 입력 대기·확인 요청을 보냅니다(세션당 60초 디바운스, 비밀값 마스킹).
+- **알림**: 세션 시작, 입력 대기, 완료, 교차검증 결과와 주기적인 진행 상황을 카카오톡(나에게 보내기), 텔레그램, 디스코드로 보냅니다(입력 대기는 세션당 60초 디바운스, 비밀값 마스킹). 설정은 [docs/notify.md](docs/notify.md), 확인은 `devhubctl notify test`.
 
 ### 토큰 최적화
 - 판단 엔진은 상태가 **입력 대기로 바뀔 때만** 호출합니다. 같은 출력(해시)에는 다시 묻지 않고, 세션당 30초 쿨다운이 있습니다. 위험 신호가 있으면 LLM을 부르지 않고 바로 사람에게 올립니다.
@@ -145,6 +145,10 @@ Claude Code에서 이 러너를 쓰려면 `/devhub-runner` 스킬(`D:\Projects\.
 | `SUPERVISOR_MODEL` | claude-opus-5 (api) | 판단 모델 |
 | `ANTHROPIC_API_KEY` | – | api 엔진 |
 | `SUPERVISOR_NOTIFY_WEBHOOK` | – | 디스코드 웹훅 URL |
+| `NOTIFY_TELEGRAM_TOKEN`, `NOTIFY_TELEGRAM_CHAT_ID` | – | 텔레그램 봇 알림 |
+| `NOTIFY_KAKAO_REST_KEY` | – | 카카오톡 나에게 보내기. `devhubctl kakao login`으로 한 번 로그인 |
+| `NOTIFY_DIGEST_MIN` | 30 | 진행 상황 요약 간격(분). `0`이면 끔 |
+| `NOTIFY_EVENTS` | 전부 | 보낼 일: `start,wait,done,review,digest` 중 쉼표로 |
 | `SUPERVISOR_INTERVAL_MS` | 3000 | 관찰 주기 |
 
 ## 보안 모델

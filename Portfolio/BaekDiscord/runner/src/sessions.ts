@@ -250,6 +250,7 @@ export class SessionManager extends EventEmitter {
       this.push(session, `\r\n[runner] ${(e as Error).message}\r\n`);
       throw e;
     }
+    this.emit("created", { ...info });
     this.emit("updated", { ...info });
     return { ...info };
   }

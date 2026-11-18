@@ -4,11 +4,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer, WebSocket } from "ws";
 import type { RunnerConfig } from "./config.js";
-import type { ClientMessage, CompileRequest, CreateSessionRequest, CrossReview, FolderOverlap, GitFileChange, Policy, ReviewMode, ReviewerId, ServerMessage, SupervisorEvent, WorkLogEntry } from "./protocol.js";
+import type { ClientMessage, CompileRequest, CreateSessionRequest, CrossReview, FolderOverlap, GitFileChange, Policy, ReviewMode, ReviewerId, ServerMessage, SessionInfo, SupervisorEvent, WorkLogEntry } from "./protocol.js";
 import { SessionManager } from "./sessions.js";
 import { presetInfos } from "./presets.js";
 import { languageInfos } from "./compiler/languages.js";
 import { compileAndRun, judge, Semaphore } from "./compiler/run.js";
+import { NOTIFY_EVENTS, Notifier, buildChannels, formatDigest, formatFinished, formatReview, formatStarted, type NotifyConfig, type SendResult } from "./notify.js";
 import { createBrain } from "./supervisor/brain.js";
 import { Supervisor } from "./supervisor/supervisor.js";
 import { DecisionLog, type LogRecord } from "./supervisor/decisions.js";
@@ -109,11 +110,6 @@ function isPolicy(v: unknown): v is Policy {
   return v === "manual" || v === "assist" || v === "auto";
 }
 
-async function postDiscord(url: string, text: string): Promise<void> {
-  const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ content: text.slice(0, 1900) }) });
-  if (!res.ok && res.status !== 204) throw new Error(`webhook ${res.status}`);
-}
-
 export function createRunnerServer(cfg: RunnerConfig) {
   const allowedOrigins = new Set(cfg.allowedOrigins);
   const originAllowed = (origin: string | undefined): boolean => !origin || allowedOrigins.has(origin);
@@ -162,11 +158,29 @@ export function createRunnerServer(cfg: RunnerConfig) {
     new JsonlLog<LogRecord>(path.join(process.cwd(), ".data", "decisions.jsonl"), { rotate: false, onSkipped: (n) => console.warn(`[runner] decisions.jsonl: 깨진 줄 ${n}개 건너뜀`) }),
     (message) => supervisor.log("error", null, "system", message),
   );
+  const notifyCfg: NotifyConfig = cfg.notify ?? {
+    webhook: cfg.supervisor.notifyWebhook,
+    telegramToken: null,
+    telegramChatId: null,
+    kakaoRestKey: null,
+    kakaoClientSecret: null,
+    kakaoTokenFile: path.join(dataDir, "kakao.json"),
+    digestMin: 0,
+    events: [...NOTIFY_EVENTS],
+    linkUrl: null,
+  };
+  let lastNotifyErrorAt = 0;
+  const notifier = new Notifier(buildChannels(notifyCfg), notifyCfg.events, (channel, message) => {
+    // One line a minute at most: a dead channel would otherwise fill the event log.
+    if (Date.now() - lastNotifyErrorAt < 60_000) return;
+    lastNotifyErrorAt = Date.now();
+    supervisor.log("error", null, "system", `알림 실패(${channel}): ${message}`);
+  });
   const supervisor = new Supervisor(sessions, brain, {
     enabled: cfg.supervisor.enabled,
     defaultPolicy: cfg.supervisor.defaultPolicy,
     intervalMs: cfg.supervisor.intervalMs,
-    notify: cfg.supervisor.notifyWebhook ? (text) => postDiscord(cfg.supervisor.notifyWebhook as string, text) : null,
+    notify: notifier.wants("wait") ? async (text) => void (await notifier.send(text)) : null,
     decisions,
     runnerVersion: RUNNER_VERSION,
     hooksEnabled: cfg.hooks,
@@ -271,6 +285,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
     const p1 = r.findings.filter((f) => f.severity === "P1").length;
     const verdict = r.status === "failed" ? "실패" : r.verdict === "pass" ? "통과" : r.verdict === "fail" ? `수정 필요 (P1 ${p1}건, 전체 ${r.findings.length}건)` : "판단 보류";
     supervisor.log(r.verdict === "fail" ? "warn" : "info", reviewSessionId, "system", `교차검증 ${verdict}: ${entry.name}`);
+    void notifier.emit("review", formatReview(entry.name, verdict, r.summary));
   }
 
   async function recordWork(id: string): Promise<void> {
@@ -311,6 +326,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
     }
     worklog.add(entry);
     broadcast({ type: "worklog_entry", entry });
+    void notifier.emit("done", formatFinished(entry));
     const auto = sessions.crossReviewOf(id);
     if (auto && s.status === "exited") {
       startReview(id, auto, "review", "system").catch((e) => supervisor.log("error", id, "system", `자동 교차검증 실패: ${(e as Error).message}`));
@@ -363,6 +379,10 @@ export function createRunnerServer(cfg: RunnerConfig) {
     broadcast({ type: "exit", id, exitCode, status });
     // Record the finished session once its last output and the git state have settled.
     setTimeout(() => void recordWork(id), 1500);
+  });
+  sessions.on("created", (session: SessionInfo) => {
+    // Reviewer sessions report through their verdict, not as work of their own.
+    if (!session.tags.includes("review")) void notifier.emit("start", formatStarted(session));
   });
   sessions.on("updated", (session) => broadcast({ type: "updated", session }));
   sessions.on("removed", (id: string) => broadcast({ type: "removed", id }));
@@ -430,6 +450,13 @@ export function createRunnerServer(cfg: RunnerConfig) {
     tickTunnel();
   }, HEARTBEAT_MS);
   heartbeat.unref?.();
+  /** Status of the running sessions to the messenger. Returns null when nothing runs. */
+  const sendDigest = async (): Promise<SendResult[] | null> => {
+    const text = formatDigest(sessions.list(), Date.now());
+    return text ? notifier.send(text) : null;
+  };
+  const digestTimer = notifier.wants("digest") && notifyCfg.digestMin > 0 ? setInterval(() => void sendDigest(), notifyCfg.digestMin * 60_000) : null;
+  digestTimer?.unref?.();
   tunnel.on("warn", (m: string) => supervisor.log("warn", null, "system", m));
   supervisor.start();
 
@@ -532,6 +559,14 @@ export function createRunnerServer(cfg: RunnerConfig) {
       if (route === "/tunnel" && req.method === "GET") return json(200, { status: tunnel.status() });
       if (route === "/products" && req.method === "GET") return json(200, await products.list(url.searchParams.get("refresh") === "1"));
       if (route === "/worklog" && req.method === "GET") return json(200, { entries: worklog.list(Number(url.searchParams.get("limit")) || 50) });
+      if (route === "/notify" && req.method === "GET") return json(200, { channels: notifier.names, events: notifyCfg.events, digestMin: notifyCfg.digestMin });
+      if ((route === "/notify/test" || route === "/notify/digest") && req.method === "POST") {
+        if (!notifier.enabled) return fail("bad_request", "알림 채널이 없습니다. NOTIFY_TELEGRAM_TOKEN, NOTIFY_KAKAO_REST_KEY, SUPERVISOR_NOTIFY_WEBHOOK 중 하나를 설정하고 러너를 다시 시작하세요.");
+        if (!aiLimiter.allow(client)) return fail("rate_limited", "notify rate limit");
+        if (route === "/notify/test") return json(200, { results: await notifier.send("[DevHub] 알림 시험입니다. 이 메시지가 보이면 연결된 것입니다.") });
+        const results = await sendDigest();
+        return json(200, { results: results ?? [], sent: results !== null });
+      }
       if (route === "/refine" && req.method === "POST") {
         const body = (await readJson(req, 64_000)) as { text?: string; cwd?: string };
         if (!body.text?.trim()) return fail("bad_request", "text required");
@@ -940,6 +975,7 @@ export function createRunnerServer(cfg: RunnerConfig) {
     close: () =>
       new Promise<void>((resolve) => {
         clearInterval(heartbeat);
+        if (digestTimer) clearInterval(digestTimer);
         supervisor.stop();
         tunnel.stop();
         sessions.killAll();

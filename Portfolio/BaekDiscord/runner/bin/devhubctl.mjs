@@ -21,7 +21,13 @@
  *   devhubctl claude [claude 인자...]             이 폴더에서 Claude Code를 러너 세션으로 실행하고 이 창에 붙음.
  *                                               폰 대시보드와 같은 화면을 공유. Ctrl+] = 분리(세션은 계속 실행)
  *   devhubctl attach <id>                        실행 중인 세션을 이 창에 붙임 (Ctrl+] 분리)
+ *   devhubctl notify status|test|now             메신저 알림: 설정된 채널 보기 / 시험 메시지 / 지금 진행 상황 보내기
+ *   devhubctl kakao login [--port 7341]          카카오톡 "나에게 보내기" 로그인(브라우저에서 한 번 동의).
+ *                                               NOTIFY_KAKAO_REST_KEY 필요, 토큰은 runner/.data/kakao.json 에 저장
  *   devhubctl help | --help | -h                 이 도움말
+ *
+ * 알림 채널은 러너 환경 변수로 켭니다: NOTIFY_TELEGRAM_TOKEN + NOTIFY_TELEGRAM_CHAT_ID,
+ * NOTIFY_KAKAO_REST_KEY, SUPERVISOR_NOTIFY_WEBHOOK(디스코드). 자세한 설정은 docs/notify.md.
  *
  * 같은 폴더(또는 상위·하위)에 쓰기 세션이 이미 돌고 있으면 create와 claude는 멈추고 겹치는 세션을
  * 보여 줍니다. claude는 그 자리에서 y/N을 묻고, create는 --allow-overlap을 붙여 다시 실행합니다.
@@ -185,6 +191,69 @@ function askYesNo(question) {
       resolve(/^y(es)?$/i.test(String(d).trim()));
     });
   });
+}
+
+/**
+ * One-time KakaoTalk consent for "나에게 보내기". Opens nothing by itself: prints the address, waits
+ * for the redirect on localhost, exchanges the code and stores the tokens where the runner reads them.
+ */
+async function kakaoLogin(flags) {
+  const restKey = process.env.NOTIFY_KAKAO_REST_KEY?.trim();
+  if (!restKey) throw new Error("NOTIFY_KAKAO_REST_KEY 가 없습니다. 카카오 개발자 콘솔의 REST API 키를 환경 변수로 넣으세요 (docs/notify.md).");
+  const port = Number(flags.port ?? 7341);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("--port 는 1에서 65535 사이 정수입니다.");
+  const redirect = `http://localhost:${port}/kakao/callback`;
+  const file = process.env.NOTIFY_KAKAO_TOKEN_FILE?.trim() || path.join(here, "..", ".data", "kakao.json");
+  const { default: http } = await import("node:http");
+  const { randomBytes } = await import("node:crypto");
+  const state = randomBytes(12).toString("hex");
+  const authorize = `https://kauth.kakao.com/oauth/authorize?${new URLSearchParams({ client_id: restKey, redirect_uri: redirect, response_type: "code", scope: "talk_message", state })}`;
+
+  const code = await new Promise((resolve, reject) => {
+    const page = (res, status, text) => {
+      res.writeHead(status, { "content-type": "text/plain; charset=utf-8" });
+      res.end(text);
+    };
+    const server = http.createServer((req, res) => {
+      const url = new URL(req.url ?? "/", redirect);
+      if (url.pathname !== "/kakao/callback") return page(res, 404, "not found");
+      const done = (err, value) => {
+        server.close();
+        clearTimeout(timer);
+        return err ? reject(err) : resolve(value);
+      };
+      if (url.searchParams.get("state") !== state) {
+        page(res, 400, "state 값이 다릅니다. devhubctl kakao login 을 다시 실행하세요.");
+        return done(new Error("state 값이 달라 중단했습니다."));
+      }
+      const c = url.searchParams.get("code");
+      if (!c) {
+        page(res, 400, `동의가 완료되지 않았습니다: ${url.searchParams.get("error_description") ?? url.searchParams.get("error") ?? "code 없음"}`);
+        return done(new Error(`카카오 동의 실패: ${url.searchParams.get("error") ?? "code 없음"}`));
+      }
+      page(res, 200, "DevHub: 카카오 로그인 완료. 이 창은 닫아도 됩니다.");
+      done(null, c);
+    });
+    const timer = setTimeout(() => {
+      server.close();
+      reject(new Error("5분 안에 동의가 끝나지 않아 중단했습니다."));
+    }, 300_000);
+    server.on("error", (e) => reject(new Error(`포트 ${port}을 열지 못했습니다 (${e.code ?? e.message}). --port 로 다른 포트를 주고, 같은 주소를 Redirect URI에 등록하세요.`)));
+    server.listen(port, "127.0.0.1", () => {
+      console.log(`카카오 개발자 콘솔의 Redirect URI에 이 주소가 등록돼 있어야 합니다:\n  ${redirect}\n`);
+      console.log(`브라우저에서 아래 주소를 열고 "카카오톡 메시지 전송"에 동의하세요:\n  ${authorize}\n`);
+    });
+  });
+
+  const body = new URLSearchParams({ grant_type: "authorization_code", client_id: restKey, redirect_uri: redirect, code });
+  const secret = process.env.NOTIFY_KAKAO_CLIENT_SECRET?.trim();
+  if (secret) body.set("client_secret", secret);
+  const res = await fetch("https://kauth.kakao.com/oauth/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded;charset=utf-8" }, body });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.access_token || !json.refresh_token) throw new Error(`토큰 발급 실패 (${res.status}): ${json.error_description ?? json.error ?? "응답에 토큰이 없습니다"}`);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ access_token: json.access_token, refresh_token: json.refresh_token, expires_at: Date.now() + Math.max(60, (json.expires_in ?? 21600) - 300) * 1000 }, null, 2), { encoding: "utf8", mode: 0o600 });
+  console.log(`저장했습니다: ${file}\n러너에 NOTIFY_KAKAO_REST_KEY 를 넣고 다시 시작한 뒤 devhubctl notify test 로 확인하세요.`);
 }
 
 function usage() {
@@ -369,6 +438,26 @@ async function main() {
         });
       });
       return ws.close();
+    }
+    case "notify": {
+      if (a1 === "status" || !a1) {
+        const st = await api("GET", "/notify");
+        if (flags.json) return asJson(st);
+        console.log(st.channels.length ? `채널: ${st.channels.join(", ")}` : "채널: 없음 (docs/notify.md 참고)");
+        console.log(`보내는 일: ${st.events.join(", ")}`);
+        console.log(st.digestMin > 0 ? `진행 상황 요약: ${st.digestMin}분마다(실행 중인 세션이 있을 때)` : "진행 상황 요약: 꺼짐");
+        return;
+      }
+      if (a1 !== "test" && a1 !== "now") throw new Error("usage: notify status|test|now");
+      const res = await api("POST", a1 === "test" ? "/notify/test" : "/notify/digest");
+      if (a1 === "now" && res.sent === false) return console.log("실행 중인 세션이 없어 보내지 않았습니다.");
+      for (const r of res.results) console.log(`${r.channel}: ${r.ok ? "보냄" : `실패 (${r.error})`}`);
+      if (res.results.some((r) => !r.ok)) process.exitCode = 1;
+      return;
+    }
+    case "kakao": {
+      if (a1 !== "login") throw new Error("usage: kakao login [--port 7341]");
+      return kakaoLogin(flags);
     }
     default:
       if (cmd) console.error(`devhubctl: 모르는 명령 "${cmd}"`);
