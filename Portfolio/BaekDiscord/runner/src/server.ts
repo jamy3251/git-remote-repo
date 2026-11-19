@@ -475,7 +475,8 @@ export function createRunnerServer(cfg: RunnerConfig) {
       const headers: Record<string, string> = { "content-type": "application/json; charset=utf-8", ...SECURITY_HEADERS };
       if (origin && originAllowed(origin)) {
         headers["access-control-allow-origin"] = origin;
-        headers["access-control-allow-headers"] = "authorization, content-type";
+        // The dashboard adds the ngrok header to every call so one fetch helper works through a tunnel too.
+        headers["access-control-allow-headers"] = "authorization, content-type, ngrok-skip-browser-warning";
         headers["access-control-allow-methods"] = "GET, POST, OPTIONS";
         headers["vary"] = "origin";
       }

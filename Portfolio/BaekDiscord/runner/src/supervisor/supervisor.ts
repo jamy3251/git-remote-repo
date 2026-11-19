@@ -367,7 +367,7 @@ export class Supervisor extends EventEmitter {
       }
       this.sessions.patch(s.id, { suggestion: full });
       this.log(full.kind === "escalate" ? "warn" : "info", s.id, "supervisor", `${full.kind === "escalate" ? "사람 확인 요청" : "제안"}: ${full.label} — ${full.rationale}`);
-      void this.notify(s, t, now, `${full.kind === "escalate" ? "⚠️ 확인 필요" : "💡 제안"}: ${full.label}\n${full.rationale}`);
+      void this.notify(s, t, now, `${full.kind === "escalate" ? "확인 필요" : "제안"}: ${full.label}\n${full.rationale}`);
     } finally {
       this.inflight.delete(s.id);
     }

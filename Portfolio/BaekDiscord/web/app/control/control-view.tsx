@@ -6,6 +6,7 @@ import { useRunner, type RunnerApi } from "@/lib/runner/use-runner";
 import { useAttention } from "@/lib/runner/use-attention";
 import { metricItems } from "@/lib/runner/metrics";
 import { NotifyBar } from "@/components/control/notify-bar";
+import { MessengerBar } from "@/components/control/messenger-bar";
 import { RunnerSettingsBar } from "@/components/runner-settings-bar";
 import { Overview } from "@/components/control/overview";
 import { RemotePanel } from "@/components/control/remote-panel";
@@ -87,6 +88,7 @@ export function ControlView() {
               <AppPanel />
               <SupervisorBar runner={runner} />
               <NotifyBar attention={attention} />
+              <MessengerBar runner={runner} />
               <RemotePanel tunnel={runner.tunnel} runner={runner} defaultOpen={false} />
               <RunnerSettingsBar settings={runner.settings} status={runner.status} nextRetryAt={runner.nextRetryAt} rttMs={runner.rttMs} onSave={runner.updateSettings} onConnect={runner.connect} error={runner.lastError} />
               <EventLog events={runner.events} sessions={runner.sessions} />
@@ -140,6 +142,7 @@ export function ControlView() {
       <RunnerSettingsBar settings={runner.settings} status={runner.status} nextRetryAt={runner.nextRetryAt} rttMs={runner.rttMs} onSave={runner.updateSettings} onConnect={runner.connect} error={runner.lastError} />
       <SupervisorBar runner={runner} />
       <NotifyBar attention={attention} />
+      <MessengerBar runner={runner} />
       <Overview sessions={runner.sessions} workspaces={runner.workspaces} />
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
